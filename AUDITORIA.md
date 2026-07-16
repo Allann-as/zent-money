@@ -24,6 +24,27 @@
 - [x] Performance 50k medida **contra a R2 de verdade** (não contra o número
       declarado) — ver quadro abaixo: overhead pequeno e dentro do ruído
 - [x] `AUDITORIA.md` e `DECISOES.md` atualizados; instalador regenerado e validado
+- [x] Screenshots dos 2 temas em `screenshots/r3/` (Visão geral · drill-down do banco ·
+      Parcelas com avulsa · Ganhos com salário 2000)
+
+### Validação do instalador e da migração real (R3)
+
+- `npm run dist` → `release/ZentMoney-Setup-1.0.0.exe` (82,3 MB).
+- Instalação silenciosa **a partir de %TEMP%, com diretório de trabalho neutro**
+  (regra da R2): **exit 0 em 10s**, destino `%LOCALAPPDATA%\Programs\Zent Money`,
+  registro NSIS íntegro, atalho da área de trabalho e do menu Iniciar substituídos.
+- **Migração ensaiada antes de instalar**, contra uma CÓPIA do arquivo real: v3→v6
+  validado pelo Zod, sem perda.
+- **App instalado + dados reais**: abre e mostra "BTG Banking" e "BTG Investimentos",
+  zero erros de console.
+- **Cenário "adicionar transações"** (numa cópia dos dados reais, para não sujar o
+  arquivo do usuário): o arquivo sobe de v3 para **v6 na primeira gravação** — a
+  migração roda em memória no boot e é persistida quando algo muda. Um gasto de
+  "2000" **digitado tecla a tecla** gravou `200000` centavos com origem; "BTG" virou
+  "BTG Banking" **com o mesmo id**, "BTG Investimentos" nasceu ao lado, e categorias,
+  caixinha e perfil ficaram intactos.
+  O id do BTG Investimentos é **determinístico** (`btg-inv-<id do BTG>`): abrir o app
+  várias vezes sem salvar produz sempre o mesmo resultado — nenhum conflito.
 
 ### Performance 50k — R3 vs R2 medida (§6)
 
