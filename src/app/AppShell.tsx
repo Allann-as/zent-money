@@ -3,6 +3,7 @@ import { useUiStore, type ViewId } from '@/store/uiStore'
 import { toast } from '@/design/components/toast'
 import { ShortcutsOverlay } from '@/features/common/ShortcutsOverlay'
 import { Sidebar } from './Sidebar'
+import { TitleBar } from './TitleBar'
 import { OverviewPage } from '@/features/overview/OverviewPage'
 import { IncomePage } from '@/features/income/IncomePage'
 import { ExpensesPage } from '@/features/expenses/ExpensesPage'
@@ -75,18 +76,21 @@ export function AppShell(): ReactNode {
   const View = VIEWS[activeView]
 
   return (
-    <div className="h-full flex bg-bg theme-transition" style={{ background: 'var(--bg-grad)' }}>
-      <Sidebar />
-      <main className="flex-1 min-w-0 overflow-y-auto">
+    <div className="h-full flex flex-col bg-bg theme-transition" style={{ background: 'var(--bg-grad)' }}>
+      <TitleBar />
+      <div className="flex-1 min-h-0 flex">
+        <Sidebar />
+        <main className="flex-1 min-w-0 overflow-y-auto">
         {/* key força remontagem ao trocar de view — renderiza apenas a ativa;
             entrada com fade+slide e stagger sutil nos blocos (§5) */}
-        <div
-          key={activeView}
-          className="page-enter stagger-children max-w-[1200px] mx-auto px-7 py-6 min-h-full"
-        >
-          <View />
-        </div>
-      </main>
+          <div
+            key={activeView}
+            className="page-enter stagger-children max-w-[1200px] mx-auto px-7 py-6 min-h-full"
+          >
+            <View />
+          </div>
+        </main>
+      </div>
       <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
       <ShortcutsOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
     </div>

@@ -12,6 +12,19 @@ if (customUserData) {
 
 let mainWindow: BrowserWindow | null = null
 
+/**
+ * Altura da faixa de título do app (px). Precisa bater com a do TitleBar do
+ * renderer: é ela que reserva o espaço dos botões nativos sobrepostos.
+ */
+const TITLE_BAR_HEIGHT = 36
+
+/**
+ * Cores dos botões nativos no primeiro frame, antes de o renderer subir e
+ * mandar os tokens reais. Espelham --titlebar-bg/--titlebar-symbol do tema
+ * escuro (o padrão) só para não haver um flash branco no boot.
+ */
+const TITLE_BAR_BOOT = { color: '#060D1F', symbolColor: '#8FA3BF' }
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1360,
@@ -22,6 +35,10 @@ function createWindow(): void {
     title: 'Zent Money',
     backgroundColor: '#04070F',
     autoHideMenuBar: true,
+    // Barra de título do sistema fora: o app desenha a sua e o Windows só
+    // sobrepõe os botões, pintados nas cores do tema (R3).
+    titleBarStyle: 'hidden',
+    titleBarOverlay: { ...TITLE_BAR_BOOT, height: TITLE_BAR_HEIGHT },
     icon: path.join(__dirname, '../../assets/icon/zent.ico'),
     webPreferences: {
       preload: path.join(__dirname, '../preload/preload.js'),
@@ -82,6 +99,16 @@ function registerIpc(): void {
   ipcMain.handle(IPC.listLogos, () => listLogos())
 
   ipcMain.handle(IPC.getVersion, () => app.getVersion())
+
+  ipcMain.handle(IPC.setTitleBarTheme, (_e, color: string, symbolColor: string) => {
+    // setTitleBarOverlay só existe onde há overlay (Windows). Em outras
+    // plataformas a chamada é um no-op silencioso.
+    try {
+      mainWindow?.setTitleBarOverlay({ color, symbolColor, height: TITLE_BAR_HEIGHT })
+    } catch {
+      // plataforma sem overlay — nada a fazer
+    }
+  })
 
   watchLogos(() => {
     mainWindow?.webContents.send(IPC.logosChanged, listLogos())

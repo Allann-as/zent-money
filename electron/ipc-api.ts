@@ -17,6 +17,11 @@ export interface ZentBridge {
   onLogosChanged(cb: (logos: Record<string, string>) => void): () => void
   /** Versão do app (package.json). */
   getVersion(): Promise<string>
+  /**
+   * Repinta os botões nativos da janela nas cores do tema (R3): a barra de
+   * título é do sistema, então só o processo main consegue mudá-la.
+   */
+  setTitleBarTheme(color: string, symbolColor: string): Promise<void>
 }
 
 export const IPC = {
@@ -27,4 +32,5 @@ export const IPC = {
   listLogos: 'zent:list-logos',
   logosChanged: 'zent:logos-changed',
   getVersion: 'zent:get-version',
+  setTitleBarTheme: 'zent:set-titlebar-theme',
 } as const

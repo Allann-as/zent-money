@@ -23,6 +23,10 @@
   /* Superfícies — navy com leve gradiente no fundo */
   --bg: #04070f;
   --bg-grad: linear-gradient(180deg, #060d1f 0%, #04070f 100%);
+  /* Faixa de título do app: fundo e cor dos botões nativos da janela.
+     Fonte única — o TitleBar lê estes tokens e os envia ao processo main. */
+  --titlebar-bg: #060d1f;
+  --titlebar-symbol: #8fa3bf;
   --surface: #0b1424;
   --surface-2: #0e1930;
   --surface-3: #142240;
@@ -85,6 +89,8 @@
 
   --bg: #eef3fa;
   --bg-grad: linear-gradient(180deg, #f4f8fd 0%, #e9f0f9 100%);
+  --titlebar-bg: #f4f8fd;
+  --titlebar-symbol: #41506b;
   --surface: #ffffff;
   --surface-2: #edf3fb;
   --surface-3: #dfe9f7;

@@ -14,6 +14,8 @@ const bridge: ZentBridge = {
     return () => ipcRenderer.removeListener(IPC.logosChanged, listener)
   },
   getVersion: () => ipcRenderer.invoke(IPC.getVersion) as Promise<string>,
+  setTitleBarTheme: (color, symbolColor) =>
+    ipcRenderer.invoke(IPC.setTitleBarTheme, color, symbolColor) as Promise<void>,
 }
 
 contextBridge.exposeInMainWorld('zent', bridge)
