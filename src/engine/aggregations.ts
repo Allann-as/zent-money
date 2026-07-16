@@ -1,5 +1,5 @@
 import type { Expense, ExtraIncome, SalaryEntry } from '@/data/schema'
-import { ymCompare, ymOfDate, type Ym } from './dates'
+import { daysInYm, ymCompare, ymOfDate, type Ym } from './dates'
 
 /**
  * Agregações de gastos/ganhos — sempre em PASSADA ÚNICA sobre os dados
@@ -69,6 +69,56 @@ export function expensesByCategory(expenses: readonly Expense[], ym: Ym): Map<st
     map.set(e.categoryId, (map.get(e.categoryId) ?? 0) + e.amount)
   }
   return map
+}
+
+export interface MonthPace {
+  /** Gasto acumulado no mês (centavos). */
+  spentSoFar: number
+  /** Gasto médio por dia corrido (centavos). */
+  avgPerDay: number
+  /** Projeção de fechamento no ritmo atual (centavos). */
+  projected: number
+  daysElapsed: number
+  daysInMonth: number
+  /** true quando o mês já fechou (projeção = realizado). */
+  closed: boolean
+}
+
+/**
+ * Ritmo do mês (§7 R2): gasto médio diário e projeção de fechamento.
+ * Mês passado → fechado (projeção = total). Mês futuro → zeros.
+ */
+export function monthPace(
+  monthExpenses: readonly Dated[],
+  ym: Ym,
+  todayIsoStr: string,
+): MonthPace {
+  const total = monthExpenses.reduce((a, e) => a + e.amount, 0)
+  const days = daysInYm(ym)
+  const todayYm = ymOfDate(todayIsoStr)
+  if (ymCompare(ym, todayYm) < 0) {
+    return {
+      spentSoFar: total,
+      avgPerDay: Math.round(total / days),
+      projected: total,
+      daysElapsed: days,
+      daysInMonth: days,
+      closed: true,
+    }
+  }
+  if (ymCompare(ym, todayYm) > 0) {
+    return { spentSoFar: 0, avgPerDay: 0, projected: 0, daysElapsed: 0, daysInMonth: days, closed: false }
+  }
+  const elapsed = Math.max(1, Number(todayIsoStr.slice(8, 10)))
+  const avg = total / elapsed
+  return {
+    spentSoFar: total,
+    avgPerDay: Math.round(avg),
+    projected: Math.round(avg * days),
+    daysElapsed: elapsed,
+    daysInMonth: days,
+    closed: false,
+  }
 }
 
 export interface EssentialSplit {

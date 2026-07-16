@@ -10,6 +10,8 @@ import {
   Layers,
   Menu,
   Search,
+  Eye,
+  EyeOff,
   ChevronDown,
   type LucideIcon,
 } from 'lucide-react'
@@ -17,7 +19,7 @@ import { cn } from '@/lib/cn'
 import { useUiStore, type ViewId } from '@/store/uiStore'
 import { useZentData } from '@/store/dataStore'
 import { Tooltip } from '@/design/components/Tooltip'
-import { ZentLogo } from '@/design/ZentLogo'
+import { ZentLogo, ZentWordmark } from '@/design/ZentLogo'
 import { formatTodayLong } from '@/engine/dates'
 import { ProfileMenu } from './ProfileMenu'
 
@@ -44,6 +46,8 @@ export function Sidebar(): ReactNode {
   const activeView = useUiStore((s) => s.activeView)
   const setView = useUiStore((s) => s.setView)
   const setSearchOpen = useUiStore((s) => s.setSearchOpen)
+  const privacy = useUiStore((s) => s.privacy)
+  const togglePrivacy = useUiStore((s) => s.togglePrivacy)
   const data = useZentData()
   const [profileOpen, setProfileOpen] = useState(false)
 
@@ -51,7 +55,7 @@ export function Sidebar(): ReactNode {
     <aside
       className={cn(
         'relative h-full shrink-0 flex flex-col border-r border-line bg-surface theme-transition',
-        'transition-[width] duration-200 ease-out',
+        'transition-[width] duration-250 [transition-timing-function:var(--ease-out-quint)]',
       )}
       style={{ width: collapsed ? 76 : 252 }}
     >
@@ -73,11 +77,7 @@ export function Sidebar(): ReactNode {
             <Menu size={18} />
           </button>
         </Tooltip>
-        {!collapsed && (
-          <span className="font-display text-[15px] font-bold text-ink tracking-tight">
-            Zent Money
-          </span>
-        )}
+        {!collapsed && <ZentWordmark className="anim-fade-in" />}
         <Tooltip label="Buscar (Ctrl+K)" side="right" disabled={!collapsed}>
           <button
             type="button"
@@ -90,6 +90,23 @@ export function Sidebar(): ReactNode {
             )}
           >
             <Search size={16} />
+          </button>
+        </Tooltip>
+        <Tooltip label={privacy ? 'Mostrar valores' : 'Modo privacidade'} side="right" disabled={!collapsed}>
+          <button
+            type="button"
+            onClick={togglePrivacy}
+            aria-label={privacy ? 'Mostrar valores' : 'Ocultar valores (modo privacidade)'}
+            aria-pressed={privacy}
+            title={collapsed ? undefined : privacy ? 'Mostrar valores' : 'Modo privacidade'}
+            className={cn(
+              'h-9 w-9 rounded-[10px] inline-flex items-center justify-center transition-colors cursor-pointer shrink-0',
+              privacy
+                ? 'text-primary bg-primary-soft'
+                : 'text-ink-soft hover:text-ink hover:bg-surface-2 active:bg-surface-3',
+            )}
+          >
+            {privacy ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
         </Tooltip>
       </div>
@@ -108,26 +125,23 @@ export function Sidebar(): ReactNode {
             </button>
           </Tooltip>
         ) : (
-          <div className="flex items-start gap-3 min-w-0">
-            <ZentLogo size={38} />
-            <div className="min-w-0 pt-0.5">
-              <button
-                type="button"
-                onClick={() => setProfileOpen(true)}
-                className="group flex items-center gap-1 cursor-pointer max-w-full"
-              >
-                <span className="font-display text-[15px] font-semibold text-ink truncate group-hover:text-primary transition-colors">
-                  Olá, {data.profile.name}
-                </span>
-                <ChevronDown
-                  size={13}
-                  className="text-ink-faint group-hover:text-primary transition-colors shrink-0"
-                />
-              </button>
-              <p className="text-[11.5px] text-ink-faint leading-snug mt-0.5 first-letter:uppercase">
-                {formatTodayLong()}
-              </p>
-            </div>
+          <div className="min-w-0 anim-fade-in">
+            <button
+              type="button"
+              onClick={() => setProfileOpen(true)}
+              className="group flex items-center gap-1 cursor-pointer max-w-full"
+            >
+              <span className="font-display text-[15px] font-semibold text-ink truncate group-hover:text-primary transition-colors">
+                Olá, {data.profile.name}
+              </span>
+              <ChevronDown
+                size={13}
+                className="text-ink-faint group-hover:text-primary transition-colors shrink-0"
+              />
+            </button>
+            <p className="text-[11.5px] text-ink-faint leading-snug mt-0.5 first-letter:uppercase">
+              {formatTodayLong()}
+            </p>
           </div>
         )}
       </div>
@@ -171,11 +185,6 @@ export function Sidebar(): ReactNode {
         })}
       </nav>
 
-      {!collapsed && (
-        <p className="px-4 pb-4 pt-2 text-[10.5px] text-ink-faint">
-          <kbd className="border border-line rounded px-1 py-0.5 font-sans">Ctrl+B</kbd> recolhe o menu
-        </p>
-      )}
     </aside>
   )
 }

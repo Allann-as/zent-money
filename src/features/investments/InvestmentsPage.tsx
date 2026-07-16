@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   BadgeDollarSign,
   CalendarRange,
@@ -19,6 +19,7 @@ import { Card, CardTitle } from '@/design/components/Card'
 import { Button } from '@/design/components/Button'
 import { Segmented } from '@/design/components/Segmented'
 import { StatCard } from '@/design/components/StatCard'
+import { AnimatedMoney } from '@/design/AnimatedMoney'
 import { SummaryBalloon, type BalloonSegment } from '@/design/components/SummaryBalloon'
 import { EmptyState } from '@/design/components/EmptyState'
 import { toast } from '@/design/components/toast'
@@ -29,6 +30,7 @@ import { Donut } from '@/design/charts/Donut'
 import { Sparkline } from '@/design/charts/Sparkline'
 import { useChartColors } from '@/design/charts/useChartColors'
 import { useDataStore, useZentData } from '@/store/dataStore'
+import { useUiStore } from '@/store/uiStore'
 import {
   combineSeries,
   investmentSeries,
@@ -65,6 +67,16 @@ export function InvestmentsPage(): ReactNode {
   const [invDialog, setInvDialog] = useState<InvestmentDialogState>('closed')
   const [contribDialog, setContribDialog] = useState<ContributionDialogState>('closed')
   const [valueDialog, setValueDialog] = useState<ValueUpdateDialogState>('closed')
+
+  // Ação rápida vinda da paleta de comandos (Ctrl+K)
+  const pendingAction = useUiStore((s) => s.pendingAction)
+  const setPendingAction = useUiStore((s) => s.setPendingAction)
+  useEffect(() => {
+    if (pendingAction === 'new-asset') {
+      setPendingAction(null)
+      setInvDialog('new')
+    }
+  }, [pendingAction, setPendingAction])
 
   const banksById = useMemo(() => new Map(data.banks.map((b) => [b.id, b])), [data.banks])
 
@@ -126,11 +138,12 @@ export function InvestmentsPage(): ReactNode {
       if (x.snapshot.balance <= 0) continue
       map.set(x.cls, (map.get(x.cls) ?? 0) + x.snapshot.balance)
     }
+    // métricas neutras: variações de azul do próprio acento (disciplina de cor)
     const classColors: Record<AssetClass, string> = {
-      pos: colors.primary,
-      ipca: colors.accent,
+      pos: colors.series[0] ?? colors.primary,
+      ipca: colors.series[1] ?? colors.primary,
       pre: colors.series[2] ?? colors.primary,
-      outros: colors.warn,
+      outros: colors.series[3] ?? colors.primary,
     }
     return CLASS_ORDER.filter((c) => map.has(c)).map((c) => ({
       id: c,
@@ -230,17 +243,17 @@ export function InvestmentsPage(): ReactNode {
 
       {/* Painel consolidado (padrão StatCard) */}
       <div className="grid grid-cols-5 gap-4 mb-4">
-        <StatCard icon={Wallet} value={formatBRL(consolidated.balance)} label="Saldo total" />
-        <StatCard icon={PiggyBank} value={formatBRL(consolidated.invested)} label="Total aportado" />
+        <StatCard icon={Wallet} value={<AnimatedMoney cents={consolidated.balance} />} label="Saldo total" />
+        <StatCard icon={PiggyBank} value={<AnimatedMoney cents={consolidated.invested} />} label="Total aportado" />
         <StatCard
           icon={TrendingUp}
-          value={`+${formatBRL(consolidated.totalYield)}`}
+          value={<>{'+'}<AnimatedMoney cents={consolidated.totalYield} /></>}
           label="Rendimento acumulado"
           tone="pos"
           detail={formatPercent(consolidated.ratio, 2)}
         />
-        <StatCard icon={CalendarRange} value={formatBRL(consolidated.perMonth)} label="Rende por mês" />
-        <StatCard icon={BadgeDollarSign} value={formatBRL(consolidated.perYear)} label="Rende por ano" />
+        <StatCard icon={CalendarRange} value={<AnimatedMoney cents={consolidated.perMonth} />} label="Rende por mês" />
+        <StatCard icon={BadgeDollarSign} value={<AnimatedMoney cents={consolidated.perYear} />} label="Rende por ano" />
       </div>
 
       <SummaryBalloon title="Resumo da carteira" segments={balloon} className="mb-4" />
@@ -298,7 +311,7 @@ export function InvestmentsPage(): ReactNode {
             className={cn(
               'h-7 px-2.5 rounded-full text-[12px] font-medium border transition-all duration-150 cursor-pointer',
               classFilter === 'all'
-                ? 'bg-accent-soft text-accent-strong border-transparent'
+                ? 'bg-primary-soft text-primary border-transparent'
                 : 'border-line text-ink-faint hover:text-ink bg-transparent',
             )}
           >
@@ -312,7 +325,7 @@ export function InvestmentsPage(): ReactNode {
               className={cn(
                 'h-7 px-2.5 rounded-full text-[12px] font-medium border transition-all duration-150 cursor-pointer',
                 classFilter === c
-                  ? 'bg-accent-soft text-accent-strong border-transparent'
+                  ? 'bg-primary-soft text-primary border-transparent'
                   : 'border-line text-ink-faint hover:text-ink bg-transparent',
               )}
             >

@@ -1,14 +1,19 @@
 @import 'tailwindcss';
-@import '@fontsource-variable/inter';
+@import '@fontsource-variable/geist';
 
 /* ═══════════════════════════════════════════════════════════════════
-   ZENT MONEY — DESIGN TOKENS v2 (navy premium, padrão "Settei")
-   Paleta dark-first: navy quase preto + primária azul-céu + secundária
-   violeta. TODAS as cores vivem aqui — nenhum hex solto em componente.
-   Exceções documentadas (são DADOS, não tema): cores oficiais de marca
-   dos bancos (§5.4) e cores de categoria escolhidas pelo usuário.
-   O tema troca via <html data-theme="dark|light">; componentes, ícones
-   e gráficos leem estas variáveis no momento do render.
+   ZENT MONEY — DESIGN TOKENS R2 (navy premium, sobriedade de private bank)
+   Disciplina de cor:
+   · Neutros: escala navy (fundo, painéis, bordas, texto).
+   · UM acento: azul-céu --primary (ações, links, item ativo, série
+     principal dos gráficos, chips de ícone).
+   · Semânticas restritas: --pos/--neg SÓ em valores monetários e
+     variações; --warn só em alertas reais.
+   · Multicolor SOMENTE na rosca de gastos por categoria (--cat-1..10,
+     paleta curada e dessaturada — as cores de categoria do usuário
+     saem daqui).
+   Exceção documentada (DADOS, não tema): cores oficiais de marca dos
+   bancos. Tema troca via <html data-theme>; tudo lê tokens no render.
    ═══════════════════════════════════════════════════════════════════ */
 
 :root,
@@ -18,30 +23,25 @@
   /* Superfícies — navy com leve gradiente no fundo */
   --bg: #04070f;
   --bg-grad: linear-gradient(180deg, #060d1f 0%, #04070f 100%);
-  --surface: #0b1424;       /* painéis navy-grafite */
-  --surface-2: #0e1930;     /* camada elevada / hover */
-  --surface-3: #142240;     /* pressed / selecionado */
+  --surface: #0b1424;
+  --surface-2: #0e1930;
+  --surface-3: #142240;
   --border: #1b2a44;
   --border-strong: #293d63;
 
-  /* Primária: azul-céu claro */
+  /* Acento único: azul-céu */
   --primary: #57b6f2;
   --primary-hover: #7cc8f7;
   --primary-press: #3d9fe0;
-  --primary-soft: rgba(87, 182, 242, 0.13);
+  --primary-soft: rgba(87, 182, 242, 0.1);
   --on-primary: #041220;
-
-  /* Secundária: violeta (chips de ícone dos cards de estatística) */
-  --accent: #6e5bff;
-  --accent-strong: #9d90ff; /* ícone violeta claro sobre o chip */
-  --accent-soft: rgba(110, 91, 255, 0.12);
 
   /* Texto */
   --ink: #f2f6fb;
   --ink-soft: #8fa3bf;
   --ink-faint: #5b6d8c;
 
-  /* Semânticas */
+  /* Semânticas — uso restrito a valores monetários e alertas */
   --pos: #34d399;
   --pos-soft: rgba(52, 211, 153, 0.12);
   --neg: #f0655a;
@@ -49,20 +49,35 @@
   --warn: #ffb454;
   --warn-soft: rgba(255, 180, 84, 0.13);
 
-  /* Escala categórica de gráficos (céu → violeta → ciano) */
+  /* Gráficos NEUTROS: variações de azul do próprio acento */
   --chart-1: #57b6f2;
-  --chart-2: #6e5bff;
-  --chart-3: #22c8e6;
-  --chart-4: #34d399;
-  --chart-5: #ffb454;
-  --chart-6: #ff7ab8;
-  --chart-7: #9d90ff;
-  --chart-8: #4adfc3;
+  --chart-2: #3a7fc2;
+  --chart-3: #7cc8f7;
+  --chart-4: #2b5e94;
+  --chart-5: #9ad4f5;
+  --chart-6: #21486f;
+  --chart-7: #6aa9d8;
+  --chart-8: #48688f;
+
+  /* Categórica DESSATURADA — só a rosca de gastos (e cores de categoria) */
+  --cat-1: #5b8fc0;  /* azul-aço */
+  --cat-2: #5fa8a4;  /* ciano-acinzentado */
+  --cat-3: #7fa66f;  /* verde-sálvia */
+  --cat-4: #c2a466;  /* areia */
+  --cat-5: #c08767;  /* terracota suave */
+  --cat-6: #b47f96;  /* malva */
+  --cat-7: #8d84b8;  /* lavanda-ardósia */
+  --cat-8: #6f82a1;  /* ardósia */
+  --cat-9: #a4a06a;  /* oliva suave */
+  --cat-10: #9a7f6a; /* castanho suave */
 
   /* Sombras em camadas (ambiente + contato) */
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -8px rgba(0, 0, 0, 0.5);
   --shadow-pop: 0 2px 6px rgba(0, 0, 0, 0.45), 0 16px 48px -12px rgba(0, 0, 0, 0.65);
   --backdrop: rgba(2, 5, 11, 0.68);
+
+  /* Movimento */
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 :root[data-theme='light'] {
@@ -79,12 +94,8 @@
   --primary: #2b96dd;
   --primary-hover: #4babe8;
   --primary-press: #1f7fbe;
-  --primary-soft: rgba(43, 150, 221, 0.11);
+  --primary-soft: rgba(43, 150, 221, 0.1);
   --on-primary: #ffffff;
-
-  --accent: #6e5bff;
-  --accent-strong: #5a46ec;
-  --accent-soft: rgba(110, 91, 255, 0.1);
 
   --ink: #0c1524;
   --ink-soft: #54678a;
@@ -98,17 +109,30 @@
   --warn-soft: rgba(192, 122, 18, 0.12);
 
   --chart-1: #2b96dd;
-  --chart-2: #5a46ec;
-  --chart-3: #0d9fbd;
-  --chart-4: #0f9d6c;
-  --chart-5: #c07a12;
-  --chart-6: #d64f97;
-  --chart-7: #7c6cf0;
-  --chart-8: #0fa88f;
+  --chart-2: #1f6aa8;
+  --chart-3: #56b1e8;
+  --chart-4: #174e7c;
+  --chart-5: #7fc4ec;
+  --chart-6: #10395c;
+  --chart-7: #4a90c4;
+  --chart-8: #35567a;
+
+  --cat-1: #40749f;
+  --cat-2: #3f8a86;
+  --cat-3: #628a52;
+  --cat-4: #a2854a;
+  --cat-5: #a56a4b;
+  --cat-6: #99647c;
+  --cat-7: #72699e;
+  --cat-8: #566a87;
+  --cat-9: #85824f;
+  --cat-10: #7e6552;
 
   --shadow-card: 0 1px 2px rgba(15, 35, 70, 0.06), 0 8px 24px -10px rgba(15, 35, 70, 0.12);
   --shadow-pop: 0 2px 6px rgba(15, 35, 70, 0.08), 0 16px 48px -12px rgba(15, 35, 70, 0.22);
   --backdrop: rgba(15, 25, 45, 0.35);
+
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* Expõe os tokens como cores/fontes utilitárias do Tailwind */
@@ -124,9 +148,6 @@
   --color-primary-press: var(--primary-press);
   --color-primary-soft: var(--primary-soft);
   --color-on-primary: var(--on-primary);
-  --color-accent: var(--accent);
-  --color-accent-strong: var(--accent-strong);
-  --color-accent-soft: var(--accent-soft);
   --color-ink: var(--ink);
   --color-ink-soft: var(--ink-soft);
   --color-ink-faint: var(--ink-faint);
@@ -137,9 +158,9 @@
   --color-warn: var(--warn);
   --color-warn-soft: var(--warn-soft);
 
-  /* Uma única família geométrica limpa: Inter (400–800), local */
-  --font-sans: 'Inter Variable', 'Segoe UI', system-ui, sans-serif;
-  --font-display: 'Inter Variable', 'Segoe UI', system-ui, sans-serif;
+  /* Fonte premium única: Geist (excelente em números, tabular nativa) */
+  --font-sans: 'Geist Variable', 'Segoe UI', system-ui, sans-serif;
+  --font-display: 'Geist Variable', 'Segoe UI', system-ui, sans-serif;
 
   --radius-card: 16px;
   --radius-control: 10px;
@@ -179,10 +200,25 @@ textarea {
   font-variant-numeric: tabular-nums;
 }
 
-/* Títulos grandes: Inter bold com tracking apertado (padrão da referência) */
+/* Títulos: confiantes, não gritados — tracking apertado */
 .font-display {
   font-family: var(--font-display);
   letter-spacing: -0.02em;
+}
+
+/* Rótulo editorial em caps pequenas */
+.label-caps {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+}
+
+/* ── Modo privacidade: borra QUALQUER valor numérico (todos usam .tnum) ── */
+:root[data-privacy='on'] .tnum {
+  filter: blur(6px);
+  transition: filter 150ms ease;
 }
 
 /* Foco visível consistente (acessibilidade) */
@@ -218,6 +254,15 @@ body,
   transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease;
 }
 
+/* Cards com elevação sutil no hover (GPU-friendly) */
+.card-hover {
+  transition: transform 180ms var(--ease-out-quint), box-shadow 180ms ease;
+}
+.card-hover:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-pop);
+}
+
 /* Animações do design system */
 @keyframes zent-fade-in {
   from { opacity: 0; }
@@ -226,6 +271,10 @@ body,
 @keyframes zent-pop-in {
   from { opacity: 0; transform: translateY(6px) scale(0.98); }
   to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes zent-slide-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 @keyframes zent-toast-in {
   from { opacity: 0; transform: translateX(16px); }
@@ -239,17 +288,34 @@ body,
   from { width: 100%; }
   to { width: 0%; }
 }
-@keyframes zent-celebrate {
-  0% { transform: scale(1); }
-  35% { transform: scale(1.06) rotate(-1.5deg); }
-  70% { transform: scale(0.99) rotate(0.8deg); }
-  100% { transform: scale(1); }
+@keyframes zent-bar-grow {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+@keyframes zent-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes zent-ring-glow {
+  0% { opacity: 0; }
+  40% { opacity: 0.55; }
+  100% { opacity: 0; }
 }
 
 .anim-fade-in { animation: zent-fade-in 180ms ease-out both; }
-.anim-pop-in { animation: zent-pop-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both; }
-.anim-toast-in { animation: zent-toast-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both; }
-.anim-celebrate { animation: zent-celebrate 600ms ease-in-out both; }
+.anim-pop-in { animation: zent-pop-in 200ms var(--ease-out-quint) both; }
+.anim-toast-in { animation: zent-toast-in 220ms var(--ease-out-quint) both; }
+
+/* Entrada de página: fade+slide com stagger nos filhos diretos */
+.page-enter { animation: zent-slide-up 200ms var(--ease-out-quint) both; }
+.stagger-children > * { animation: zent-slide-up 220ms var(--ease-out-quint) both; }
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 30ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 60ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 90ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 120ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 150ms; }
+.stagger-children > *:nth-child(n + 7) { animation-delay: 180ms; }
 
 .skeleton {
   background: linear-gradient(

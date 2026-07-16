@@ -128,8 +128,18 @@ export function LineArea({
           strokeWidth="1"
         />
 
-        <path d={areaPath} fill={`url(#${gradId})`} />
-        <path d={linePath} fill="none" stroke={stroke} strokeWidth="2.25" strokeLinejoin="round" />
+        <path d={areaPath} fill={`url(#${gradId})`} className="anim-fade-in" />
+        {/* a linha "se escreve" na primeira renderização (§5) */}
+        <path
+          d={linePath}
+          fill="none"
+          stroke={stroke}
+          strokeWidth="2.25"
+          strokeLinejoin="round"
+          pathLength={1}
+          strokeDasharray={1}
+          style={{ animation: 'zent-draw 700ms var(--ease-out-quint) both' }}
+        />
 
         {hoverIdx !== null && data[hoverIdx] && (
           <g>

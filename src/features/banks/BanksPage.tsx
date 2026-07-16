@@ -13,6 +13,7 @@ import {
 import { PageHeader } from '@/features/common/PageHeader'
 import { Card as Panel } from '@/design/components/Card'
 import { StatCard } from '@/design/components/StatCard'
+import { AnimatedMoney } from '@/design/AnimatedMoney'
 import { SummaryBalloon } from '@/design/components/SummaryBalloon'
 import { Button } from '@/design/components/Button'
 import { MoneyInput } from '@/design/components/Input'
@@ -165,12 +166,12 @@ export function BanksPage(): ReactNode {
       <div className="grid grid-cols-3 gap-4 mb-4">
         <StatCard
           icon={Landmark}
-          value={formatBRL(totals.inAccounts)}
+          value={<AnimatedMoney cents={totals.inAccounts} />}
           label="Total em conta"
           tone={totals.inAccounts < 0 ? 'neg' : 'default'}
         />
-        <StatCard icon={Receipt} value={formatBRL(totals.invoices)} label="Faturas abertas" />
-        <StatCard icon={CreditCard} value={formatBRL(totals.monthly)} label="Parcelas por mês" />
+        <StatCard icon={Receipt} value={<AnimatedMoney cents={totals.invoices} />} label="Faturas abertas" />
+        <StatCard icon={CreditCard} value={<AnimatedMoney cents={totals.monthly} />} label="Parcelas por mês" />
       </div>
 
       {/* Balão de resumo inteligente (§3) */}
@@ -479,7 +480,7 @@ function CardBlock({
           <div
             className={cn(
               'h-full rounded-full transition-[width] duration-300',
-              usedRatio < 0.6 ? 'bg-pos' : usedRatio < 0.85 ? 'bg-warn' : 'bg-neg',
+              usedRatio < 0.85 ? 'bg-primary' : usedRatio < 1 ? 'bg-warn' : 'bg-neg',
             )}
             style={{ width: `${usedRatio * 100}%` }}
           />

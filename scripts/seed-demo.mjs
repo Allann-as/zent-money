@@ -17,12 +17,12 @@ const ym = (offset) => {
 const day = (offset, dd) => `${ym(offset)}-${String(dd).padStart(2, '0')}`
 
 const categories = [
-  { id: 'cat-mercado', name: 'Mercado', color: '#2fd680', monthlyLimit: 90000 },
-  { id: 'cat-farmacia', name: 'Farmácia', color: '#22c8e6', monthlyLimit: null },
-  { id: 'cat-rest', name: 'Restaurantes', color: '#ff8a5c', monthlyLimit: 35000 },
-  { id: 'cat-transp', name: 'Transporte', color: '#6ba1ff', monthlyLimit: 25000 },
-  { id: 'cat-lazer', name: 'Lazer', color: '#b98aff', monthlyLimit: 20000 },
-  { id: 'cat-casa', name: 'Contas de casa', color: '#ffb454', monthlyLimit: 60000 },
+  { id: 'cat-mercado', name: 'Mercado', color: '#7fa66f', monthlyLimit: 90000 },
+  { id: 'cat-farmacia', name: 'Farmácia', color: '#5fa8a4', monthlyLimit: null },
+  { id: 'cat-rest', name: 'Restaurantes', color: '#c08767', monthlyLimit: 35000 },
+  { id: 'cat-transp', name: 'Transporte', color: '#5b8fc0', monthlyLimit: 25000 },
+  { id: 'cat-lazer', name: 'Lazer', color: '#8d84b8', monthlyLimit: 20000 },
+  { id: 'cat-casa', name: 'Contas de casa', color: '#c2a466', monthlyLimit: 60000 },
 ]
 
 let n = 0
@@ -76,7 +76,8 @@ const data = {
     { id: 'bank-itau', name: 'Itaú', color: '#EC7000', balance: 158020 },
     { id: 'bank-bradesco', name: 'Bradesco', color: '#CC092F', balance: 0 },
     { id: 'bank-santander', name: 'Santander', color: '#EA1D25', balance: 0 },
-    { id: 'bank-btg', name: 'BTG', color: '#0C2340', balance: 250000 },
+    { id: 'bank-btg', name: 'BTG Investimentos', color: '#0A2540', balance: 0 },
+    { id: 'bank-btgb', name: 'BTG Banking', color: '#2C5EA9', balance: 250000 },
   ],
   cards: [
     { id: 'card-uv', bankId: 'bank-nu', name: 'Ultravioleta', limit: 500000, invoice: 84300 },

@@ -3,12 +3,16 @@ import { createPortal } from 'react-dom'
 import {
   ChartLine,
   CreditCard,
+  Eye,
   Gift,
   Landmark,
   Layers,
+  PanelLeft,
   PiggyBank,
+  Plus,
   ReceiptText,
   Search,
+  SunMoon,
   Tags,
   type LucideIcon,
 } from 'lucide-react'
@@ -23,9 +27,11 @@ interface SearchResult {
   icon: LucideIcon
   title: string
   subtitle: string
-  view: ViewId
+  view?: ViewId
   /** Mês para posicionar a navegação (itens datados). */
   ym?: string
+  /** Ação rápida da paleta de comandos (executada no lugar da navegação). */
+  run?: () => void
 }
 
 function normalize(s: string): string {
@@ -55,6 +61,10 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose(): void
   const data = useZentData()
   const setView = useUiStore((s) => s.setView)
   const setYm = useUiStore((s) => s.setYm)
+  const setPendingAction = useUiStore((s) => s.setPendingAction)
+  const toggleTheme = useUiStore((s) => s.toggleTheme)
+  const togglePrivacy = useUiStore((s) => s.togglePrivacy)
+  const toggleSidebar = useUiStore((s) => s.toggleSidebar)
 
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState(0)
@@ -71,8 +81,49 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose(): void
 
   const results = useMemo<SearchResult[]>(() => {
     const q = normalize(query.trim())
-    if (q === '') return []
-    const out: SearchResult[] = []
+
+    // Paleta de comandos: ações rápidas (mostradas quando vazio; filtráveis)
+    const actions: SearchResult[] = [
+      {
+        id: 'act-new-expense',
+        icon: Plus,
+        title: 'Novo gasto',
+        subtitle: 'Ação · abre o formulário em Gastos',
+        view: 'expenses',
+        run: () => setPendingAction('new-expense'),
+      },
+      {
+        id: 'act-new-income',
+        icon: Plus,
+        title: 'Novo ganho extra',
+        subtitle: 'Ação · abre o formulário em Ganhos',
+        view: 'income',
+        run: () => setPendingAction('new-income'),
+      },
+      {
+        id: 'act-new-asset',
+        icon: Plus,
+        title: 'Novo ativo',
+        subtitle: 'Ação · abre o formulário na Carteira',
+        view: 'investments',
+        run: () => setPendingAction('new-asset'),
+      },
+      {
+        id: 'act-new-box',
+        icon: Plus,
+        title: 'Nova caixinha',
+        subtitle: 'Ação · abre o formulário em Caixinhas',
+        view: 'boxes',
+        run: () => setPendingAction('new-box'),
+      },
+      { id: 'act-theme', icon: SunMoon, title: 'Alternar tema claro/escuro', subtitle: 'Ação', run: toggleTheme },
+      { id: 'act-privacy', icon: Eye, title: 'Alternar modo privacidade', subtitle: 'Ação · borra os valores', run: togglePrivacy },
+      { id: 'act-sidebar', icon: PanelLeft, title: 'Recolher / expandir menu', subtitle: 'Ação', run: toggleSidebar },
+    ]
+    const matchedActions = actions.filter((a) => q === '' || normalize(a.title).includes(q))
+
+    if (q === '') return matchedActions
+    const out: SearchResult[] = [...matchedActions]
     const catById = new Map(data.categories.map((c) => [c.id, c]))
     const bankById = new Map(data.banks.map((b) => [b.id, b]))
 
@@ -135,7 +186,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose(): void
         out.push({
           id: `box-${b.id}`,
           icon: PiggyBank,
-          title: `${b.emoji} ${b.name}`,
+          title: b.name,
           subtitle: `Caixinha · alvo ${formatBRL(b.target)}`,
           view: 'boxes',
         })
@@ -175,7 +226,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose(): void
       })
     }
     return out.slice(0, 20)
-  }, [query, data])
+  }, [query, data, setPendingAction, toggleTheme, togglePrivacy, toggleSidebar])
 
   useEffect(() => {
     setSelected(0)
@@ -183,7 +234,8 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose(): void
 
   function go(r: SearchResult): void {
     if (r.ym) setYm(r.ym)
-    setView(r.view)
+    if (r.view) setView(r.view)
+    r.run?.()
     onClose()
   }
 
@@ -230,7 +282,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose(): void
           </kbd>
         </div>
 
-        {query.trim() === '' ? (
+        {results.length === 0 && query.trim() === '' ? (
           <p className="px-4 py-5 text-[12.5px] text-ink-faint">
             Digite para buscar em lançamentos, ativos, cartões, caixinhas, bancos, categorias e seções.
           </p>
@@ -253,8 +305,8 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose(): void
                       i === selected ? 'bg-primary-soft' : 'hover:bg-surface-2',
                     )}
                   >
-                    <span className="h-7.5 w-7.5 rounded-[9px] bg-accent-soft inline-flex items-center justify-center shrink-0">
-                      <Icon size={14} className="text-accent-strong" />
+                    <span className="h-7.5 w-7.5 rounded-[9px] bg-primary-soft inline-flex items-center justify-center shrink-0">
+                      <Icon size={14} className="text-primary" />
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block text-[13px] font-medium text-ink truncate">{r.title}</span>

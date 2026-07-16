@@ -7,18 +7,18 @@ import { useDataStore } from '@/store/dataStore'
 import { newId } from '@/lib/id'
 import { cn } from '@/lib/cn'
 
-/** Sugestões do onboarding — nada é pré-criado; o usuário escolhe. */
+/** Sugestões do onboarding — cores da paleta curada dessaturada (§3). */
 const SUGGESTIONS: { name: string; color: string }[] = [
-  { name: 'Mercado', color: '#2fd680' },
-  { name: 'Farmácia', color: '#22c8e6' },
-  { name: 'Restaurantes', color: '#ff8a5c' },
-  { name: 'Transporte', color: '#6ba1ff' },
-  { name: 'Lazer', color: '#b98aff' },
-  { name: 'Assinaturas', color: '#ff7ab8' },
-  { name: 'Contas de casa', color: '#ffb454' },
-  { name: 'Educação', color: '#4adfc3' },
-  { name: 'Roupas', color: '#6e5bff' },
-  { name: 'Saúde', color: '#ff6b6b' },
+  { name: 'Mercado', color: '#7fa66f' },
+  { name: 'Farmácia', color: '#5fa8a4' },
+  { name: 'Restaurantes', color: '#c08767' },
+  { name: 'Transporte', color: '#5b8fc0' },
+  { name: 'Lazer', color: '#8d84b8' },
+  { name: 'Assinaturas', color: '#b47f96' },
+  { name: 'Contas de casa', color: '#c2a466' },
+  { name: 'Educação', color: '#6f82a1' },
+  { name: 'Roupas', color: '#a4a06a' },
+  { name: 'Saúde', color: '#9a7f6a' },
 ]
 
 export function CategoriesOnboarding({ onCreateCustom }: { onCreateCustom(): void }): ReactNode {

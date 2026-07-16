@@ -34,24 +34,35 @@ function v1Data(): Record<string, unknown> {
   }
 }
 
-describe('migração de dados v1 → v2', () => {
-  it('migra um arquivo v1 completo e passa na validação do schema v2', () => {
+describe('migração de dados v1 → v3', () => {
+  it('migra um arquivo v1 completo em cadeia e passa na validação do schema v3', () => {
     const migrated = migrate(v1Data())
     const parsed = zentDataSchema.parse(migrated)
-    expect(parsed.version).toBe(2)
+    expect(parsed.version).toBe(3)
+    // v1→v2
     expect(parsed.investments[0]?.valueUpdates).toEqual([])
     expect(parsed.recurringExpenses).toEqual([])
     expect(parsed.recurringIncomes).toEqual([])
     expect(parsed.meta.lastRecurringYm).toBeNull()
+    // v2→v3: emoji 🛟 vira chave de ícone SVG
+    expect(parsed.boxes[0]?.icon).toBe('lifebuoy')
+    expect('emoji' in (parsed.boxes[0] ?? {})).toBe(false)
     // dados v1 preservados intactos
     expect(parsed.expenses[0]?.amount).toBe(15000)
     expect(parsed.purchases[0]?.totalInstallments).toBe(10)
   })
 
-  it('arquivo já em v2 passa direto sem alterações', () => {
-    const v2 = zentDataSchema.parse(migrate(v1Data()))
-    const again = zentDataSchema.parse(migrate(v2))
-    expect(again).toEqual(v2)
+  it('emoji desconhecido nas caixinhas vira o ícone padrão "target"', () => {
+    const raw = v1Data()
+    ;(raw['boxes'] as Record<string, unknown>[])[0]!['emoji'] = '🦖'
+    const parsed = zentDataSchema.parse(migrate(raw))
+    expect(parsed.boxes[0]?.icon).toBe('target')
+  })
+
+  it('arquivo já na versão atual passa direto sem alterações', () => {
+    const v3 = zentDataSchema.parse(migrate(v1Data()))
+    const again = zentDataSchema.parse(migrate(v3))
+    expect(again).toEqual(v3)
   })
 
   it('rejeita arquivo de versão futura', () => {

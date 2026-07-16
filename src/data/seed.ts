@@ -9,14 +9,16 @@ export const BANK_BRAND_COLORS: Record<string, string> = {
   itau: '#EC7000',
   bradesco: '#CC092F',
   santander: '#EA1D25',
-  btg: '#0C2340',
+  btginvestimentos: '#0A2540',
+  btgbanking: '#2C5EA9',
 }
 
 /**
  * Estado inicial do app (primeiro uso):
- * - 5 bancos com saldo zerado (Nubank, Itaú, Bradesco, Santander, BTG)
+ * - 6 bancos com saldo zerado (Nubank, Itaú, Bradesco, Santander e os DOIS
+ *   BTGs: Investimentos — corretora — e Banking — conta do dia a dia)
  * - ZERO categorias (onboarding cria)
- * - Caixinha "Reserva de emergência" com alvo R$ 2.500
+ * - Caixinha "Reserva de emergência" (ícone lifebuoy) com alvo R$ 2.500
  * - Taxas de referência de 16/07/2026
  */
 export function createSeedData(): ZentData {
@@ -34,7 +36,8 @@ export function createSeedData(): ZentData {
       { id: newId(), name: 'Itaú', color: BANK_BRAND_COLORS['itau'] ?? '#EC7000', balance: 0 },
       { id: newId(), name: 'Bradesco', color: BANK_BRAND_COLORS['bradesco'] ?? '#CC092F', balance: 0 },
       { id: newId(), name: 'Santander', color: BANK_BRAND_COLORS['santander'] ?? '#EA1D25', balance: 0 },
-      { id: newId(), name: 'BTG', color: BANK_BRAND_COLORS['btg'] ?? '#0C2340', balance: 0 },
+      { id: newId(), name: 'BTG Investimentos', color: BANK_BRAND_COLORS['btginvestimentos'] ?? '#0A2540', balance: 0 },
+      { id: newId(), name: 'BTG Banking', color: BANK_BRAND_COLORS['btgbanking'] ?? '#2C5EA9', balance: 0 },
     ],
     cards: [],
     purchases: [],
@@ -43,7 +46,7 @@ export function createSeedData(): ZentData {
     boxes: [
       {
         id: newId(),
-        emoji: '🛟',
+        icon: 'lifebuoy',
         name: 'Reserva de emergência',
         target: 250_000,
         investmentId: null,

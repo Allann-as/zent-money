@@ -41,11 +41,11 @@ export function SummaryBalloon({
   const setView = useUiStore((s) => s.setView)
   return (
     <Card className={cn('p-5 flex gap-3.5', className)}>
-      <span className="h-9 w-9 rounded-[12px] bg-accent-soft inline-flex items-center justify-center shrink-0 mt-0.5">
-        <Sparkles size={16} className="text-accent-strong" />
+      <span className="h-9 w-9 rounded-[12px] bg-primary-soft inline-flex items-center justify-center shrink-0 mt-0.5">
+        <Sparkles size={16} className="text-primary" />
       </span>
       <div className="min-w-0">
-        <p className="text-[11.5px] font-medium text-ink-soft uppercase tracking-[0.06em]">{title}</p>
+        <p className="label-caps">{title}</p>
         <p className="text-[13.5px] text-ink-soft leading-relaxed mt-1">
           {segments.map((seg, i) => {
             if (typeof seg === 'string') return <span key={i}>{seg}</span>

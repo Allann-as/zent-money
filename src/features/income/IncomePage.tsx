@@ -1,10 +1,11 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Gift, Pencil, Plus, Repeat, Trash2, TrendingUp, Wallet } from 'lucide-react'
 import { PageHeader } from '@/features/common/PageHeader'
 import { MonthNav } from '@/features/common/MonthNav'
 import { RecurringModal } from '@/features/common/RecurringModal'
 import { Card, CardTitle } from '@/design/components/Card'
 import { StatCard } from '@/design/components/StatCard'
+import { AnimatedMoney } from '@/design/AnimatedMoney'
 import { Button } from '@/design/components/Button'
 import { Field, Input, MoneyInput } from '@/design/components/Input'
 import { Modal } from '@/design/components/Modal'
@@ -28,6 +29,16 @@ export function IncomePage(): ReactNode {
   const [salaryDraft, setSalaryDraft] = useState<number | null>(null)
   const [extraModal, setExtraModal] = useState<'closed' | 'new' | ExtraIncome>('closed')
   const [recurringOpen, setRecurringOpen] = useState(false)
+
+  // Ação rápida vinda da paleta de comandos (Ctrl+K)
+  const pendingAction = useUiStore((s) => s.pendingAction)
+  const setPendingAction = useUiStore((s) => s.setPendingAction)
+  useEffect(() => {
+    if (pendingAction === 'new-income') {
+      setPendingAction(null)
+      setExtraModal('new')
+    }
+  }, [pendingAction, setPendingAction])
 
   const salary = salaryForYm(data.salaryHistory, ym)
   // agrupamento por mês memoizado — trocar de mês não varre o histórico (§10.4)
@@ -75,7 +86,7 @@ export function IncomePage(): ReactNode {
         <div className="relative">
           <StatCard
             icon={Wallet}
-            value={formatBRL(salary)}
+            value={<AnimatedMoney cents={salary} />}
             label={viewingPast ? 'Salário da época' : 'Salário vigente'}
             className="h-full"
           />
@@ -93,7 +104,7 @@ export function IncomePage(): ReactNode {
         </div>
         <StatCard
           icon={Gift}
-          value={formatBRL(extrasTotal)}
+          value={<AnimatedMoney cents={extrasTotal} />}
           label="Extras do mês"
           detail={
             monthExtras.length === 0
@@ -103,7 +114,7 @@ export function IncomePage(): ReactNode {
         />
         <StatCard
           icon={TrendingUp}
-          value={formatBRL(total)}
+          value={<AnimatedMoney cents={total} />}
           label="Total de entradas"
           tone="primary"
           detail={<span className="first-letter:uppercase inline-block">{formatYmLong(ym)}</span>}

@@ -2,20 +2,22 @@ import type { ReactNode } from 'react'
 import { Check, Pipette } from 'lucide-react'
 import { cn } from '@/lib/cn'
 
-/** Paleta curada para categorias — harmoniosa nos dois temas. */
+/**
+ * Paleta curada para categorias — DESSATURADA e sóbria (disciplina de cor §3):
+ * são cores-DADO (persistidas nas categorias do usuário) e a única área
+ * multicolor do app é a rosca de gastos. Mesmos tons de --cat-1..10.
+ */
 export const CURATED_COLORS = [
-  '#57b6f2', // azul-céu (primária da marca)
-  '#22c8e6', // ciano
-  '#4adfc3', // verde-água
-  '#2fd680', // verde
-  '#a3d977', // lima
-  '#ffb454', // âmbar
-  '#ff8a5c', // laranja
-  '#ff6b6b', // coral
-  '#ff7ab8', // rosa
-  '#b98aff', // lilás
-  '#6e5bff', // violeta (secundária da marca)
-  '#6ba1ff', // azul claro
+  '#5b8fc0', // azul-aço
+  '#5fa8a4', // ciano-acinzentado
+  '#7fa66f', // verde-sálvia
+  '#c2a466', // areia
+  '#c08767', // terracota suave
+  '#b47f96', // malva
+  '#8d84b8', // lavanda-ardósia
+  '#6f82a1', // ardósia
+  '#a4a06a', // oliva suave
+  '#9a7f6a', // castanho suave
 ] as const
 
 export function ColorPicker({

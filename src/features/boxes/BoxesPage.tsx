@@ -12,15 +12,16 @@ import { useChartColors } from '@/design/charts/useChartColors'
 import { toast } from '@/design/components/toast'
 import { confirmDialog } from '@/design/components/confirm'
 import { useDataStore, useZentData } from '@/store/dataStore'
+import { useUiStore } from '@/store/uiStore'
 import { investmentSnapshot } from '@/engine/investments'
 import { sumByMonth } from '@/engine/aggregations'
 import { formatBRL, formatPercent } from '@/engine/money'
 import { addMonths, currentYm, formatYmShort, lastMonths } from '@/engine/dates'
 import { newId } from '@/lib/id'
 import { cn } from '@/lib/cn'
+import { BoxIcon, BOX_ICONS, BOX_ICON_KEYS } from '@/design/BoxIcon'
 import type { Box } from '@/data/schema'
 
-const EMOJI_CHOICES = ['🛟', '🏖️', '✈️', '🏠', '🚗', '🎓', '💻', '📱', '🎸', '💍', '🐶', '🎁', '🩺', '🎮', '📷', '⚽'] as const
 
 interface BoxComputed {
   box: Box
@@ -38,6 +39,16 @@ export function BoxesPage(): ReactNode {
   const mutate = useDataStore((s) => s.mutate)
   const colors = useChartColors()
   const [dialog, setDialog] = useState<'closed' | 'new' | Box>('closed')
+
+  // Ação rápida vinda da paleta de comandos (Ctrl+K)
+  const pendingAction = useUiStore((s) => s.pendingAction)
+  const setPendingAction = useUiStore((s) => s.setPendingAction)
+  useEffect(() => {
+    if (pendingAction === 'new-box') {
+      setPendingAction(null)
+      setDialog('new')
+    }
+  }, [pendingAction, setPendingAction])
 
   const computed: BoxComputed[] = useMemo(() => {
     const now = currentYm()
@@ -135,8 +146,8 @@ export function BoxesPage(): ReactNode {
               <Card
                 key={c.box.id}
                 className={cn(
-                  'group relative p-6 flex flex-col items-center text-center overflow-hidden',
-                  complete && 'anim-celebrate border-pos/40',
+                  'group relative p-6 flex flex-col items-center text-center overflow-hidden card-hover',
+                  complete && 'border-pos/40',
                 )}
               >
                 {/* brilho de fundo sutil */}
@@ -165,15 +176,21 @@ export function BoxesPage(): ReactNode {
                   </button>
                 </div>
 
+                {/* celebração sóbria: brilho sutil no anel quando completa */}
+                <div
+                  style={complete ? { filter: 'drop-shadow(0 0 12px var(--pos-soft))' } : undefined}
+                >
                 <ProgressRing
                   ratio={c.ratio}
                   size={132}
                   thickness={9}
                   color={complete ? colors.pos : colors.primary}
                 >
-                  <span className="text-[30px] leading-none" aria-hidden="true">
-                    {c.box.emoji}
-                  </span>
+                  <BoxIcon
+                    name={c.box.icon}
+                    size={30}
+                    className={complete ? 'text-pos' : 'text-primary'}
+                  />
                   <span
                     className={cn(
                       'text-[13px] font-bold tnum mt-1',
@@ -183,6 +200,7 @@ export function BoxesPage(): ReactNode {
                     {formatPercent(Math.min(1, c.ratio), 0)}
                   </span>
                 </ProgressRing>
+                </div>
 
                 <p className="font-display text-[15.5px] font-semibold text-ink mt-4 truncate max-w-full">
                   {c.box.name}
@@ -238,7 +256,7 @@ function BoxDialog({
   const editing = state !== 'closed' && state !== 'new' ? state : null
   const open = state !== 'closed'
 
-  const [emoji, setEmoji] = useState<string>('🛟')
+  const [icon, setIcon] = useState<string>('lifebuoy')
   const [name, setName] = useState('')
   const [target, setTarget] = useState<number | null>(null)
   const [link, setLink] = useState<string>('manual')
@@ -248,7 +266,7 @@ function BoxDialog({
   const targetKey: string = editing?.id ?? (typeof state === 'string' ? state : 'closed')
   if (open && openedFor !== targetKey) {
     setOpenedFor(targetKey)
-    setEmoji(editing?.emoji ?? '🛟')
+    setIcon(editing?.icon ?? 'lifebuoy')
     setName(editing?.name ?? '')
     setTarget(editing?.target ?? null)
     setLink(editing?.investmentId ?? 'manual')
@@ -266,7 +284,7 @@ function BoxDialog({
       if (editing) {
         const b = d.boxes.find((x) => x.id === editing.id)
         if (b) {
-          b.emoji = emoji
+          b.icon = icon
           b.name = clean
           b.target = target
           b.investmentId = investmentId
@@ -275,7 +293,7 @@ function BoxDialog({
       } else {
         d.boxes.push({
           id: newId(),
-          emoji,
+          icon,
           name: clean,
           target,
           investmentId,
@@ -307,21 +325,23 @@ function BoxDialog({
       <div className="flex flex-col gap-4">
         <Field label="Ícone">
           <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Escolher ícone">
-            {EMOJI_CHOICES.map((e) => (
+            {BOX_ICON_KEYS.map((key) => (
               <button
-                key={e}
+                key={key}
                 type="button"
                 role="radio"
-                aria-checked={emoji === e}
-                onClick={() => setEmoji(e)}
+                aria-checked={icon === key}
+                aria-label={BOX_ICONS[key]?.label ?? key}
+                title={BOX_ICONS[key]?.label ?? key}
+                onClick={() => setIcon(key)}
                 className={cn(
-                  'h-9 w-9 rounded-[10px] text-[18px] inline-flex items-center justify-center cursor-pointer transition-all duration-150 border',
-                  emoji === e
-                    ? 'border-primary bg-primary-soft scale-105'
-                    : 'border-line hover:border-line-strong hover:bg-surface-2',
+                  'h-9 w-9 rounded-[10px] inline-flex items-center justify-center cursor-pointer transition-all duration-150 border',
+                  icon === key
+                    ? 'border-primary bg-primary-soft text-primary scale-105'
+                    : 'border-line text-ink-soft hover:border-line-strong hover:bg-surface-2 hover:text-ink',
                 )}
               >
-                {e}
+                <BoxIcon name={key} size={16} />
               </button>
             ))}
           </div>

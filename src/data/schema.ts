@@ -1,14 +1,14 @@
 import { z } from 'zod'
 
 /**
- * Schema v2 dos dados persistidos do Zent Money.
+ * Schema v3 dos dados persistidos do Zent Money.
  * Convenções (ver DECISOES.md):
  * - Dinheiro: inteiro em CENTAVOS, nunca formatado.
  * - Datas: ISO `YYYY-MM-DD`; meses: `YYYY-MM` (tipo `Ym`).
  * - Todo registro tem `id` único (string).
  */
 
-export const DATA_VERSION = 2
+export const DATA_VERSION = 3
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'data ISO YYYY-MM-DD')
 const ym = z.string().regex(/^\d{4}-\d{2}$/, 'mês YYYY-MM')
@@ -115,7 +115,8 @@ export const contributionSchema = z.object({
 
 export const boxSchema = z.object({
   id: z.string(),
-  emoji: z.string(),
+  /** Chave de ícone SVG do set de caixinhas (ver design/BoxIcon.tsx). */
+  icon: z.string(),
   name: z.string(),
   target: cents.positive(),
   /** Vinculada a uma aplicação (acompanha o saldo dela) ou null = manual. */

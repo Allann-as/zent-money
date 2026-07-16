@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Pencil, Plus, ReceiptText, Repeat, Scale, Settings2, Tags, Trash2 } from 'lucide-react'
 import { PageHeader } from '@/features/common/PageHeader'
 import { MonthNav } from '@/features/common/MonthNav'
@@ -31,6 +31,16 @@ export function ExpensesPage(): ReactNode {
   const [manageOpen, setManageOpen] = useState(false)
   const [recurringOpen, setRecurringOpen] = useState(false)
   const [filter, setFilter] = useState<string>('all')
+
+  // Ação rápida vinda da paleta de comandos (Ctrl+K)
+  const pendingAction = useUiStore((s) => s.pendingAction)
+  const setPendingAction = useUiStore((s) => s.setPendingAction)
+  useEffect(() => {
+    if (pendingAction === 'new-expense') {
+      setPendingAction(null)
+      if (data.categories.length > 0) setExpenseDialog('new')
+    }
+  }, [pendingAction, setPendingAction, data.categories.length])
 
   const categoriesById = useMemo(
     () => new Map(data.categories.map((c) => [c.id, c])),

@@ -6,6 +6,7 @@ import { Button } from '@/design/components/Button'
 import { Select } from '@/design/components/Select'
 import { Segmented } from '@/design/components/Segmented'
 import { StatCard } from '@/design/components/StatCard'
+import { AnimatedMoney } from '@/design/AnimatedMoney'
 import { SummaryBalloon, type BalloonSegment } from '@/design/components/SummaryBalloon'
 import { EmptyState } from '@/design/components/EmptyState'
 import { toast } from '@/design/components/toast'
@@ -164,8 +165,8 @@ export function InstallmentsPage(): ReactNode {
       />
 
       <div className="grid grid-cols-3 gap-4 mb-4">
-        <StatCard icon={CalendarClock} value={formatBRL(stats.monthly)} label="Comprometido por mês" />
-        <StatCard icon={Wallet} value={formatBRL(stats.remaining)} label="Falta pagar no total" tone={stats.remaining > 0 ? 'neg' : 'default'} />
+        <StatCard icon={CalendarClock} value={<AnimatedMoney cents={stats.monthly} />} label="Comprometido por mês" />
+        <StatCard icon={Wallet} value={<AnimatedMoney cents={stats.remaining} />} label="Falta pagar no total" tone={stats.remaining > 0 ? 'neg' : 'default'} />
         <StatCard
           icon={CalendarCheck}
           value={stats.next ? formatYmShort(stats.next.ym) : '—'}

@@ -1,31 +1,49 @@
 import type { ReactNode } from 'react'
+import { cn } from '@/lib/cn'
 
-/** Monograma "Z" do Zent Money (mesmo desenho do ícone do app). */
+/**
+ * Marca Zent Money R2 — "Z em degraus": três traços horizontais em degrau
+ * ascendente (lê como Z e como gráfico subindo). Monocromática por natureza:
+ * o símbolo herda cor via currentColor/tokens e funciona nos dois temas.
+ */
+
+/** Só o símbolo (currentColor) — para usos inline. */
+export function ZentMark({ size = 20, className }: { size?: number; className?: string }): ReactNode {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+      className={className}
+    >
+      <rect x="9" y="3" width="12" height="4.2" rx="2.1" />
+      <rect x="6" y="9.9" width="12" height="4.2" rx="2.1" />
+      <rect x="3" y="16.8" width="12" height="4.2" rx="2.1" />
+    </svg>
+  )
+}
+
+/** Chip quadrado com o símbolo — mesmo desenho do ícone do app. */
 export function ZentLogo({ size = 34 }: { size?: number }): ReactNode {
   return (
-    <svg width={size} height={size} viewBox="0 0 256 256" aria-hidden="true">
-      <defs>
-        <linearGradient id="zent-logo-grad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="var(--primary-hover)" />
-          <stop offset="1" stopColor="var(--primary-press)" />
-        </linearGradient>
-      </defs>
-      <rect x="8" y="8" width="240" height="240" rx="56" fill="var(--surface-2)" />
-      <rect
-        x="8"
-        y="8"
-        width="240"
-        height="240"
-        rx="56"
-        fill="none"
-        stroke="var(--border-strong)"
-        strokeWidth="4"
-      />
-      <path
-        d="M76 70 h104 a10 10 0 0 1 10 10 v6 a14 14 0 0 1 -3.2 8.9 L106 178 h74 a10 10 0 0 1 10 10 v0 a10 10 0 0 1 -10 10 H76 a10 10 0 0 1 -10 -10 v-6 a14 14 0 0 1 3.2 -8.9 L150 90 H76 a10 10 0 0 1 -10 -10 v0 a10 10 0 0 1 10 -10 Z"
-        fill="url(#zent-logo-grad)"
-      />
-      <circle cx="196" cy="196" r="14" fill="var(--pos)" />
-    </svg>
+    <span
+      className="inline-flex items-center justify-center rounded-[12px] bg-surface-2 border border-line-strong text-primary shrink-0"
+      style={{ width: size, height: size }}
+      aria-hidden="true"
+    >
+      <ZentMark size={Math.round(size * 0.62)} />
+    </span>
+  )
+}
+
+/** Símbolo + wordmark "Zent Money" (sidebar expandida, sobre). */
+export function ZentWordmark({ className }: { className?: string }): ReactNode {
+  return (
+    <span className={cn('inline-flex items-center gap-2', className)}>
+      <ZentMark size={18} className="text-primary" />
+      <span className="font-display text-[15px] font-bold text-ink tracking-tight">Zent Money</span>
+    </span>
   )
 }

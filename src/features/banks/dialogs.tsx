@@ -26,7 +26,7 @@ export function BankDialog({
   const open = state !== 'closed'
 
   const [name, setName] = useState('')
-  const [color, setColor] = useState('#57b6f2')
+  const [color, setColor] = useState('#5b8fc0')
   const [balance, setBalance] = useState<number | null>(0)
   const [openedFor, setOpenedFor] = useState<string>('closed')
 
@@ -34,7 +34,7 @@ export function BankDialog({
   if (open && openedFor !== target) {
     setOpenedFor(target)
     setName(editing?.name ?? '')
-    setColor(editing?.color ?? '#57b6f2')
+    setColor(editing?.color ?? '#5b8fc0')
     setBalance(editing?.balance ?? 0)
   }
   if (!open && openedFor !== 'closed') setOpenedFor('closed')

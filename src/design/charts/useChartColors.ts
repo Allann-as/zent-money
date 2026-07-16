@@ -9,7 +9,6 @@ export interface ChartColors {
   surface: string
   surface2: string
   primary: string
-  accent: string
   pos: string
   neg: string
   warn: string
@@ -33,7 +32,6 @@ export function useChartColors(): ChartColors {
       surface: v('--surface'),
       surface2: v('--surface-2'),
       primary: v('--primary'),
-      accent: v('--accent'),
       pos: v('--pos'),
       neg: v('--neg'),
       warn: v('--warn'),

@@ -4,6 +4,7 @@ import { Modal } from '@/design/components/Modal'
 import { Button } from '@/design/components/Button'
 import { Field, Input, MoneyInput } from '@/design/components/Input'
 import { Select } from '@/design/components/Select'
+import { BankSelect } from '@/design/components/BankSelect'
 import { toast } from '@/design/components/toast'
 import { confirmDialog } from '@/design/components/confirm'
 import { useDataStore, useZentData } from '@/store/dataStore'
@@ -167,13 +168,12 @@ export function InvestmentDialog({
             />
           </Field>
           <Field label="Banco / corretora">
-            <Select value={bankId} onChange={(e) => setBankId(e.target.value)} aria-label="Banco do ativo">
-              {data.banks.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </Select>
+            <BankSelect
+              banks={data.banks}
+              value={bankId}
+              onChange={setBankId}
+              aria-label="Banco do ativo"
+            />
           </Field>
         </div>
         <Field label="Classe do ativo">

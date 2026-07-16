@@ -158,7 +158,20 @@ export function Bars({
                 v >= 0
                   ? `M ${bx} ${zeroY} v ${-(h - r)} q 0 ${-r} ${r} ${-r} h ${w - 2 * r} q ${r} 0 ${r} ${r} v ${h - r} Z`
                   : `M ${bx} ${zeroY} v ${h - r} q 0 ${r} ${r} ${r} h ${w - 2 * r} q ${r} 0 ${r} ${-r} v ${-(h - r)} Z`
-              return <path key={si} d={d} fill={fill} onMouseMove={(e) => showTip(e, gi)} />
+              // barras "sobem" na primeira renderização (§5) — transform GPU-friendly
+              return (
+                <path
+                  key={si}
+                  d={d}
+                  fill={fill}
+                  onMouseMove={(e) => showTip(e, gi)}
+                  style={{
+                    transformBox: 'fill-box',
+                    transformOrigin: v >= 0 ? 'bottom' : 'top',
+                    animation: `zent-bar-grow 420ms var(--ease-out-quint) ${Math.min(gi * 14, 260)}ms both`,
+                  }}
+                />
+              )
             })}
             {/* área de hover cobrindo o grupo inteiro */}
             <rect

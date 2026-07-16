@@ -8,7 +8,41 @@ import { DATA_VERSION } from './schema'
  */
 type RawData = Record<string, unknown>
 
+/** Emojis da era v2 das caixinhas → chaves de ícone SVG (v3). */
+const BOX_EMOJI_TO_ICON: Record<string, string> = {
+  '🛟': 'lifebuoy',
+  '🏖️': 'umbrella',
+  '✈️': 'plane',
+  '🏠': 'home',
+  '🚗': 'car',
+  '🎓': 'gradcap',
+  '💻': 'laptop',
+  '📱': 'phone',
+  '🎸': 'music',
+  '💍': 'gem',
+  '🐶': 'paw',
+  '🎁': 'gift',
+  '🩺': 'health',
+  '🎮': 'gamepad',
+  '📷': 'camera',
+  '⚽': 'target',
+}
+
 const MIGRATIONS: Record<number, (data: RawData) => RawData> = {
+  // v2 → v3: caixinhas trocam emoji por chave de ícone SVG
+  2: (data) => {
+    const boxes = Array.isArray(data['boxes'])
+      ? (data['boxes'] as RawData[]).map((box) => {
+          const { emoji, ...rest } = box as RawData & { emoji?: unknown }
+          const icon =
+            typeof emoji === 'string' && BOX_EMOJI_TO_ICON[emoji]
+              ? BOX_EMOJI_TO_ICON[emoji]
+              : 'target'
+          return { ...rest, icon }
+        })
+      : []
+    return { ...data, version: 3, boxes }
+  },
   // v1 → v2: ativos manuais (valueUpdates) + recorrências
   1: (data) => {
     const investments = Array.isArray(data['investments'])

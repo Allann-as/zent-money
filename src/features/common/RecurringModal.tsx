@@ -83,8 +83,8 @@ export function RecurringModal({
               key={t.id}
               className="flex items-center gap-3 px-3 h-12 rounded-[10px] hover:bg-surface-2 transition-colors"
             >
-              <span className="h-8 w-8 rounded-[10px] bg-accent-soft inline-flex items-center justify-center shrink-0">
-                <Repeat size={14} className="text-accent-strong" />
+              <span className="h-8 w-8 rounded-[10px] bg-primary-soft inline-flex items-center justify-center shrink-0">
+                <Repeat size={14} className="text-primary" />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-[13px] font-medium text-ink truncate">{t.title}</p>
