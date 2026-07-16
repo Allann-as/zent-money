@@ -38,7 +38,7 @@ describe('migração de dados v1 → v4', () => {
   it('migra um arquivo v1 completo em cadeia e passa na validação do schema atual', () => {
     const migrated = migrate(v1Data())
     const parsed = zentDataSchema.parse(migrated)
-    expect(parsed.version).toBe(4)
+    expect(parsed.version).toBe(5)
     // v1→v2
     expect(parsed.investments[0]?.valueUpdates).toEqual([])
     expect(parsed.recurringExpenses).toEqual([])
@@ -72,6 +72,82 @@ describe('migração de dados v1 → v4', () => {
     const v3 = zentDataSchema.parse(migrate(v1Data()))
     const again = zentDataSchema.parse(migrate(v3))
     expect(again).toEqual(v3)
+  })
+
+  /** R3 §3.1 — o BTG único vira BTG Banking (mesmo id) e ganha o irmão Investimentos. */
+  describe('v4 → v5: BTG duplo', () => {
+    /** Arquivo com um BTG só, com cartão, ativo e parcela pendurados nele. */
+    function comBtgUnico(): Record<string, unknown> {
+      const raw = v1Data()
+      raw['banks'] = [
+        { id: 'b1', name: 'Nubank', color: '#820AD1', balance: 0 },
+        { id: 'btg1', name: 'BTG', color: '#2C5EA9', balance: 250000 },
+      ]
+      raw['cards'] = [{ id: 'k1', bankId: 'btg1', name: 'BTG Black', limit: 500000, invoice: 12000 }]
+      raw['investments'] = [{ id: 'i1', name: 'CDB BTG', bankId: 'btg1', rateType: 'cdi', rateParam: 102 }]
+      raw['purchases'] = [
+        {
+          id: 'p1', cardId: 'k1', name: 'Notebook', installmentAmount: 10000,
+          totalInstallments: 10, paidInstallments: 0, startYm: '2026-07',
+        },
+      ]
+      return raw
+    }
+
+    it('renomeia o BTG existente para "BTG Banking" preservando id, saldo e vínculos', () => {
+      const parsed = zentDataSchema.parse(migrate(comBtgUnico()))
+      const banking = parsed.banks.find((b) => b.name === 'BTG Banking')
+      expect(banking).toBeDefined()
+      // MESMO id: nada que apontava para o BTG se perde
+      expect(banking?.id).toBe('btg1')
+      expect(banking?.balance).toBe(250000)
+      expect(parsed.cards[0]?.bankId).toBe('btg1')
+      expect(parsed.investments[0]?.bankId).toBe('btg1')
+      // e a parcela do cartão do BTG segue vinculada
+      expect(parsed.purchases[0]?.cardId).toBe('k1')
+    })
+
+    it('cria "BTG Investimentos" ao lado, vazio e com id próprio', () => {
+      const parsed = zentDataSchema.parse(migrate(comBtgUnico()))
+      const inv = parsed.banks.find((b) => b.name === 'BTG Investimentos')
+      expect(inv).toBeDefined()
+      expect(inv?.balance).toBe(0)
+      expect(inv?.id).not.toBe('btg1')
+      // não sobrou nenhum banco chamado só "BTG"
+      expect(parsed.banks.some((b) => b.name === 'BTG')).toBe(false)
+      expect(parsed.banks).toHaveLength(3)
+    })
+
+    it('os dois BTG recebem acentos distintos (a cor é UI; o logo é que os diferencia)', () => {
+      const parsed = zentDataSchema.parse(migrate(comBtgUnico()))
+      const banking = parsed.banks.find((b) => b.name === 'BTG Banking')
+      const inv = parsed.banks.find((b) => b.name === 'BTG Investimentos')
+      expect(banking?.color).toBe('#2C5EA9')
+      expect(inv?.color).toBe('#0A2540')
+      // navy nos dois apagaria o acento do Banking no tema escuro
+      expect(banking?.color).not.toBe(inv?.color)
+    })
+
+    it('quem JÁ tem os dois BTG (seed da R2) não ganha duplicata', () => {
+      const raw = v1Data()
+      raw['banks'] = [
+        { id: 'x1', name: 'BTG Banking', color: '#2C5EA9', balance: 100 },
+        { id: 'x2', name: 'BTG Investimentos', color: '#0A2540', balance: 200 },
+      ]
+      raw['cards'] = []
+      raw['purchases'] = []
+      raw['investments'] = []
+      const parsed = zentDataSchema.parse(migrate(raw))
+      expect(parsed.banks.filter((b) => b.name.startsWith('BTG'))).toHaveLength(2)
+      expect(parsed.banks.find((b) => b.id === 'x1')?.balance).toBe(100)
+    })
+
+    it('sem BTG nenhum, a migração não inventa bancos', () => {
+      const raw = v1Data() // só tem Nubank
+      const parsed = zentDataSchema.parse(migrate(raw))
+      expect(parsed.banks.some((b) => b.name.startsWith('BTG'))).toBe(false)
+      expect(parsed.banks).toHaveLength(1)
+    })
   })
 
   it('rejeita arquivo de versão futura', () => {

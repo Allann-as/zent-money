@@ -1,14 +1,14 @@
 import { z } from 'zod'
 
 /**
- * Schema v4 dos dados persistidos do Zent Money.
+ * Schema v5 dos dados persistidos do Zent Money.
  * Convenções (ver DECISOES.md):
  * - Dinheiro: inteiro em CENTAVOS, nunca formatado.
  * - Datas: ISO `YYYY-MM-DD`; meses: `YYYY-MM` (tipo `Ym`).
  * - Todo registro tem `id` único (string).
  */
 
-export const DATA_VERSION = 4
+export const DATA_VERSION = 5
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'data ISO YYYY-MM-DD')
 const ym = z.string().regex(/^\d{4}-\d{2}$/, 'mês YYYY-MM')

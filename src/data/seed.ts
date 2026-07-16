@@ -9,6 +9,10 @@ export const BANK_BRAND_COLORS: Record<string, string> = {
   itau: '#EC7000',
   bradesco: '#CC092F',
   santander: '#EA1D25',
+  // Os dois BTG são a mesma marca; quem os distingue é o LOGO — navy-sobre-claro
+  // (Banking) × branco-sobre-navy (Investimentos), R3 §3.2. Já `color` é acento de
+  // UI (barra do banco, chip do cartão, monograma): navy nos dois apagaria o acento
+  // do Banking no tema escuro, então ele mantém o azul.
   btginvestimentos: '#0A2540',
   btgbanking: '#2C5EA9',
 }

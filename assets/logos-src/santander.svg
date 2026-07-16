@@ -1,18 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img">
-  <!-- Gerado por scripts/gen-bank-logos.mjs — símbolo oficial recortado do lockup. -->
-  <defs>
-    <clipPath id="sym-santander">
-      <rect x="18" y="109" width="40" height="38"/>
-    </clipPath>
-  </defs>
-  <g transform="translate(128 128) scale(4.9920) translate(-38 -128)">
-    <g clip-path="url(#sym-santander)">
-      <g transform="translate(17.92 108.82) scale(0.9243) translate(0.00 0.00)"><defs
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <rect width="256" height="256" rx="56" fill="#EA1D25"/>
+  <g transform="translate(17.92 108.82) scale(0.9243) translate(0.00 0.00)"><defs
    id="defs13" />
 <style
    type="text/css"
    id="style2">
-	.st0{fill:#EC0000;}
+	.st0{fill:#ffffff;}
 </style>
     
 <g
@@ -24,6 +17,4 @@
    id="path6" />
 </g>
 </g>
-    </g>
-  </g>
 </svg>

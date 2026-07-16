@@ -8,6 +8,14 @@ import { DATA_VERSION } from './schema'
  */
 type RawData = Record<string, unknown>
 
+/**
+ * Acentos de UI dos dois BTG (v5). Literais aqui de propósito: uma migração
+ * descreve o passado e não pode mudar de resultado quando o seed evoluir.
+ * A distinção visual entre os dois é o LOGO (invertido), não estas cores.
+ */
+const BTG_BANKING_ACCENT = '#2C5EA9'
+const BTG_INVEST_ACCENT = '#0A2540'
+
 /** Emojis da era v2 das caixinhas → chaves de ícone SVG (v3). */
 const BOX_EMOJI_TO_ICON: Record<string, string> = {
   '🛟': 'lifebuoy',
@@ -29,6 +37,37 @@ const BOX_EMOJI_TO_ICON: Record<string, string> = {
 }
 
 const MIGRATIONS: Record<number, (data: RawData) => RawData> = {
+  // v4 → v5: BTG vira dois bancos distintos (R3 §3.1).
+  // O "BTG" existente VIRA "BTG Banking" mantendo o mesmo id — assim cartões,
+  // ativos e parcelas continuam apontando para ele e nada é perdido. "BTG
+  // Investimentos" nasce vazio ao lado. Quem já tem os dois (seed da R2) não muda.
+  4: (data) => {
+    const banks = Array.isArray(data['banks']) ? [...(data['banks'] as RawData[])] : []
+    const nameOf = (b: RawData): string => (typeof b['name'] === 'string' ? b['name'] : '')
+    const norm = (s: string): string =>
+      s
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-z0-9]/g, '')
+
+    const legacy = banks.find((b) => norm(nameOf(b)) === 'btg')
+    if (legacy) {
+      legacy['name'] = 'BTG Banking'
+      legacy['color'] = BTG_BANKING_ACCENT
+    }
+
+    const hasInvestimentos = banks.some((b) => norm(nameOf(b)) === 'btginvestimentos')
+    if (legacy && !hasInvestimentos) {
+      banks.push({
+        id: `btg-inv-${String(legacy['id'] ?? 'x')}`,
+        name: 'BTG Investimentos',
+        color: BTG_INVEST_ACCENT,
+        balance: 0,
+      })
+    }
+    return { ...data, version: 5, banks }
+  },
   // v3 → v4: parcelas avulsas. As compras existentes nasceram todas vinculadas a um
   // cartão e assim permanecem (cardId intacto); só ganham `creditor: null`.
   3: (data) => {
