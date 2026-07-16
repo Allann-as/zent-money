@@ -1,5 +1,26 @@
-import type { Expense, ExtraIncome, SalaryEntry } from '@/data/schema'
+import type { Card, Expense, ExtraIncome, SalaryEntry } from '@/data/schema'
 import { daysInYm, ymCompare, ymOfDate, type Ym } from './dates'
+
+/**
+ * Banco de origem de um gasto (R3 §3.4), ou null se ele não tem origem.
+ * Origem-cartão conta para o banco DONO do cartão — é isso que faz o
+ * drill-down mostrar "gastos pagos por este banco" incluindo os do cartão.
+ * Cartão apagado (id órfão) → null: nunca atribui a um banco errado.
+ */
+export function expenseBankId(e: Expense, cardsById: ReadonlyMap<string, Card>): string | null {
+  if (e.origin === null) return null
+  if (e.origin.kind === 'bank') return e.origin.bankId
+  return cardsById.get(e.origin.cardId)?.bankId ?? null
+}
+
+/** Gastos de um mês pagos por um banco (conta ou qualquer cartão dele). */
+export function expensesOfBank(
+  expenses: readonly Expense[],
+  bankId: string,
+  cardsById: ReadonlyMap<string, Card>,
+): Expense[] {
+  return expenses.filter((e) => expenseBankId(e, cardsById) === bankId)
+}
 
 /**
  * Agregações de gastos/ganhos — sempre em PASSADA ÚNICA sobre os dados

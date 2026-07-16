@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import {
   ChevronDown,
+  ChevronRight,
   CreditCard,
   Landmark,
   Minus,
@@ -21,12 +22,14 @@ import { EmptyState } from '@/design/components/EmptyState'
 import { toast } from '@/design/components/toast'
 import { confirmDialog } from '@/design/components/confirm'
 import { useDataStore, useZentData } from '@/store/dataStore'
+import { useUiStore } from '@/store/uiStore'
 import { availableLimit, monthlyCommitment, payoffYm, remainingAmount, remainingInstallments } from '@/engine/cards'
 import { formatBRL } from '@/engine/money'
 import { formatYmShort } from '@/engine/dates'
 import { cn } from '@/lib/cn'
 import type { Bank, Card, Purchase } from '@/data/schema'
 import { BankLogo } from './BankLogo'
+import { BankDetailPage } from './BankDetailPage'
 import {
   BankDialog,
   CardDialog,
@@ -37,7 +40,7 @@ import {
 } from './dialogs'
 
 /** Valor monetário editável inline (clique no lápis, Enter salva). */
-function InlineMoney({
+export function InlineMoney({
   value,
   onSave,
   allowNegative = false,
@@ -110,6 +113,11 @@ export function BanksPage(): ReactNode {
   const data = useZentData()
   const mutate = useDataStore((s) => s.mutate)
 
+  // Rota filha: banco aberto no drill-down (R3 §3.3)
+  const bankDetailId = useUiStore((s) => s.bankDetailId)
+  const openBankDetail = useUiStore((s) => s.openBankDetail)
+  const detailBank = bankDetailId === null ? null : data.banks.find((b) => b.id === bankDetailId)
+
   const [bankDialog, setBankDialog] = useState<BankDialogState>('closed')
   const [cardDialog, setCardDialog] = useState<CardDialogState>('closed')
   const [purchaseDialog, setPurchaseDialog] = useState<PurchaseDialogState>('closed')
@@ -150,6 +158,10 @@ export function BanksPage(): ReactNode {
     })
     toast.success(`${bank.name} excluído`)
   }
+
+  // Banco aberto: a seção vira a página dele. Se o banco sumiu (excluído
+  // em outra aba do app), cai de volta na lista em vez de quebrar.
+  if (detailBank) return <BankDetailPage bank={detailBank} />
 
   return (
     <>
@@ -212,6 +224,7 @@ export function BanksPage(): ReactNode {
               bank={bank}
               cards={data.cards.filter((c) => c.bankId === bank.id)}
               purchases={data.purchases}
+              onOpen={() => openBankDetail(bank.id)}
               onEdit={() => setBankDialog(bank)}
               onRemove={() => void removeBank(bank)}
               onNewCard={() => setCardDialog({ mode: 'new', bankId: bank.id })}
@@ -234,6 +247,7 @@ function BankBlock({
   bank,
   cards,
   purchases,
+  onOpen,
   onEdit,
   onRemove,
   onNewCard,
@@ -244,6 +258,7 @@ function BankBlock({
   bank: Bank
   cards: Card[]
   purchases: Purchase[]
+  onOpen(): void
   onEdit(): void
   onRemove(): void
   onNewCard(): void
@@ -260,9 +275,30 @@ function BankBlock({
         className="flex items-center gap-3.5 px-5 py-4"
         style={{ boxShadow: `inset 3px 0 0 ${bank.color}` }}
       >
-        <BankLogo name={bank.name} color={bank.color} size={40} />
+        {/* logo e nome abrem o drill-down do banco (R3 §3.3) */}
+        <button
+          type="button"
+          onClick={onOpen}
+          aria-label={`Abrir ${bank.name}`}
+          className="shrink-0 cursor-pointer rounded-[10px] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+        >
+          <BankLogo name={bank.name} color={bank.color} size={40} />
+        </button>
         <div className="min-w-0">
-          <p className="font-display text-[15px] font-semibold text-ink truncate">{bank.name}</p>
+          <button
+            type="button"
+            onClick={onOpen}
+            className="group/bank flex items-center gap-1 cursor-pointer text-left max-w-full"
+            title={`Abrir ${bank.name}`}
+          >
+            <p className="font-display text-[15px] font-semibold text-ink truncate group-hover/bank:text-primary transition-colors">
+              {bank.name}
+            </p>
+            <ChevronRight
+              size={14}
+              className="text-primary shrink-0 opacity-0 -translate-x-1 group-hover/bank:opacity-100 group-hover/bank:translate-x-0 transition-all duration-150"
+            />
+          </button>
           <div className="text-[13px] text-ink-soft flex items-center gap-1">
             Saldo em conta:{' '}
             <InlineMoney

@@ -1,14 +1,14 @@
 import { z } from 'zod'
 
 /**
- * Schema v5 dos dados persistidos do Zent Money.
+ * Schema v6 dos dados persistidos do Zent Money.
  * Convenções (ver DECISOES.md):
  * - Dinheiro: inteiro em CENTAVOS, nunca formatado.
  * - Datas: ISO `YYYY-MM-DD`; meses: `YYYY-MM` (tipo `Ym`).
  * - Todo registro tem `id` único (string).
  */
 
-export const DATA_VERSION = 5
+export const DATA_VERSION = 6
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'data ISO YYYY-MM-DD')
 const ym = z.string().regex(/^\d{4}-\d{2}$/, 'mês YYYY-MM')
@@ -39,6 +39,18 @@ export const categorySchema = z.object({
   monthlyLimit: cents.positive().nullable(),
 })
 
+/**
+ * "Pago com" (v6): de onde saiu o dinheiro do gasto. Opcional — sem seleção o
+ * gasto é "sem origem" e tudo segue funcionando. União discriminada de propósito:
+ * dois campos anuláveis (bankId/cardId) poderiam ser preenchidos ao mesmo tempo
+ * e se contradizer. Cartão pertence a um banco, então a origem-cartão também
+ * atribui o gasto ao banco dele (ver `expenseBankId`).
+ */
+export const expenseOriginSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('bank'), bankId: z.string() }),
+  z.object({ kind: z.literal('card'), cardId: z.string() }),
+])
+
 export const expenseSchema = z.object({
   id: z.string(),
   date: isoDate,
@@ -47,6 +59,8 @@ export const expenseSchema = z.object({
   amount: cents.nonnegative(),
   /** true = Necessário, false = Supérfluo. */
   essential: z.boolean(),
+  /** Conta ou cartão que pagou; null = sem origem. */
+  origin: expenseOriginSchema.nullable(),
   /** Presente quando o lançamento foi gerado por uma recorrência. */
   recurringId: z.string().optional(),
 })
@@ -207,6 +221,7 @@ export type SalaryEntry = z.infer<typeof salaryEntrySchema>
 export type ExtraIncome = z.infer<typeof extraIncomeSchema>
 export type Category = z.infer<typeof categorySchema>
 export type Expense = z.infer<typeof expenseSchema>
+export type ExpenseOrigin = z.infer<typeof expenseOriginSchema>
 export type Bank = z.infer<typeof bankSchema>
 export type Card = z.infer<typeof cardSchema>
 export type Purchase = z.infer<typeof purchaseSchema>

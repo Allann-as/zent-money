@@ -31,6 +31,7 @@ export function ExpensesPage(): ReactNode {
   const [manageOpen, setManageOpen] = useState(false)
   const [recurringOpen, setRecurringOpen] = useState(false)
   const [filter, setFilter] = useState<string>('all')
+  const [originFilter, setOriginFilter] = useState<string>('all')
 
   // Ação rápida vinda da paleta de comandos (Ctrl+K)
   const pendingAction = useUiStore((s) => s.pendingAction)
@@ -61,8 +62,24 @@ export function ExpensesPage(): ReactNode {
   )
   const split = useMemo(() => essentialSplit(monthExpenses, ym), [monthExpenses, ym])
 
-  const filtered = filter === 'all' ? monthExpenses : monthExpenses.filter((e) => e.categoryId === filter)
-  const filteredTotal = filter === 'all' ? monthTotal : (byCategory.get(filter) ?? 0)
+  /** Filtro por origem (R3 §5): 'all' · 'none' · 'bank:<id>' · 'card:<id>'. */
+  function matchesOrigin(e: Expense): boolean {
+    if (originFilter === 'all') return true
+    if (originFilter === 'none') return e.origin === null
+    if (e.origin === null) return false
+    const key = e.origin.kind === 'bank' ? `bank:${e.origin.bankId}` : `card:${e.origin.cardId}`
+    return key === originFilter
+  }
+
+  const byCategoryFilter =
+    filter === 'all' ? monthExpenses : monthExpenses.filter((e) => e.categoryId === filter)
+  const filtered = originFilter === 'all' ? byCategoryFilter : byCategoryFilter.filter(matchesOrigin)
+  const filteredTotal =
+    originFilter === 'all'
+      ? filter === 'all'
+        ? monthTotal
+        : (byCategory.get(filter) ?? 0)
+      : filtered.reduce((a, e) => a + e.amount, 0)
   const filterCategory = filter === 'all' ? null : categoriesById.get(filter)
 
   const summary = useMemo(() => {
@@ -270,6 +287,34 @@ export function ExpensesPage(): ReactNode {
                   {c.name}
                 </option>
               ))}
+            </Select>
+            {/* R3 §5 — filtro por origem, consequência do "Pago com" (§3.4) */}
+            <Select
+              value={originFilter}
+              onChange={(e) => setOriginFilter(e.target.value)}
+              className="h-8.5 w-44 text-[13px]"
+              aria-label="Filtrar por origem"
+            >
+              <option value="all">Todas as origens</option>
+              <option value="none">Sem origem</option>
+              {data.banks.length > 0 && (
+                <optgroup label="Contas">
+                  {data.banks.map((b) => (
+                    <option key={b.id} value={`bank:${b.id}`}>
+                      {b.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {data.cards.length > 0 && (
+                <optgroup label="Cartões">
+                  {data.cards.map((c) => (
+                    <option key={c.id} value={`card:${c.id}`}>
+                      {c.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </Select>
           </div>
         </div>

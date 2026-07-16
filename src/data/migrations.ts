@@ -37,6 +37,14 @@ const BOX_EMOJI_TO_ICON: Record<string, string> = {
 }
 
 const MIGRATIONS: Record<number, (data: RawData) => RawData> = {
+  // v5 → v6: campo "Pago com" nos gastos (R3 §3.4). Gastos antigos ficam sem
+  // origem — o campo é opcional e tudo continua funcionando sem ele.
+  5: (data) => {
+    const expenses = Array.isArray(data['expenses'])
+      ? (data['expenses'] as RawData[]).map((e) => ({ origin: null, ...e }))
+      : []
+    return { ...data, version: 6, expenses }
+  },
   // v4 → v5: BTG vira dois bancos distintos (R3 §3.1).
   // O "BTG" existente VIRA "BTG Banking" mantendo o mesmo id — assim cartões,
   // ativos e parcelas continuam apontando para ele e nada é perdido. "BTG

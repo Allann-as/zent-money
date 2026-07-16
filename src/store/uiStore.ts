@@ -23,6 +23,14 @@ interface UiState {
   activeView: ViewId
   /** Mês ativo compartilhado pelas seções com navegação ‹ › . */
   activeYm: Ym
+  /**
+   * Banco aberto no drill-down (R3 §3.3) — rota filha de 'banks': quando
+   * preenchido, a seção Bancos & Cartões mostra a página do banco no lugar da
+   * lista. Trocar de seção volta para a lista.
+   */
+  bankDetailId: string | null
+  openBankDetail(bankId: string): void
+  closeBankDetail(): void
   /** Busca global / paleta de comandos (Ctrl+K). */
   searchOpen: boolean
   /** Modo privacidade: borra todos os valores monetários (persistido). */
@@ -53,6 +61,9 @@ export const useUiStore = create<UiState>()(
       sidebarCollapsed: false,
       activeView: 'overview',
       activeYm: currentYm(),
+      bankDetailId: null,
+      openBankDetail: (bankDetailId) => set({ activeView: 'banks', bankDetailId }),
+      closeBankDetail: () => set({ bankDetailId: null }),
       searchOpen: false,
       privacy: false,
       pendingAction: null,
@@ -69,7 +80,8 @@ export const useUiStore = create<UiState>()(
       },
       toggleTheme: () => get().setTheme(get().theme === 'dark' ? 'light' : 'dark'),
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
-      setView: (activeView) => set({ activeView }),
+      // sair da seção fecha o drill-down: voltar a Bancos mostra a lista
+      setView: (activeView) => set({ activeView, bankDetailId: null }),
       setYm: (activeYm) => set({ activeYm }),
     }),
     {

@@ -9,9 +9,22 @@ import { formatBRL } from '@/engine/money'
 import { todayIso, ymOfDate } from '@/engine/dates'
 import { newId } from '@/lib/id'
 import { cn } from '@/lib/cn'
-import type { Expense } from '@/data/schema'
+import type { Expense, ExpenseOrigin } from '@/data/schema'
 
 export type ExpenseDialogState = 'closed' | 'new' | Expense
+
+/** Origem → valor do <select> ('' = sem origem). */
+function originToValue(o: ExpenseOrigin | null): string {
+  if (o === null) return ''
+  return o.kind === 'bank' ? `bank:${o.bankId}` : `card:${o.cardId}`
+}
+
+/** Valor do <select> → origem persistida. */
+function valueToOrigin(v: string): ExpenseOrigin | null {
+  if (v.startsWith('bank:')) return { kind: 'bank', bankId: v.slice(5) }
+  if (v.startsWith('card:')) return { kind: 'card', cardId: v.slice(5) }
+  return null
+}
 
 export function ExpenseDialog({
   state,
@@ -31,6 +44,10 @@ export function ExpenseDialog({
   const [amount, setAmount] = useState<number | null>(null)
   const [essential, setEssential] = useState(true)
   const [repeatMonthly, setRepeatMonthly] = useState(false)
+  /** "Pago com" (R3 §3.4): '' = sem origem · 'bank:<id>' · 'card:<id>'. */
+  const [origin, setOrigin] = useState('')
+  /** Opt-in explícito de somar este gasto à fatura do cartão (ver DECISOES). */
+  const [addToInvoice, setAddToInvoice] = useState(false)
   const [openedFor, setOpenedFor] = useState<string>('closed')
 
   const target: string = editing?.id ?? (typeof state === 'string' ? state : 'closed')
@@ -42,8 +59,12 @@ export function ExpenseDialog({
     setAmount(editing?.amount ?? null)
     setEssential(editing?.essential ?? true)
     setRepeatMonthly(false)
+    setOrigin(originToValue(editing?.origin ?? null))
+    setAddToInvoice(false)
   }
   if (!open && openedFor !== 'closed') setOpenedFor('closed')
+
+  const originCardId = origin.startsWith('card:') ? origin.slice(5) : null
 
   const valid = categoryId !== '' && amount !== null && amount > 0 && date !== ''
 
@@ -75,6 +96,10 @@ export function ExpenseDialog({
   function save(): void {
     if (!valid || amount === null) return
     const cleanDesc = description.trim()
+    const nextOrigin = valueToOrigin(origin)
+    // Opt-in: soma pontual à fatura do cartão. NÃO é um vínculo vivo — a fatura
+    // segue sendo o snapshot que o usuário mantém (ver DECISOES.md, R3 §3.4).
+    const invoiceCardId = addToInvoice && originCardId !== null ? originCardId : null
     mutate((d) => {
       if (editing) {
         const e = d.expenses.find((x) => x.id === editing.id)
@@ -84,6 +109,7 @@ export function ExpenseDialog({
           e.description = cleanDesc
           e.amount = amount
           e.essential = essential
+          e.origin = nextOrigin
         }
       } else {
         const recurringId = repeatMonthly ? newId() : null
@@ -106,16 +132,23 @@ export function ExpenseDialog({
           description: cleanDesc,
           amount,
           essential,
+          origin: nextOrigin,
           ...(recurringId ? { recurringId } : {}),
         })
+      }
+      if (invoiceCardId !== null) {
+        const card = d.cards.find((c) => c.id === invoiceCardId)
+        if (card) card.invoice += amount
       }
     })
     checkLimit(categoryId, amount, ymOfDate(date))
     toast.success(
       editing ? 'Gasto atualizado' : repeatMonthly ? 'Gasto recorrente criado' : 'Gasto registrado',
-      repeatMonthly && !editing
-        ? `${formatBRL(amount)} — será lançado todo mês automaticamente.`
-        : formatBRL(amount),
+      invoiceCardId !== null
+        ? `${formatBRL(amount)} — somados à fatura do cartão.`
+        : repeatMonthly && !editing
+          ? `${formatBRL(amount)} — será lançado todo mês automaticamente.`
+          : formatBRL(amount),
     )
     onClose()
   }
@@ -159,9 +192,63 @@ export function ExpenseDialog({
             maxLength={60}
           />
         </Field>
-        <Field label="Valor">
-          <MoneyInput value={amount} onChange={setAmount} aria-label="Valor do gasto" />
-        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Valor">
+            <MoneyInput value={amount} onChange={setAmount} aria-label="Valor do gasto" />
+          </Field>
+          {/* R3 §3.4 — opcional: habilita as análises por banco */}
+          <Field label="Pago com (opcional)">
+            <Select
+              value={origin}
+              onChange={(e) => {
+                setOrigin(e.target.value)
+                if (!e.target.value.startsWith('card:')) setAddToInvoice(false)
+              }}
+              aria-label="Pago com"
+            >
+              <option value="">Sem origem</option>
+              {data.banks.length > 0 && (
+                <optgroup label="Contas">
+                  {data.banks.map((b) => (
+                    <option key={b.id} value={`bank:${b.id}`}>
+                      {b.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {data.cards.length > 0 && (
+                <optgroup label="Cartões">
+                  {data.cards.map((c) => {
+                    const bank = data.banks.find((b) => b.id === c.bankId)
+                    return (
+                      <option key={c.id} value={`card:${c.id}`}>
+                        {c.name}
+                        {bank ? ` · ${bank.name}` : ''}
+                      </option>
+                    )
+                  })}
+                </optgroup>
+              )}
+            </Select>
+          </Field>
+        </div>
+        {originCardId !== null && !editing && (
+          <label className="flex items-start gap-2.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={addToInvoice}
+              onChange={(e) => setAddToInvoice(e.target.checked)}
+              className="h-4 w-4 mt-0.5 accent-[color:var(--primary)] cursor-pointer shrink-0"
+              aria-label="Somar à fatura do cartão"
+            />
+            <span className="text-[13px] text-ink">
+              Somar à fatura do cartão{' '}
+              <span className="text-ink-faint">
+                — só marque se a fatura ainda não inclui este gasto, senão ele conta duas vezes.
+              </span>
+            </span>
+          </label>
+        )}
         <Field label="Classificação">
           <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Necessário ou supérfluo">
             <button

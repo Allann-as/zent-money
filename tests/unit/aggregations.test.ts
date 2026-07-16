@@ -1,15 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import type { Expense, ExtraIncome, SalaryEntry } from '@/data/schema'
+import type { Card, Expense, ExtraIncome, SalaryEntry } from '@/data/schema'
 import {
   essentialSplit,
+  expenseBankId,
   expensesByCategory,
+  expensesOfBank,
   incomeByMonth,
   salaryForYm,
   sumByMonth,
 } from '@/engine/aggregations'
 
 function expense(date: string, categoryId: string, amount: number, essential = true): Expense {
-  return { id: `e-${date}-${amount}`, date, categoryId, description: '', amount, essential }
+  return { id: `e-${date}-${amount}`, date, categoryId, description: '', amount, essential, origin: null }
 }
 
 describe('agregações mensais (passada única)', () => {
@@ -81,5 +83,45 @@ describe('salário com histórico de vigências', () => {
     const map = incomeByMonth(history, extras, ['2026-06', '2026-07'])
     expect(map.get('2026-07')).toBe(3_200_00 + 550_00)
     expect(map.get('2026-06')).toBe(3_200_00 + 999_00)
+  })
+})
+
+/** R3 §3.4 — origem do gasto ("Pago com") e as análises por banco. */
+describe('origem do gasto', () => {
+  const cards: Card[] = [
+    { id: 'k1', bankId: 'nubank', name: 'Ultravioleta', limit: 500000, invoice: 0 },
+    { id: 'k2', bankId: 'itau', name: 'Click', limit: 250000, invoice: 0 },
+  ]
+  const cardsById = new Map(cards.map((c) => [c.id, c]))
+
+  const semOrigem = expense('2026-07-01', 'c1', 1000)
+  const naConta = { ...expense('2026-07-02', 'c1', 2000), origin: { kind: 'bank', bankId: 'nubank' } } as Expense
+  const noCartao = { ...expense('2026-07-03', 'c1', 3000), origin: { kind: 'card', cardId: 'k1' } } as Expense
+  const outroBanco = { ...expense('2026-07-04', 'c1', 4000), origin: { kind: 'card', cardId: 'k2' } } as Expense
+
+  it('gasto sem origem não pertence a banco nenhum', () => {
+    expect(expenseBankId(semOrigem, cardsById)).toBeNull()
+  })
+
+  it('origem-conta aponta direto para o banco', () => {
+    expect(expenseBankId(naConta, cardsById)).toBe('nubank')
+  })
+
+  it('origem-cartão conta para o banco DONO do cartão', () => {
+    expect(expenseBankId(noCartao, cardsById)).toBe('nubank')
+    expect(expenseBankId(outroBanco, cardsById)).toBe('itau')
+  })
+
+  it('cartão apagado (id órfão) não atribui o gasto a banco errado', () => {
+    const orfao = { ...expense('2026-07-05', 'c1', 5000), origin: { kind: 'card', cardId: 'SUMIU' } } as Expense
+    expect(expenseBankId(orfao, cardsById)).toBeNull()
+  })
+
+  it('expensesOfBank junta conta + cartões do mesmo banco e ignora o resto', () => {
+    const todos = [semOrigem, naConta, noCartao, outroBanco]
+    const doNubank = expensesOfBank(todos, 'nubank', cardsById)
+    expect(doNubank.map((e) => e.amount)).toEqual([2000, 3000])
+    expect(expensesOfBank(todos, 'itau', cardsById).map((e) => e.amount)).toEqual([4000])
+    expect(expensesOfBank(todos, 'bradesco', cardsById)).toEqual([])
   })
 })

@@ -34,11 +34,13 @@ function v1Data(): Record<string, unknown> {
   }
 }
 
-describe('migração de dados v1 → v4', () => {
+describe('migração de dados v1 → v6', () => {
   it('migra um arquivo v1 completo em cadeia e passa na validação do schema atual', () => {
     const migrated = migrate(v1Data())
     const parsed = zentDataSchema.parse(migrated)
-    expect(parsed.version).toBe(5)
+    expect(parsed.version).toBe(6)
+    // v5→v6: gastos antigos ficam sem origem
+    expect(parsed.expenses[0]?.origin).toBeNull()
     // v1→v2
     expect(parsed.investments[0]?.valueUpdates).toEqual([])
     expect(parsed.recurringExpenses).toEqual([])

@@ -91,7 +91,7 @@ test('5. gastos: onboarding cria categorias sem nada pré-criado', async () => {
 test('6. gastos: lançamento, reclassificação, filtro e alerta de limite', async () => {
   await page.getByRole('button', { name: 'Novo gasto' }).click()
   let dialog = page.getByRole('dialog')
-  await dialog.locator('select').selectOption({ label: 'Mercado' })
+  await dialog.getByLabel('Categoria').selectOption({ label: 'Mercado' })
   await dialog.getByPlaceholder('Ex.: Compras da semana').fill('Compras da semana')
   await dialog.getByRole('textbox', { name: 'Valor do gasto' }).fill('150')
   await dialog.getByRole('button', { name: 'Adicionar' }).click()
@@ -99,7 +99,7 @@ test('6. gastos: lançamento, reclassificação, filtro e alerta de limite', asy
 
   await page.getByRole('button', { name: 'Novo gasto' }).click()
   dialog = page.getByRole('dialog')
-  await dialog.locator('select').selectOption({ label: 'Lazer' })
+  await dialog.getByLabel('Categoria').selectOption({ label: 'Lazer' })
   await dialog.getByPlaceholder('Ex.: Compras da semana').fill('Cinema')
   await dialog.getByRole('textbox', { name: 'Valor do gasto' }).fill('60')
   await dialog.getByRole('radio', { name: 'Supérfluo', exact: true }).click()
@@ -125,7 +125,7 @@ test('6. gastos: lançamento, reclassificação, filtro e alerta de limite', asy
   await page.getByRole('dialog').getByRole('button', { name: 'Salvar' }).click()
   await page.getByRole('button', { name: 'Novo gasto' }).click()
   dialog = page.getByRole('dialog')
-  await dialog.locator('select').selectOption({ label: 'Lazer' })
+  await dialog.getByLabel('Categoria').selectOption({ label: 'Lazer' })
   await dialog.getByRole('textbox', { name: 'Valor do gasto' }).fill('90')
   await dialog.getByRole('button', { name: 'Adicionar' }).click()
   await expect(page.getByText('Limite de Lazer estourado')).toBeVisible()
@@ -134,7 +134,7 @@ test('6. gastos: lançamento, reclassificação, filtro e alerta de limite', asy
 test('7. gastos: lançamento recorrente cria template gerenciável', async () => {
   await page.getByRole('button', { name: 'Novo gasto' }).click()
   const dialog = page.getByRole('dialog')
-  await dialog.locator('select').selectOption({ label: 'Mercado' })
+  await dialog.getByLabel('Categoria').selectOption({ label: 'Mercado' })
   await dialog.getByPlaceholder('Ex.: Compras da semana').fill('Assinatura mensal')
   await dialog.getByRole('textbox', { name: 'Valor do gasto' }).fill('39,90')
   await dialog.getByRole('checkbox', { name: 'Repetir todo mês' }).check()
@@ -372,6 +372,60 @@ test('19. logos dos bancos detectados (incluindo os dois BTGs)', async () => {
   await expect(page.locator('img[alt="Logo BTG Banking"]').first()).toBeVisible()
 })
 
+/** R3 §3.4 — gasto com origem alimenta as análises do banco. */
+test('19b. gasto com "Pago com" entra nas análises do banco de origem', async () => {
+  await goTo('Gastos')
+  await page.getByRole('button', { name: 'Novo gasto' }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByLabel('Categoria').selectOption({ label: 'Mercado' })
+  await dialog.getByPlaceholder('Ex.: Compras da semana').fill('Compra no cartão')
+  await dialog.getByRole('textbox', { name: 'Valor do gasto' }).fill('250')
+  // "Ultravioleta" foi criado no teste 8, no primeiro banco (Nubank)
+  await dialog.getByLabel('Pago com').selectOption({ label: 'Ultravioleta · Nubank' })
+  await dialog.getByRole('button', { name: 'Adicionar' }).click()
+  await expect(page.getByText('Gasto registrado')).toBeVisible()
+
+  // filtro por origem isola o gasto (§5)
+  await page.getByLabel('Filtrar por origem').selectOption({ label: 'Ultravioleta' })
+  await expect(page.locator('li', { hasText: 'Compra no cartão' })).toBeVisible()
+  await expect(page.locator('li', { hasText: 'Cinema' })).toHaveCount(0)
+  await page.getByLabel('Filtrar por origem').selectOption({ label: 'Sem origem' })
+  await expect(page.locator('li', { hasText: 'Compra no cartão' })).toHaveCount(0)
+  await page.getByLabel('Filtrar por origem').selectOption({ label: 'Todas as origens' })
+})
+
+/** R3 §3.3 — drill-down do banco. */
+test('19c. drill-down do banco: navegar, cards, gráficos, saldo editável e voltar', async () => {
+  await goTo('Bancos & Cartões')
+  await page.getByRole('button', { name: 'Abrir Nubank' }).click()
+
+  // cabeçalho e os 4 cards do banco
+  await expect(page.getByRole('heading', { level: 1, name: 'Nubank' })).toBeVisible()
+  await expect(page.getByText('Investido aqui')).toBeVisible()
+  await expect(page.getByText('Limite disponível')).toBeVisible()
+  await expect(page.getByText('Resumo de Nubank')).toBeVisible() // balão do banco
+
+  // o gasto pago com o cartão do Nubank aparece na análise do banco (§3.4)
+  await expect(page.getByText('Gastos de julho de 2026 por aqui').locator('..')).toContainText('R$ 250,00')
+
+  // gráficos do banco
+  await expect(page.getByText('Uso de limite por cartão')).toBeVisible()
+  await expect(page.locator('svg[aria-label="Gráfico de barras"]').first()).toBeVisible()
+
+  // saldo editável ali mesmo
+  await page.getByRole('button', { name: 'Editar saldo em conta' }).click()
+  const field = page.getByRole('textbox', { name: 'Saldo em conta' })
+  await field.click()
+  await page.keyboard.press('Control+a')
+  await page.keyboard.type('1500', { delay: 30 })
+  await page.getByRole('button', { name: 'OK' }).click()
+  await expect(page.getByText('R$ 1.500,00').first()).toBeVisible()
+
+  // voltar retorna à lista
+  await page.getByRole('button', { name: 'Voltar para Bancos & Cartões' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Bancos & Cartões' })).toBeVisible()
+})
+
 /**
  * R3 §1 — regressão do bug do salário. `fill()` injeta o valor de uma vez e por isso
  * nunca pegou o bug: ele só aparece com digitação tecla a tecla, quando cada onChange
@@ -396,7 +450,7 @@ test('20. campos monetários aceitam digitação natural (2000 · 1.234,56 · 12
   await goTo('Gastos')
   await page.getByRole('button', { name: 'Novo gasto' }).click()
   dialog = page.getByRole('dialog')
-  await dialog.locator('select').selectOption({ label: 'Mercado' })
+  await dialog.getByLabel('Categoria').selectOption({ label: 'Mercado' })
   await dialog.getByPlaceholder('Ex.: Compras da semana').fill('Digitação BR')
   const expense = dialog.getByRole('textbox', { name: 'Valor do gasto' })
   await expense.click()

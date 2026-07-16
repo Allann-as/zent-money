@@ -54,6 +54,9 @@ export function materializeRecurrences(
           description: t.description,
           amount: t.amount,
           essential: t.essential,
+          // templates de recorrência não guardam origem: a instância nasce sem
+          // origem e o usuário atribui depois, se quiser
+          origin: null,
           recurringId: t.id,
         })
       }
