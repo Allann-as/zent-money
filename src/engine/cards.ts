@@ -17,11 +17,44 @@ export function remainingAmount(p: Purchase): number {
   return remainingInstallments(p) * p.installmentAmount
 }
 
-/** Soma comprometida em parcelas futuras de um cartão (centavos). */
+/**
+ * Parcela avulsa (empréstimo, financiamento, crediário, boleto parcelado):
+ * não vive num cartão e por isso não consome limite de crédito nenhum.
+ */
+export function isStandalone(p: Purchase): boolean {
+  return p.cardId === null
+}
+
+/**
+ * Soma comprometida em parcelas futuras de um cartão (centavos).
+ * Avulsas (`cardId: null`) nunca casam com um id de cartão — logo, jamais
+ * entram na regra do limite (§2 da R3).
+ */
 export function committedAmount(cardId: string, purchases: readonly Purchase[]): number {
   let total = 0
   for (const p of purchases) {
     if (p.cardId === cardId) total += remainingAmount(p)
+  }
+  return total
+}
+
+/**
+ * Compromisso mensal TOTAL em parcelas — cartões E avulsas.
+ * Base do card "Compromissos" e do comprometido/mês.
+ */
+export function totalMonthlyCommitment(purchases: readonly Purchase[]): number {
+  let total = 0
+  for (const p of purchases) {
+    if (remainingInstallments(p) > 0) total += p.installmentAmount
+  }
+  return total
+}
+
+/** Compromisso mensal só das avulsas (para discriminar no tooltip de Compromissos). */
+export function standaloneMonthlyCommitment(purchases: readonly Purchase[]): number {
+  let total = 0
+  for (const p of purchases) {
+    if (isStandalone(p) && remainingInstallments(p) > 0) total += p.installmentAmount
   }
   return total
 }

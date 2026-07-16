@@ -1,14 +1,14 @@
 import { z } from 'zod'
 
 /**
- * Schema v3 dos dados persistidos do Zent Money.
+ * Schema v4 dos dados persistidos do Zent Money.
  * Convenções (ver DECISOES.md):
  * - Dinheiro: inteiro em CENTAVOS, nunca formatado.
  * - Datas: ISO `YYYY-MM-DD`; meses: `YYYY-MM` (tipo `Ym`).
  * - Todo registro tem `id` único (string).
  */
 
-export const DATA_VERSION = 3
+export const DATA_VERSION = 4
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'data ISO YYYY-MM-DD')
 const ym = z.string().regex(/^\d{4}-\d{2}$/, 'mês YYYY-MM')
@@ -68,10 +68,21 @@ export const cardSchema = z.object({
   invoice: cents.nonnegative(),
 })
 
-/** Compra parcelada — vive DENTRO de um cartão. */
+/**
+ * Parcelamento. Dois tipos, discriminados por `cardId` (v4):
+ * - **vinculada a cartão** (`cardId` preenchido): consome o limite do cartão;
+ * - **avulsa** (`cardId: null`): empréstimo, financiamento, crediário, boleto
+ *   parcelado. NÃO afeta limite de cartão nenhum, mas entra normalmente no
+ *   comprometido do mês, em Compromissos e na Linha do tempo.
+ * O tipo é derivado de `cardId` de propósito — um campo `kind` separado seria
+ * estado redundante, livre para divergir do vínculo real (ver `isStandalone`).
+ */
 export const purchaseSchema = z.object({
   id: z.string(),
-  cardId: z.string(),
+  /** Cartão da compra; null = parcela avulsa. */
+  cardId: z.string().nullable(),
+  /** Credor/descrição da avulsa (ex.: "Empréstimo pessoal — Banco X"); null nas vinculadas. */
+  creditor: z.string().nullable(),
   name: z.string(),
   installmentAmount: cents.positive(),
   totalInstallments: z.number().int().positive(),

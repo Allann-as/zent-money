@@ -29,6 +29,14 @@ const BOX_EMOJI_TO_ICON: Record<string, string> = {
 }
 
 const MIGRATIONS: Record<number, (data: RawData) => RawData> = {
+  // v3 → v4: parcelas avulsas. As compras existentes nasceram todas vinculadas a um
+  // cartão e assim permanecem (cardId intacto); só ganham `creditor: null`.
+  3: (data) => {
+    const purchases = Array.isArray(data['purchases'])
+      ? (data['purchases'] as RawData[]).map((p) => ({ creditor: null, ...p }))
+      : []
+    return { ...data, version: 4, purchases }
+  },
   // v2 → v3: caixinhas trocam emoji por chave de ícone SVG
   2: (data) => {
     const boxes = Array.isArray(data['boxes'])

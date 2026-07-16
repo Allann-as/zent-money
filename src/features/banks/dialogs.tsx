@@ -3,6 +3,7 @@ import { Modal } from '@/design/components/Modal'
 import { Button } from '@/design/components/Button'
 import { Field, Input, MoneyInput } from '@/design/components/Input'
 import { Select } from '@/design/components/Select'
+import { Segmented } from '@/design/components/Segmented'
 import { ColorPicker } from '@/design/components/ColorPicker'
 import { toast } from '@/design/components/toast'
 import { useDataStore, useZentData } from '@/store/dataStore'
@@ -190,7 +191,8 @@ export function CardDialog({
 
 export type PurchaseDialogState =
   | 'closed'
-  | { mode: 'new'; cardId: string }
+  /** `cardId: null` abre já no tipo avulsa (R3 §2). */
+  | { mode: 'new'; cardId: string | null }
   | { mode: 'edit'; purchase: Purchase }
 
 export function PurchaseDialog({
@@ -207,17 +209,23 @@ export function PurchaseDialog({
 
   const [name, setName] = useState('')
   const [cardId, setCardId] = useState('')
+  /** true = parcela avulsa (empréstimo, crediário…): não consome limite de cartão. */
+  const [standalone, setStandalone] = useState(false)
+  const [creditor, setCreditor] = useState('')
   const [installment, setInstallment] = useState<number | null>(null)
   const [total, setTotal] = useState('12')
   const [paid, setPaid] = useState('0')
   const [startYm, setStartYm] = useState(currentYm())
   const [openedFor, setOpenedFor] = useState<string>('closed')
 
-  const target = !open ? 'closed' : editing ? `edit-${editing.id}` : `new-${state.mode === 'new' ? state.cardId : ''}`
+  const target = !open ? 'closed' : editing ? `edit-${editing.id}` : `new-${state.mode === 'new' ? (state.cardId ?? 'avulsa') : ''}`
   if (open && openedFor !== target) {
     setOpenedFor(target)
     setName(editing?.name ?? '')
-    setCardId(editing?.cardId ?? (state.mode === 'new' ? state.cardId : ''))
+    const initialCard = editing ? editing.cardId : state.mode === 'new' ? state.cardId : null
+    setStandalone(initialCard === null)
+    setCardId(initialCard ?? allCards[0]?.id ?? '')
+    setCreditor(editing?.creditor ?? '')
     setInstallment(editing?.installmentAmount ?? null)
     setTotal(String(editing?.totalInstallments ?? 12))
     setPaid(String(editing?.paidInstallments ?? 0))
@@ -229,7 +237,7 @@ export function PurchaseDialog({
   const paidN = Number(paid)
   const valid =
     name.trim() !== '' &&
-    cardId !== '' &&
+    (standalone || cardId !== '') && // avulsa não exige cartão
     installment !== null &&
     installment > 0 &&
     Number.isInteger(totalN) &&
@@ -243,12 +251,15 @@ export function PurchaseDialog({
   function save(): void {
     if (!open || !valid || installment === null) return
     const clean = name.trim()
+    const nextCardId = standalone ? null : cardId
+    const nextCreditor = standalone ? creditor.trim() || null : null
     mutate((d) => {
       if (editing) {
         const p = d.purchases.find((x) => x.id === editing.id)
         if (p) {
           p.name = clean
-          p.cardId = cardId
+          p.cardId = nextCardId
+          p.creditor = nextCreditor
           p.installmentAmount = installment
           p.totalInstallments = totalN
           p.paidInstallments = paidN
@@ -257,7 +268,8 @@ export function PurchaseDialog({
       } else if (state.mode === 'new') {
         d.purchases.push({
           id: newId(),
-          cardId,
+          cardId: nextCardId,
+          creditor: nextCreditor,
           name: clean,
           installmentAmount: installment,
           totalInstallments: totalN,
@@ -267,8 +279,10 @@ export function PurchaseDialog({
       }
     })
     toast.success(
-      editing ? 'Compra atualizada' : `Compra parcelada adicionada`,
-      `${clean} · ${totalN}x — o limite disponível do cartão já reflete as parcelas.`,
+      editing ? 'Parcela atualizada' : standalone ? 'Parcela avulsa adicionada' : 'Compra parcelada adicionada',
+      standalone
+        ? `${clean} · ${totalN}x — entra no comprometido do mês; nenhum limite de cartão é afetado.`
+        : `${clean} · ${totalN}x — o limite disponível do cartão já reflete as parcelas.`,
     )
     onClose()
   }
@@ -282,7 +296,7 @@ export function PurchaseDialog({
     <Modal
       open={open}
       onClose={onClose}
-      title={editing ? 'Editar compra parcelada' : 'Nova compra parcelada'}
+      title={editing ? 'Editar parcela' : standalone ? 'Nova parcela avulsa' : 'Nova compra parcelada'}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
@@ -295,25 +309,51 @@ export function PurchaseDialog({
       }
     >
       <div className="flex flex-col gap-4">
+        {/* Tipo do parcelamento (R3 §2) — avulsa não consome limite de cartão.
+            Sem <Field>: um <label> em volta de um tablist rouba o nome das abas. */}
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[12.5px] font-medium text-ink-soft">Tipo</span>
+          <Segmented<'card' | 'standalone'>
+            ariaLabel="Tipo da parcela"
+            value={standalone ? 'standalone' : 'card'}
+            onChange={(v) => setStandalone(v === 'standalone')}
+            options={[
+              { value: 'card', label: 'Vinculada a cartão' },
+              { value: 'standalone', label: 'Avulsa' },
+            ]}
+          />
+        </div>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Nome da compra">
+          <Field label={standalone ? 'Nome da parcela' : 'Nome da compra'}>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ex.: Notebook"
+              placeholder={standalone ? 'Ex.: Empréstimo pessoal' : 'Ex.: Notebook'}
               autoFocus
               maxLength={48}
             />
           </Field>
-          <Field label="Cartão">
-            <Select value={cardId} onChange={(e) => setCardId(e.target.value)} aria-label="Cartão da compra">
-              {allCards.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
+          {standalone ? (
+            <Field label="Credor" hint="Opcional">
+              <Input
+                value={creditor}
+                onChange={(e) => setCreditor(e.target.value)}
+                placeholder="Ex.: Banco X"
+                maxLength={48}
+                aria-label="Credor da parcela avulsa"
+              />
+            </Field>
+          ) : (
+            <Field label="Cartão">
+              <Select value={cardId} onChange={(e) => setCardId(e.target.value)} aria-label="Cartão da compra">
+                {allCards.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
         </div>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Valor da parcela">
@@ -361,6 +401,7 @@ export function PurchaseDialog({
               })}
             </strong>{' '}
             · restam {totalN - paidN} parcelas
+            {standalone ? ' · não consome limite de cartão' : ''}
           </p>
         )}
       </div>

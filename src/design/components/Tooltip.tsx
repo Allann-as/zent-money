@@ -11,7 +11,8 @@ export function Tooltip({
   disabled = false,
   children,
 }: {
-  label: string
+  /** Texto simples (sidebar) ou conteúdo rico (ex.: discriminação de Compromissos). */
+  label: ReactNode
   side?: 'right' | 'top' | 'bottom'
   disabled?: boolean
   children: ReactNode

@@ -3,10 +3,13 @@ import type { Card, Purchase } from '@/data/schema'
 import {
   availableLimit,
   committedAmount,
+  isStandalone,
   monthlyCommitment,
   payoffYm,
   remainingAmount,
   remainingInstallments,
+  standaloneMonthlyCommitment,
+  totalMonthlyCommitment,
 } from '@/engine/cards'
 
 const card: Card = { id: 'card1', bankId: 'b1', name: 'Ultravioleta', limit: 5_000_00, invoice: 0 }
@@ -15,6 +18,7 @@ function purchase(overrides: Partial<Purchase> = {}): Purchase {
   return {
     id: 'p1',
     cardId: 'card1',
+    creditor: null,
     name: 'Notebook',
     installmentAmount: 100_00,
     totalInstallments: 10,
@@ -92,5 +96,58 @@ describe('mês previsto de quitação', () => {
   it('quitada → null', () => {
     const p = purchase({ paidInstallments: 10 })
     expect(payoffYm(p, '2026-07')).toBeNull()
+  })
+})
+
+/** Parcela avulsa: empréstimo/crediário/boleto — não vive num cartão (R3 §2). */
+function standalone(overrides: Partial<Purchase> = {}): Purchase {
+  return purchase({
+    id: 'avulsa1',
+    cardId: null,
+    creditor: 'Banco X',
+    name: 'Empréstimo pessoal',
+    installmentAmount: 300_00,
+    totalInstallments: 24,
+    ...overrides,
+  })
+}
+
+describe('parcelas avulsas (R3 §2)', () => {
+  it('isStandalone distingue avulsa de compra no cartão', () => {
+    expect(isStandalone(standalone())).toBe(true)
+    expect(isStandalone(purchase())).toBe(false)
+  })
+
+  it('NÃO afeta o limite disponível de cartão nenhum', () => {
+    const so = standalone()
+    // sozinha: o limite fica intacto
+    expect(availableLimit(card, [so])).toBe(5_000_00)
+    expect(committedAmount('card1', [so])).toBe(0)
+    // convivendo com uma compra de cartão: só a do cartão pesa no limite
+    expect(availableLimit(card, [purchase(), so])).toBe(5_000_00 - 1_000_00)
+    expect(committedAmount('card1', [purchase(), so])).toBe(1_000_00)
+  })
+
+  it('entra normalmente no comprometido do mês', () => {
+    const so = standalone()
+    expect(totalMonthlyCommitment([so])).toBe(300_00)
+    // cartão (100/mês) + avulsa (300/mês) = 400/mês
+    expect(totalMonthlyCommitment([purchase(), so])).toBe(400_00)
+    expect(standaloneMonthlyCommitment([purchase(), so])).toBe(300_00)
+    // a parte "de cartão" do tooltip = total − avulsas
+    expect(totalMonthlyCommitment([purchase(), so]) - standaloneMonthlyCommitment([purchase(), so])).toBe(100_00)
+  })
+
+  it('quitada sai do comprometido mensal, como qualquer parcela', () => {
+    const quitada = standalone({ paidInstallments: 24 })
+    expect(totalMonthlyCommitment([quitada])).toBe(0)
+    expect(standaloneMonthlyCommitment([quitada])).toBe(0)
+    expect(remainingAmount(quitada)).toBe(0)
+  })
+
+  it('pagar/desfazer e quitação funcionam igual às de cartão', () => {
+    expect(remainingInstallments(standalone({ paidInstallments: 10 }))).toBe(14)
+    expect(remainingAmount(standalone({ paidInstallments: 10 }))).toBe(14 * 300_00)
+    expect(payoffYm(standalone({ startYm: '2026-07' }), '2026-07')).toBe('2028-06')
   })
 })

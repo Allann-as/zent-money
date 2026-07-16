@@ -187,6 +187,58 @@ test('9. parcelas: visão consolidada com ações +1 paga/desfazer', async () =>
   await expect(item.getByText('0/10')).toBeVisible()
 })
 
+/** R3 §2 — parcela avulsa: entra no comprometido, mas NÃO toca no limite do cartão. */
+test('9b. parcelas avulsas: criar, entrar em Compromissos e não afetar o limite', async () => {
+  // limite disponível do cartão ANTES da avulsa (5.000 − 10×100 = 4.000)
+  await goTo('Bancos & Cartões')
+  await expect(page.getByText('R$ 4.000,00')).toBeVisible()
+
+  await goTo('Parcelas')
+  await page.getByRole('button', { name: 'Nova parcela' }).click()
+  let dialog = page.getByRole('dialog')
+  await dialog.getByRole('tab', { name: 'Avulsa', exact: true }).click()
+  await dialog.getByPlaceholder('Ex.: Empréstimo pessoal').fill('Empréstimo pessoal')
+  await dialog.getByRole('textbox', { name: 'Credor da parcela avulsa' }).fill('Banco X')
+  await dialog.getByRole('textbox', { name: 'Valor da parcela' }).fill('300')
+  await dialog.getByLabel('Total de parcelas').fill('24')
+  await dialog.getByRole('button', { name: 'Adicionar' }).click()
+  await expect(page.getByText('Parcela avulsa adicionada')).toBeVisible()
+
+  // item na lista: chip "avulsa" + credor, sem logo de banco
+  const item = page.locator('li', { hasText: 'Empréstimo pessoal' })
+  await expect(item.getByText('avulsa')).toBeVisible()
+  await expect(item).toContainText('Banco X')
+  await expect(item.locator('img')).toHaveCount(0)
+
+  // comprometido/mês passa a somar a avulsa: 100 (cartão) + 300 (avulsa) = 400
+  await expect(page.getByText('Comprometido por mês').locator('..')).toContainText('R$ 400,00')
+
+  // +1 paga / desfazer funcionam
+  await item.getByRole('button', { name: '1 paga' }).click()
+  await expect(item.getByText('1/24')).toBeVisible()
+  await item.getByRole('button', { name: 'desfazer' }).click()
+  await expect(item.getByText('0/24')).toBeVisible()
+
+  // filtro "Avulsas" isola as avulsas e esconde as de cartão
+  await page.getByLabel('Filtrar por banco').selectOption({ label: 'Avulsas' })
+  await expect(page.locator('li', { hasText: 'Empréstimo pessoal' })).toBeVisible()
+  await expect(page.locator('li', { hasText: 'Notebook' })).toHaveCount(0)
+  await page.getByLabel('Filtrar por banco').selectOption({ label: 'Todos os bancos' })
+
+  // O PONTO CRÍTICO: o limite do cartão continua intocado pela avulsa
+  await goTo('Bancos & Cartões')
+  await expect(page.getByText('R$ 4.000,00')).toBeVisible()
+
+  // e Compromissos (Visão geral) discrimina faturas × cartão × avulsas no tooltip
+  await goTo('Visão geral')
+  await page.getByText('Compromissos').hover()
+  const tip = page.getByRole('tooltip')
+  await expect(tip).toContainText('Parcelas avulsas')
+  await expect(tip).toContainText('R$ 300,00')
+  await expect(tip).toContainText('Parcelas de cartão')
+  dialog = page.getByRole('dialog') // encerra o hover
+})
+
 test('10. carteira: ativo com classe + aporte + 3 modos + filtros', async () => {
   await goTo('Carteira')
   await page.getByRole('button', { name: 'Novo ativo' }).click()

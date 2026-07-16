@@ -12,15 +12,20 @@ export function Segmented<T extends string>({
   value,
   onChange,
   className,
+  ariaLabel,
 }: {
   options: SegmentedOption<T>[]
   value: T
   onChange(v: T): void
   className?: string
+  /** Nome do grupo. Nunca envolva este componente num <label>: o label
+   *  reivindicaria o primeiro botão e embaralharia o nome acessível das abas. */
+  ariaLabel?: string
 }): ReactNode {
   return (
     <div
       role="tablist"
+      {...(ariaLabel ? { 'aria-label': ariaLabel } : {})}
       className={cn('inline-flex p-1 gap-0.5 bg-surface-2 border border-line rounded-[11px]', className)}
     >
       {options.map((o) => (

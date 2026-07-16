@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { CalendarCheck, CalendarClock, Layers, Minus, Pencil, Plus, Trash2, Wallet } from 'lucide-react'
+import { CalendarCheck, CalendarClock, Layers, Minus, Pencil, Plus, Receipt, Trash2, Wallet } from 'lucide-react'
 import { PageHeader } from '@/features/common/PageHeader'
 import { Card, CardTitle } from '@/design/components/Card'
 import { Button } from '@/design/components/Button'
@@ -13,10 +13,11 @@ import { toast } from '@/design/components/toast'
 import { confirmDialog } from '@/design/components/confirm'
 import { useDataStore, useZentData } from '@/store/dataStore'
 import {
-  monthlyCommitment,
+  isStandalone,
   payoffYm,
   remainingAmount,
   remainingInstallments,
+  totalMonthlyCommitment,
 } from '@/engine/cards'
 import { formatBRL } from '@/engine/money'
 import { formatYmShort, ymCompare } from '@/engine/dates'
@@ -26,6 +27,9 @@ import { BankLogo } from '@/features/banks/BankLogo'
 import { PurchaseDialog, type PurchaseDialogState } from '@/features/banks/dialogs'
 
 type StatusFilter = 'active' | 'done' | 'all'
+
+/** Valor especial do filtro de banco: só parcelas avulsas (R3 §2). */
+const STANDALONE_FILTER = 'standalone'
 
 /**
  * Parcelas — visão consolidada (§5.5): agrega TODAS as compras parceladas
@@ -46,7 +50,8 @@ export function InstallmentsPage(): ReactNode {
 
   const stats = useMemo(() => {
     const active = data.purchases.filter((p) => remainingInstallments(p) > 0)
-    const monthly = data.cards.reduce((a, c) => a + monthlyCommitment(c.id, data.purchases), 0)
+    // inclui avulsas: o comprometido do mês é de TODAS as parcelas (R3 §2)
+    const monthly = totalMonthlyCommitment(data.purchases)
     const remaining = active.reduce((a, p) => a + remainingAmount(p), 0)
     let next: { purchase: Purchase; ym: string } | null = null
     for (const p of active) {
@@ -54,14 +59,19 @@ export function InstallmentsPage(): ReactNode {
       if (ym && (next === null || ymCompare(ym, next.ym) < 0)) next = { purchase: p, ym }
     }
     return { active, monthly, remaining, next }
-  }, [data.purchases, data.cards])
+  }, [data.purchases])
 
   const filtered = useMemo(() => {
     return data.purchases
       .filter((p) => {
-        const card = cardsById.get(p.cardId)
-        if (cardFilter !== 'all' && p.cardId !== cardFilter) return false
-        if (bankFilter !== 'all' && card?.bankId !== bankFilter) return false
+        if (bankFilter === STANDALONE_FILTER) {
+          if (!isStandalone(p)) return false
+        } else {
+          // avulsa não tem cartão nem banco: qualquer filtro de banco/cartão a exclui
+          const card = p.cardId === null ? undefined : cardsById.get(p.cardId)
+          if (cardFilter !== 'all' && p.cardId !== cardFilter) return false
+          if (bankFilter !== 'all' && card?.bankId !== bankFilter) return false
+        }
         const done = remainingInstallments(p) === 0
         if (status === 'active' && done) return false
         if (status === 'done' && !done) return false
@@ -136,8 +146,10 @@ export function InstallmentsPage(): ReactNode {
 
   async function removePurchase(p: Purchase): Promise<void> {
     const ok = await confirmDialog({
-      title: 'Excluir compra parcelada',
-      message: `Excluir "${p.name}"? O valor comprometido volta para o limite disponível do cartão.`,
+      title: isStandalone(p) ? 'Excluir parcela avulsa' : 'Excluir compra parcelada',
+      message: isStandalone(p)
+        ? `Excluir "${p.name}"? Ela sai do comprometido do mês.`
+        : `Excluir "${p.name}"? O valor comprometido volta para o limite disponível do cartão.`,
       confirmLabel: 'Excluir',
       danger: true,
     })
@@ -145,22 +157,27 @@ export function InstallmentsPage(): ReactNode {
     mutate((d) => {
       d.purchases = d.purchases.filter((x) => x.id !== p.id)
     })
-    toast.success('Compra excluída')
+    toast.success(isStandalone(p) ? 'Parcela avulsa excluída' : 'Compra excluída')
   }
 
   const firstCardId = data.cards[0]?.id
+  // tipo inicial do diálogo: segue o filtro ativo; sem cartão nenhum, só resta avulsa
+  const newDialogCardId =
+    bankFilter === STANDALONE_FILTER
+      ? null
+      : cardFilter !== 'all'
+        ? cardFilter
+        : (firstCardId ?? null)
 
   return (
     <>
       <PageHeader
         title="Parcelas"
-        subtitle="Todas as compras parceladas, de todos os cartões"
+        subtitle="Compras no cartão e parcelas avulsas, tudo em um lugar"
         actions={
-          firstCardId ? (
-            <Button onClick={() => setDialog({ mode: 'new', cardId: cardFilter !== 'all' ? cardFilter : firstCardId })}>
-              <Plus size={15} /> Nova compra parcelada
-            </Button>
-          ) : undefined
+          <Button onClick={() => setDialog({ mode: 'new', cardId: newDialogCardId })}>
+            <Plus size={15} /> Nova parcela
+          </Button>
         }
       />
 
@@ -197,12 +214,14 @@ export function InstallmentsPage(): ReactNode {
                   {b.name}
                 </option>
               ))}
+              <option value={STANDALONE_FILTER}>Avulsas</option>
             </Select>
             <Select
               value={cardFilter}
               onChange={(e) => setCardFilter(e.target.value)}
               className="h-8.5 w-36 text-[13px]"
               aria-label="Filtrar por cartão"
+              disabled={bankFilter === STANDALONE_FILTER}
             >
               <option value="all">Todos os cartões</option>
               {cardOptions.map((c) => (
@@ -226,21 +245,18 @@ export function InstallmentsPage(): ReactNode {
         {filtered.length === 0 ? (
           <EmptyState
             icon={Layers}
-            title={
-              data.purchases.length === 0
-                ? 'Nenhuma compra parcelada'
-                : 'Nada com esses filtros'
-            }
+            title={data.purchases.length === 0 ? 'Nenhuma parcela ativa' : 'Nada com esses filtros'}
             description={
               data.purchases.length === 0
-                ? 'Cadastre compras parceladas nos cartões — elas aparecem aqui consolidadas e reduzem o limite disponível automaticamente.'
-                : 'Ajuste os filtros de banco, cartão ou status para ver outras compras.'
+                ? 'Compras no cartão reduzem o limite disponível automaticamente; parcelas avulsas (empréstimo, crediário, boleto) entram só no comprometido do mês. Cadastre as duas aqui.'
+                : 'Ajuste os filtros de banco, cartão ou status para ver outras parcelas.'
             }
           />
         ) : (
           <ul className="px-3 pb-3 flex flex-col gap-2">
             {filtered.map((p) => {
-              const card = cardsById.get(p.cardId)
+              const standalone = isStandalone(p)
+              const card = p.cardId === null ? undefined : cardsById.get(p.cardId)
               const bank = card ? banksById.get(card.bankId) : undefined
               const remaining = remainingInstallments(p)
               const progress = p.paidInstallments / p.totalInstallments
@@ -253,13 +269,32 @@ export function InstallmentsPage(): ReactNode {
                     remaining === 0 && 'opacity-55',
                   )}
                 >
-                  {bank && <BankLogo name={bank.name} color={bank.color} size={34} />}
+                  {standalone ? (
+                    // avulsa não tem banco: chip neutro no lugar do logo
+                    <span
+                      className="h-8.5 w-8.5 shrink-0 rounded-[9px] border border-line bg-surface-3 inline-flex items-center justify-center text-ink-faint"
+                      title="Parcela avulsa — não vinculada a cartão"
+                    >
+                      <Receipt size={15} />
+                    </span>
+                  ) : (
+                    bank && <BankLogo name={bank.name} color={bank.color} size={34} />
+                  )}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline gap-2">
                       <p className="text-[13.5px] font-semibold text-ink truncate">{p.name}</p>
-                      <span className="text-[11.5px] text-ink-faint truncate">
-                        {bank?.name} · {card?.name ?? 'cartão removido'}
-                      </span>
+                      {standalone ? (
+                        <span className="text-[11.5px] text-ink-faint truncate flex items-baseline gap-1.5">
+                          <span className="px-1.5 py-px rounded-[5px] border border-line bg-surface-3 text-[10.5px] font-medium uppercase tracking-wide">
+                            avulsa
+                          </span>
+                          {p.creditor ?? ''}
+                        </span>
+                      ) : (
+                        <span className="text-[11.5px] text-ink-faint truncate">
+                          {bank?.name} · {card?.name ?? 'cartão removido'}
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-2.5 mt-1.5">
                       <div className="h-1.5 rounded-full bg-surface-3 overflow-hidden flex-1 max-w-[220px]">

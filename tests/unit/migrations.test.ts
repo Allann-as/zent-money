@@ -34,11 +34,11 @@ function v1Data(): Record<string, unknown> {
   }
 }
 
-describe('migração de dados v1 → v3', () => {
-  it('migra um arquivo v1 completo em cadeia e passa na validação do schema v3', () => {
+describe('migração de dados v1 → v4', () => {
+  it('migra um arquivo v1 completo em cadeia e passa na validação do schema atual', () => {
     const migrated = migrate(v1Data())
     const parsed = zentDataSchema.parse(migrated)
-    expect(parsed.version).toBe(3)
+    expect(parsed.version).toBe(4)
     // v1→v2
     expect(parsed.investments[0]?.valueUpdates).toEqual([])
     expect(parsed.recurringExpenses).toEqual([])
@@ -47,9 +47,18 @@ describe('migração de dados v1 → v3', () => {
     // v2→v3: emoji 🛟 vira chave de ícone SVG
     expect(parsed.boxes[0]?.icon).toBe('lifebuoy')
     expect('emoji' in (parsed.boxes[0] ?? {})).toBe(false)
+    // v3→v4: a compra existente continua VINCULADA ao cartão, só ganha creditor null
+    expect(parsed.purchases[0]?.cardId).toBe('k1')
+    expect(parsed.purchases[0]?.creditor).toBeNull()
     // dados v1 preservados intactos
     expect(parsed.expenses[0]?.amount).toBe(15000)
     expect(parsed.purchases[0]?.totalInstallments).toBe(10)
+  })
+
+  it('v3→v4 não transforma compra de cartão em avulsa (o vínculo é preservado)', () => {
+    const parsed = zentDataSchema.parse(migrate(v1Data()))
+    // nenhuma parcela migrada pode nascer avulsa
+    expect(parsed.purchases.every((p) => p.cardId !== null)).toBe(true)
   })
 
   it('emoji desconhecido nas caixinhas vira o ícone padrão "target"', () => {

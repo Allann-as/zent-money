@@ -34,7 +34,8 @@ import {
   sumByMonth,
 } from '@/engine/aggregations'
 import { combineSeries, investmentSeries, investmentSnapshot } from '@/engine/investments'
-import { monthlyCommitment } from '@/engine/cards'
+import { standaloneMonthlyCommitment, totalMonthlyCommitment } from '@/engine/cards'
+import { Tooltip } from '@/design/components/Tooltip'
 import { formatBRL, formatPercent } from '@/engine/money'
 import {
   addMonths,
@@ -103,10 +104,25 @@ export function OverviewPage(): ReactNode {
     const prevSpent = expensesMap.get(prevYm) ?? 0
     const net = income - spent
     const prevNet = prevIncome - prevSpent
-    const commitments =
-      data.cards.reduce((a, c) => a + monthlyCommitment(c.id, data.purchases), 0) +
-      data.cards.reduce((a, c) => a + c.invoice, 0)
-    return { income, prevIncome, spent, prevSpent, net, prevNet, commitments }
+    // Compromissos = faturas abertas + parcelas de cartão + parcelas avulsas (R3 §2/§5).
+    // A parte "de cartão" é derivada do total menos as avulsas para que as três linhas
+    // do tooltip somem exatamente o número exibido.
+    const invoices = data.cards.reduce((a, c) => a + c.invoice, 0)
+    const standaloneCommit = standaloneMonthlyCommitment(data.purchases)
+    const cardCommit = totalMonthlyCommitment(data.purchases) - standaloneCommit
+    const commitments = invoices + cardCommit + standaloneCommit
+    return {
+      income,
+      prevIncome,
+      spent,
+      prevSpent,
+      net,
+      prevNet,
+      commitments,
+      invoices,
+      cardCommit,
+      standaloneCommit,
+    }
   }, [data, expensesMap, ym])
 
   // ── NOVO: ritmo do mês (média diária + projeção) ───────────────────
@@ -244,12 +260,33 @@ export function OverviewPage(): ReactNode {
             )
           }
         />
-        <StatCard
-          icon={CalendarClock}
-          value={<AnimatedMoney cents={month.commitments} />}
-          label="Compromissos"
-          detail="parcelas ativas + faturas abertas"
-        />
+        {/* R3 §5: o tooltip discrimina faturas × parcelas de cartão × avulsas */}
+        <Tooltip
+          side="top"
+          label={
+            <span className="flex flex-col gap-1 py-0.5">
+              <span className="flex justify-between gap-6">
+                <span className="text-ink-soft">Faturas abertas</span>
+                <span className="tnum">{formatBRL(month.invoices)}</span>
+              </span>
+              <span className="flex justify-between gap-6">
+                <span className="text-ink-soft">Parcelas de cartão</span>
+                <span className="tnum">{formatBRL(month.cardCommit)}</span>
+              </span>
+              <span className="flex justify-between gap-6">
+                <span className="text-ink-soft">Parcelas avulsas</span>
+                <span className="tnum">{formatBRL(month.standaloneCommit)}</span>
+              </span>
+            </span>
+          }
+        >
+          <StatCard
+            icon={CalendarClock}
+            value={<AnimatedMoney cents={month.commitments} />}
+            label="Compromissos"
+            detail="faturas + parcelas (passe o mouse)"
+          />
+        </Tooltip>
       </div>
 
       {/* Balão de resumo inteligente do mês (§5.1) */}

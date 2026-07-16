@@ -145,7 +145,8 @@ export function BanksPage(): ReactNode {
       const cardIds = new Set(d.cards.filter((c) => c.bankId === bank.id).map((c) => c.id))
       d.banks = d.banks.filter((b) => b.id !== bank.id)
       d.cards = d.cards.filter((c) => c.bankId !== bank.id)
-      d.purchases = d.purchases.filter((p) => !cardIds.has(p.cardId))
+      // parcelas avulsas não pertencem a banco nenhum — sobrevivem à exclusão
+      d.purchases = d.purchases.filter((p) => p.cardId === null || !cardIds.has(p.cardId))
     })
     toast.success(`${bank.name} excluído`)
   }
