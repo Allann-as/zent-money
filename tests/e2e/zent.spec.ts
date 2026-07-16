@@ -320,6 +320,54 @@ test('19. logos dos bancos detectados (incluindo os dois BTGs)', async () => {
   await expect(page.locator('img[alt="Logo BTG Banking"]').first()).toBeVisible()
 })
 
-test('20. zero erros de console/runtime em toda a sessão', () => {
+/**
+ * R3 §1 — regressão do bug do salário. `fill()` injeta o valor de uma vez e por isso
+ * nunca pegou o bug: ele só aparece com digitação tecla a tecla, quando cada onChange
+ * re-renderiza o pai. Estes testes digitam de verdade, nos 3 formatos, em 3 campos
+ * diferentes, e conferem o valor PERSISTIDO.
+ */
+test('20. campos monetários aceitam digitação natural (2000 · 1.234,56 · 1234.56)', async () => {
+  // (a) salário — o campo do bug: rascunho mora no pai, então cada tecla re-renderiza o Modal
+  await goTo('Ganhos')
+  await page.getByRole('button', { name: 'Editar', exact: true }).click()
+  let dialog = page.getByRole('dialog')
+  const salary = dialog.getByRole('textbox', { name: 'Salário mensal' })
+  await salary.click()
+  await page.keyboard.press('Control+a') // o modal vem preenchido: seleciona antes de digitar
+  await page.keyboard.type('2000', { delay: 40 })
+  await expect(salary).toHaveValue('2000') // não trava no 1º dígito
+  await expect(salary).toBeFocused() // o foco não foi roubado pelo "Fechar"
+  await dialog.getByRole('button', { name: 'Salvar' }).click()
+  await expect(page.getByText('R$ 2.000,00').first()).toBeVisible()
+
+  // (b) valor de gasto em formato BR
+  await goTo('Gastos')
+  await page.getByRole('button', { name: 'Novo gasto' }).click()
+  dialog = page.getByRole('dialog')
+  await dialog.locator('select').selectOption({ label: 'Mercado' })
+  await dialog.getByPlaceholder('Ex.: Compras da semana').fill('Digitação BR')
+  const expense = dialog.getByRole('textbox', { name: 'Valor do gasto' })
+  await expense.click()
+  await page.keyboard.type('1.234,56', { delay: 40 })
+  await expect(expense).toHaveValue('1.234,56')
+  await dialog.getByRole('button', { name: 'Adicionar' }).click()
+  await expect(page.locator('li', { hasText: 'Digitação BR' })).toContainText('1.234,56')
+
+  // (c) valor alvo de caixinha em formato US
+  await goTo('Caixinhas')
+  await page.getByRole('button', { name: 'Nova caixinha' }).click()
+  dialog = page.getByRole('dialog')
+  await dialog.getByPlaceholder('Ex.: Reserva de emergência').fill('Digitação US')
+  const target = dialog.getByRole('textbox', { name: 'Valor alvo da caixinha' })
+  await target.click()
+  await page.keyboard.type('1234.56', { delay: 40 })
+  await expect(target).toHaveValue('1234.56')
+  await dialog.getByRole('button', { name: 'Criar caixinha' }).click()
+  // "1234.56" (US) persistiu como 123456 centavos e é exibido em pt-BR
+  await expect(page.getByText('Digitação US', { exact: true })).toBeVisible()
+  await expect(page.getByText('/ R$ 1.234,56')).toBeVisible()
+})
+
+test('21. zero erros de console/runtime em toda a sessão', () => {
   expect(consoleErrors, `Erros de console:\n${consoleErrors.join('\n')}`).toHaveLength(0)
 })

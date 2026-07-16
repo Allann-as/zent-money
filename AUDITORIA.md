@@ -1,5 +1,49 @@
 # AUDITORIA.md — Zent Money
 
+## BUG BLOQUEANTE DO SALÁRIO (Release 3, §1) — causa-raiz — 16/07/2026
+
+### Sintoma
+Em Ganhos → Editar salário, digitar "2" travava o campo: nenhum dígito adicional era
+aceito e o salário ficava preso em R$ 2,00.
+
+### Causa-raiz — o `Modal`, não o campo monetário
+A hipótese da spec (input formatando/parseando a cada tecla) **foi refutada**: o
+`MoneyInput` já preservava o texto digitado durante o foco. O culpado era o
+`Modal` (`src/design/components/Modal.tsx`), em dois defeitos compostos:
+
+1. **`onClose` nas deps do efeito de foco.** O modal do salário recebe
+   `onClose={() => setSalaryModal(false)}` — função nova a cada render do `IncomePage`.
+   Como o rascunho do salário (`salaryDraft`) mora no **pai** do Modal, cada tecla
+   re-renderizava o pai, mudava a identidade de `onClose` e **re-executava o efeito**.
+2. **O efeito focava o botão errado.** `panelRef.querySelector('input, select, textarea,
+   button')` varre o painel inteiro em ordem de documento — e o **"Fechar" do cabeçalho
+   vem antes do campo**. Logo, cada tecla movia o foco para o "Fechar"; o `blur` do input
+   formatava "2" → "2,00" e as teclas seguintes iam para o botão.
+
+Diagnóstico que fechou o caso (Playwright, digitação tecla a tecla):
+`{"value":"2,00","activeTag":"BUTTON","activeLabel":"Fechar"}`.
+
+### Correção
+- `onClose` guardado em ref (`onCloseRef`); deps do efeito reduzidas a `[open]`.
+- Foco inicial mira o primeiro campo do **corpo** do modal (`bodyRef`), nunca o "Fechar".
+- Era **bug latente de todo modal com estado no pai** — a correção no componente do design
+  system cura a classe inteira. Varredura confirmou que 100% dos campos monetários já
+  passam pelo `MoneyInput` (nenhum `<input>` cru de dinheiro), então o padrão único da
+  §1 já era o vigente; ficou documentado em `DECISOES.md`.
+
+### Por que a suíte não pegava
+Os E2E usavam `fill()`, que injeta o valor de uma vez e dispara um único evento — o bug
+só se manifesta tecla a tecla. **Lacuna fechada**: o teste 20 digita com `keyboard.type`
+nos 3 formatos ("2000" · "1.234,56" · "1234.56") em 3 campos diferentes (salário, gasto,
+caixinha), confere o valor **persistido** e assere que o campo **mantém o foco**. Unit
+novo cobre os estados intermediários do parse ("2", "2.", "2,", "2.0" e todos os
+prefixos de "1.234,56" / "1234.56").
+
+**Estado após a correção:** 72 unit + 21 E2E verdes, typecheck estrito e lint limpos,
+zero erros de console.
+
+---
+
 ## Release 2 — checklist de aceite (§10 da spec R2)
 
 - [x] Instalador `.exe` gera, instala e abre sem erros; **causa-raiz documentada abaixo**

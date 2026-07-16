@@ -2,6 +2,33 @@
 
 Registro das decisões tomadas onde a especificação deixou eixos livres.
 
+## Release 3 — correções, bancos em profundidade e design final
+
+- **Padrão único de campo monetário (§1): digitação livre no foco, normalização no
+  blur.** Confirmado como padrão de 100% dos campos monetários do app (salário, gastos,
+  aportes, limites, faturas, metas, saldo inline) — todos passam pelo componente
+  `MoneyInput`, nenhum campo de dinheiro usa `<input>` cru. Máscara de caixa eletrônico
+  foi **descartada**: ela impede colar "1.234,56", atrapalha quem digita o valor cheio e
+  esconde o estado real do campo. Regra: o texto digitado é preservado tal e qual
+  enquanto o campo tem foco; `parseMoney` roda a cada tecla apenas para *reportar* o
+  valor ao formulário (e marcar borda vermelha se inválido); a formatação pt-BR só
+  acontece no `blur`. `parseMoney` aceita todo prefixo válido de digitação
+  (`2` · `2.` · `2,` · `2.0`), coberto por unit.
+- **Causa-raiz do bug do salário (§1) — era o `Modal`, não o input.** O `MoneyInput`
+  sempre esteve correto. O `Modal` recebia `onClose` inline (`() => setSalaryModal(false)`),
+  cuja identidade muda a cada render do pai, e o tinha nas deps do `useEffect` de foco.
+  Como o rascunho do salário mora no *pai* do Modal, cada tecla re-renderizava o pai →
+  efeito re-executava → `querySelector('input, select, textarea, button')` no painel
+  devolvia o **botão "Fechar" do cabeçalho** (primeiro em ordem de documento) e roubava
+  o foco. Daí o campo travar em "2,00" no primeiro dígito. Correção: `onClose` via ref
+  (deps só `[open]`) e o foco inicial mira o primeiro campo do **corpo** do modal, nunca
+  o "Fechar". Era bug latente de qualquer modal com estado no pai — a correção no
+  componente cura a classe toda.
+- **Por que o E2E não pegava**: os testes usavam `fill()`, que injeta o valor de uma vez
+  e dispara um único evento. O bug só aparece tecla a tecla. O teste de regressão agora
+  digita de verdade (`keyboard.type`) nos 3 formatos, em 3 campos, e confere o valor
+  persistido — além de assertar que o campo **mantém o foco**.
+
 ## Release 2 — refinamento profissional
 
 - **Fonte premium: Geist** (variável, 400–700, `@fontsource-variable/geist`, local).

@@ -15,18 +15,25 @@ export interface ModalProps {
 /** Modal do design system: portal, backdrop, Esc, focus trap básico. */
 export function Modal({ open, onClose, title, children, footer, width = 440 }: ModalProps): ReactNode {
   const panelRef = useRef<HTMLDivElement>(null)
+  const bodyRef = useRef<HTMLDivElement>(null)
+
+  // onClose entra por ref: como callback inline, sua identidade muda a cada render do
+  // pai. Nas deps do efeito abaixo, isso o re-executaria a cada tecla digitada e o
+  // foco seria roubado do campo em uso (bug do salário, R3 §1).
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
 
   useEffect(() => {
     if (!open) return
     const el = panelRef.current
-    // foca o primeiro campo (ou o painel) ao abrir
-    const first = el?.querySelector<HTMLElement>('input, select, textarea, button')
+    // foca o primeiro campo do corpo — nunca o "Fechar" do cabeçalho
+    const first = bodyRef.current?.querySelector<HTMLElement>('input, select, textarea, button')
     ;(first ?? el)?.focus()
 
     function onKey(e: KeyboardEvent): void {
       if (e.key === 'Escape') {
         e.stopPropagation()
-        onClose()
+        onCloseRef.current()
       } else if (e.key === 'Tab' && el) {
         // focus trap: mantém Tab dentro do modal
         const focusables = el.querySelectorAll<HTMLElement>(
@@ -48,7 +55,7 @@ export function Modal({ open, onClose, title, children, footer, width = 440 }: M
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  }, [open])
 
   if (!open) return null
 
@@ -83,7 +90,9 @@ export function Modal({ open, onClose, title, children, footer, width = 440 }: M
             <X size={15} />
           </button>
         </header>
-        <div className="px-5 pb-4 overflow-y-auto">{children}</div>
+        <div ref={bodyRef} className="px-5 pb-4 overflow-y-auto">
+          {children}
+        </div>
         {footer ? (
           <footer className="flex justify-end gap-2 px-5 py-3.5 border-t border-line">{footer}</footer>
         ) : null}

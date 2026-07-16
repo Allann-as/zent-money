@@ -44,6 +44,35 @@ describe('parsing de dinheiro BR/US', () => {
     expect(parseMoney('12.3456')).toBeNull()
   })
 
+  /**
+   * R3 §1 — o MoneyInput chama parseMoney a CADA tecla. Todo prefixo válido de um
+   * número em digitação precisa ser aceito, senão o campo rejeita o meio do caminho.
+   */
+  it('aceita os estados intermediários da digitação', () => {
+    // digitando "2000" tecla a tecla
+    expect(parseMoney('2')).toBe(200)
+    expect(parseMoney('20')).toBe(2000)
+    expect(parseMoney('200')).toBe(20000)
+    expect(parseMoney('2000')).toBe(200000)
+
+    // separador recém-digitado, ainda sem casas decimais
+    expect(parseMoney('2.')).toBe(200)
+    expect(parseMoney('2,')).toBe(200)
+    expect(parseMoney('2.0')).toBe(200)
+    expect(parseMoney('2,0')).toBe(200)
+    expect(parseMoney('2,5')).toBe(250)
+
+    // digitando "1.234,56" tecla a tecla — nenhum prefixo pode virar null
+    for (const prefix of ['1', '1.', '1.2', '1.23', '1.234', '1.234,', '1.234,5', '1.234,56']) {
+      expect(parseMoney(prefix), `prefixo "${prefix}"`).not.toBeNull()
+    }
+
+    // digitando "1234.56" tecla a tecla
+    for (const prefix of ['1', '12', '123', '1234', '1234.', '1234.5', '1234.56']) {
+      expect(parseMoney(prefix), `prefixo "${prefix}"`).not.toBeNull()
+    }
+  })
+
   it('formata em pt-BR', () => {
     expect(formatBRL(123456).replace(/\u00a0/g, ' ')).toBe('R$ 1.234,56')
     expect(formatMoneyPlain(123456)).toBe('1.234,56')
