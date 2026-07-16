@@ -75,14 +75,16 @@ export function AppShell(): ReactNode {
 
   const View = VIEWS[activeView]
 
+  // Sem fundo próprio no shell: o body pinta o gradiente base e #root::before os
+  // complementos (glow/malha/vinheta, §4). Um fundo opaco aqui os taparia.
   return (
-    <div className="h-full flex flex-col bg-bg theme-transition" style={{ background: 'var(--bg-grad)' }}>
+    <div className="h-full flex flex-col theme-transition">
       <TitleBar />
       <div className="flex-1 min-h-0 flex">
         <Sidebar />
         <main className="flex-1 min-w-0 overflow-y-auto">
-        {/* key força remontagem ao trocar de view — renderiza apenas a ativa;
-            entrada com fade+slide e stagger sutil nos blocos (§5) */}
+          {/* key força remontagem ao trocar de view — renderiza apenas a ativa;
+              entrada com fade+slide e stagger sutil nos blocos (§5) */}
           <div
             key={activeView}
             className="page-enter stagger-children max-w-[1200px] mx-auto px-7 py-6 min-h-full"

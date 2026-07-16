@@ -46,7 +46,8 @@ export function SummaryBalloon({
       </span>
       <div className="min-w-0">
         <p className="label-caps">{title}</p>
-        <p className="text-[13.5px] text-ink-soft leading-relaxed mt-1">
+        {/* largura de leitura (§4): linha longa demais cansa e o balão é texto corrido */}
+        <p className="text-[13.5px] text-ink-soft leading-relaxed mt-1 max-w-[86ch]">
           {segments.map((seg, i) => {
             if (typeof seg === 'string') return <span key={i}>{seg}</span>
             const cls = cn('font-bold tnum', TONE_CLASS[seg.tone ?? 'ink'])

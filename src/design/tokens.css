@@ -27,6 +27,12 @@
      Fonte única — o TitleBar lê estes tokens e os envia ao processo main. */
   --titlebar-bg: #060d1f;
   --titlebar-symbol: #8fa3bf;
+  /* Complementos de fundo (§4): glow radial no topo, malha pontilhada e
+     vinheta. Tokens porque a intensidade muda entre os temas. */
+  --bg-glow: rgba(87, 182, 242, 0.1);
+  --bg-mesh: rgba(143, 163, 191, 0.06);
+  --bg-vignette: rgba(2, 5, 12, 0.55);
+  --card-lit-line: rgba(180, 214, 245, 0.14);
   --surface: #0b1424;
   --surface-2: #0e1930;
   --surface-3: #142240;
@@ -91,6 +97,11 @@
   --bg-grad: linear-gradient(180deg, #f4f8fd 0%, #e9f0f9 100%);
   --titlebar-bg: #f4f8fd;
   --titlebar-symbol: #41506b;
+  /* No claro tudo é mais discreto: o mesmo peso do escuro sujaria o papel. */
+  --bg-glow: rgba(87, 182, 242, 0.13);
+  --bg-mesh: rgba(41, 61, 99, 0.05);
+  --bg-vignette: rgba(120, 140, 170, 0.14);
+  --card-lit-line: rgba(255, 255, 255, 0.9);
   --surface: #ffffff;
   --surface-2: #edf3fb;
   --surface-3: #dfe9f7;
@@ -201,9 +212,58 @@ textarea {
   user-select: text;
 }
 
+/**
+ * Fundo com vida (§4): glow radial no topo + malha pontilhada + vinheta.
+ * Tudo em UM pseudo-elemento fixo e `pointer-events: none`, atrás do conteúdo
+ * (z-index 0 com o app em z-index 1). Sem blur e sem animação: são gradientes
+ * estáticos que a GPU compõe uma vez — custo praticamente zero, e nada aqui
+ * disputa atenção com os dados.
+ */
+#root::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    /* vinheta discreta nas bordas */
+    radial-gradient(120% 100% at 50% 50%, transparent 55%, var(--bg-vignette) 100%),
+    /* glow azul profundo no topo */
+    radial-gradient(70% 45% at 50% -8%, var(--bg-glow) 0%, transparent 70%),
+    /* malha pontilhada ~3% */
+    radial-gradient(circle at 1px 1px, var(--bg-mesh) 1px, transparent 0);
+  background-size:
+    100% 100%,
+    100% 100%,
+    22px 22px;
+}
+
+/* O app vive acima dos complementos de fundo */
+#root > * {
+  position: relative;
+  z-index: 1;
+}
+
 /* Valores monetários e numéricos sempre tabulares */
 .tnum {
   font-variant-numeric: tabular-nums;
+}
+
+/**
+ * Microdetalhe (§4): fio de luz de 1px no topo dos cards principais — só o
+ * suficiente para dar volume, sem virar borda colorida.
+ */
+.card-lit {
+  position: relative;
+}
+.card-lit::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, var(--card-lit-line), transparent);
+  pointer-events: none;
 }
 
 /* Títulos: confiantes, não gritados — tracking apertado */

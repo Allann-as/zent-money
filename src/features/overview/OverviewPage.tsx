@@ -84,7 +84,19 @@ export function OverviewPage(): ReactNode {
       12,
     )
     const values = series.balances.map((b) => b + inAccounts)
-    return { inAccounts, invested, perMonth, total: inAccounts + invested, months: series.months, values }
+    // Patrimônio do mês anterior: penúltimo ponto da mesma série (o saldo em
+    // conta não tem histórico, então entra igual nos dois — a variação reflete
+    // o que de fato varia, o investido).
+    const prevTotal = values[values.length - 2] ?? inAccounts + invested
+    return {
+      inAccounts,
+      invested,
+      perMonth,
+      total: inAccounts + invested,
+      prevTotal,
+      months: series.months,
+      values,
+    }
   }, [data.banks, data.investments, data.contributions, data.rates])
 
   // Mapa mês→total de gastos calculado UMA vez por mudança de dados —
@@ -199,22 +211,37 @@ export function OverviewPage(): ReactNode {
     <>
       <PageHeader title="Visão geral" subtitle="Seu patrimônio e o mês em um relance" actions={<MonthNav />} />
 
-      {/* HERO patrimônio */}
-      <Card className="relative p-6 mb-4 overflow-hidden">
+      {/* ── HERO patrimônio: o protagonista da página (§4) ────────────── */}
+      <Card className="card-lit relative p-7 mb-5 overflow-hidden">
+        {/* glow interno: dois focos suaves, sem animação */}
         <div
           aria-hidden="true"
-          className="absolute -top-24 -right-16 h-64 w-96 rounded-full blur-3xl opacity-20 pointer-events-none"
+          className="absolute -top-28 -right-12 h-72 w-[420px] rounded-full blur-3xl opacity-25 pointer-events-none"
           style={{ background: colors.primary }}
         />
-        <div className="flex items-end justify-between gap-6 relative">
-          <div>
+        <div
+          aria-hidden="true"
+          className="absolute -bottom-32 -left-20 h-56 w-80 rounded-full blur-3xl opacity-[0.07] pointer-events-none"
+          style={{ background: colors.primary }}
+        />
+        <div className="flex items-end justify-between gap-8 relative">
+          <div className="min-w-0">
             <p className="label-caps flex items-center gap-1.5">
               <Wallet size={13.5} /> Patrimônio total
             </p>
-            <p className="font-display text-[40px] font-bold text-ink tnum leading-tight mt-1">
-              <AnimatedMoney cents={wealth.total} />
-            </p>
-            <div className="flex items-center gap-5 mt-3 text-[12.5px] tnum">
+            <div className="flex items-baseline gap-3 mt-1.5 flex-wrap">
+              <p className="font-display text-[52px] font-bold text-ink tnum leading-none">
+                <AnimatedMoney cents={wealth.total} />
+              </p>
+              {/* variação vs mês anterior em destaque (§4) — o Delta já
+                  escreve o "vs mês anterior", não repetir aqui */}
+              {hasWealthHistory && (
+                <span className="text-[13px]">
+                  <Delta now={wealth.total} prev={wealth.prevTotal} />
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-6 mt-4 text-[12.5px] tnum">
               <span className="text-ink-soft">
                 em conta <strong className="text-ink font-semibold">{formatBRL(wealth.inAccounts)}</strong>
               </span>
@@ -226,9 +253,12 @@ export function OverviewPage(): ReactNode {
               </span>
             </div>
           </div>
-          {hasWealthHistory && <Sparkline values={wealth.values} width={220} height={64} />}
+          {hasWealthHistory && <Sparkline values={wealth.values} width={300} height={88} />}
         </div>
       </Card>
+
+      {/* ── O mês ─────────────────────────────────────────────────────── */}
+      <p className="label-caps mb-2.5">O mês</p>
 
       {/* Cards do mês com variação vs mês anterior */}
       <div className="grid grid-cols-4 gap-4 mb-4">
@@ -317,9 +347,12 @@ export function OverviewPage(): ReactNode {
         }
       />
 
-      <div className="grid grid-cols-2 gap-4 mb-4">
+      {/* ── Análise do mês: grid assimétrico — a rosca (a pergunta principal)
+             ocupa mais que o orçamento (§4) ──────────────────────────── */}
+      <p className="label-caps mb-2.5 mt-5">Para onde foi</p>
+      <div className="grid grid-cols-5 gap-4 mb-4">
         {/* Rosca: única área multicolor do app (§3) */}
-        <Card className="p-5">
+        <Card className="card-lit p-5 col-span-3">
           <CardTitle className="mb-4">Para onde foi o dinheiro</CardTitle>
           {donutSlices.length === 0 ? (
             <EmptyState
@@ -347,7 +380,7 @@ export function OverviewPage(): ReactNode {
         </Card>
 
         {/* Orçamento do mês */}
-        <Card className="p-5">
+        <Card className="p-5 col-span-2">
           <CardTitle className="mb-4">Orçamento do mês</CardTitle>
           {budget.length === 0 ? (
             <EmptyState
