@@ -1,0 +1,9 @@
+Coloque aqui os logos dos seus bancos (SVG ou PNG).
+
+O nome do arquivo deve ser o nome do banco em minúsculas, sem acentos
+nem espaços. Exemplos:
+
+  nubank.svg    itau.png    bradesco.svg    santander.png    btg.svg
+
+O Zent Money detecta os arquivos automaticamente. Se um logo não for
+encontrado, o app usa um monograma com a cor oficial da marca.

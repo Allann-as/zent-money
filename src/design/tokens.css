@@ -1,0 +1,275 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter';
+
+/* ═══════════════════════════════════════════════════════════════════
+   ZENT MONEY — DESIGN TOKENS v2 (navy premium, padrão "Settei")
+   Paleta dark-first: navy quase preto + primária azul-céu + secundária
+   violeta. TODAS as cores vivem aqui — nenhum hex solto em componente.
+   Exceções documentadas (são DADOS, não tema): cores oficiais de marca
+   dos bancos (§5.4) e cores de categoria escolhidas pelo usuário.
+   O tema troca via <html data-theme="dark|light">; componentes, ícones
+   e gráficos leem estas variáveis no momento do render.
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root,
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  /* Superfícies — navy com leve gradiente no fundo */
+  --bg: #04070f;
+  --bg-grad: linear-gradient(180deg, #060d1f 0%, #04070f 100%);
+  --surface: #0b1424;       /* painéis navy-grafite */
+  --surface-2: #0e1930;     /* camada elevada / hover */
+  --surface-3: #142240;     /* pressed / selecionado */
+  --border: #1b2a44;
+  --border-strong: #293d63;
+
+  /* Primária: azul-céu claro */
+  --primary: #57b6f2;
+  --primary-hover: #7cc8f7;
+  --primary-press: #3d9fe0;
+  --primary-soft: rgba(87, 182, 242, 0.13);
+  --on-primary: #041220;
+
+  /* Secundária: violeta (chips de ícone dos cards de estatística) */
+  --accent: #6e5bff;
+  --accent-strong: #9d90ff; /* ícone violeta claro sobre o chip */
+  --accent-soft: rgba(110, 91, 255, 0.12);
+
+  /* Texto */
+  --ink: #f2f6fb;
+  --ink-soft: #8fa3bf;
+  --ink-faint: #5b6d8c;
+
+  /* Semânticas */
+  --pos: #34d399;
+  --pos-soft: rgba(52, 211, 153, 0.12);
+  --neg: #f0655a;
+  --neg-soft: rgba(240, 101, 90, 0.12);
+  --warn: #ffb454;
+  --warn-soft: rgba(255, 180, 84, 0.13);
+
+  /* Escala categórica de gráficos (céu → violeta → ciano) */
+  --chart-1: #57b6f2;
+  --chart-2: #6e5bff;
+  --chart-3: #22c8e6;
+  --chart-4: #34d399;
+  --chart-5: #ffb454;
+  --chart-6: #ff7ab8;
+  --chart-7: #9d90ff;
+  --chart-8: #4adfc3;
+
+  /* Sombras em camadas (ambiente + contato) */
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -8px rgba(0, 0, 0, 0.5);
+  --shadow-pop: 0 2px 6px rgba(0, 0, 0, 0.45), 0 16px 48px -12px rgba(0, 0, 0, 0.65);
+  --backdrop: rgba(2, 5, 11, 0.68);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --bg: #eef3fa;
+  --bg-grad: linear-gradient(180deg, #f4f8fd 0%, #e9f0f9 100%);
+  --surface: #ffffff;
+  --surface-2: #edf3fb;
+  --surface-3: #dfe9f7;
+  --border: #d5e0ef;
+  --border-strong: #b7c8e0;
+
+  --primary: #2b96dd;
+  --primary-hover: #4babe8;
+  --primary-press: #1f7fbe;
+  --primary-soft: rgba(43, 150, 221, 0.11);
+  --on-primary: #ffffff;
+
+  --accent: #6e5bff;
+  --accent-strong: #5a46ec;
+  --accent-soft: rgba(110, 91, 255, 0.1);
+
+  --ink: #0c1524;
+  --ink-soft: #54678a;
+  --ink-faint: #8ea0bd;
+
+  --pos: #0f9d6c;
+  --pos-soft: rgba(15, 157, 108, 0.1);
+  --neg: #d8483d;
+  --neg-soft: rgba(216, 72, 61, 0.1);
+  --warn: #c07a12;
+  --warn-soft: rgba(192, 122, 18, 0.12);
+
+  --chart-1: #2b96dd;
+  --chart-2: #5a46ec;
+  --chart-3: #0d9fbd;
+  --chart-4: #0f9d6c;
+  --chart-5: #c07a12;
+  --chart-6: #d64f97;
+  --chart-7: #7c6cf0;
+  --chart-8: #0fa88f;
+
+  --shadow-card: 0 1px 2px rgba(15, 35, 70, 0.06), 0 8px 24px -10px rgba(15, 35, 70, 0.12);
+  --shadow-pop: 0 2px 6px rgba(15, 35, 70, 0.08), 0 16px 48px -12px rgba(15, 35, 70, 0.22);
+  --backdrop: rgba(15, 25, 45, 0.35);
+}
+
+/* Expõe os tokens como cores/fontes utilitárias do Tailwind */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-press: var(--primary-press);
+  --color-primary-soft: var(--primary-soft);
+  --color-on-primary: var(--on-primary);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-faint: var(--ink-faint);
+  --color-pos: var(--pos);
+  --color-pos-soft: var(--pos-soft);
+  --color-neg: var(--neg);
+  --color-neg-soft: var(--neg-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+
+  /* Uma única família geométrica limpa: Inter (400–800), local */
+  --font-sans: 'Inter Variable', 'Segoe UI', system-ui, sans-serif;
+  --font-display: 'Inter Variable', 'Segoe UI', system-ui, sans-serif;
+
+  --radius-card: 16px;
+  --radius-control: 10px;
+
+  --shadow-card: var(--shadow-card);
+  --shadow-pop: var(--shadow-pop);
+}
+
+/* ── Base ─────────────────────────────────────────────────────────── */
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  background-image: var(--bg-grad);
+  background-attachment: fixed;
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  user-select: none;
+}
+
+input,
+textarea {
+  user-select: text;
+}
+
+/* Valores monetários e numéricos sempre tabulares */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Títulos grandes: Inter bold com tracking apertado (padrão da referência) */
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+/* Foco visível consistente (acessibilidade) */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Scrollbars discretas no tom do tema */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-faint);
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Transições de tema suaves nos containers principais */
+body,
+.theme-transition {
+  transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease;
+}
+
+/* Animações do design system */
+@keyframes zent-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes zent-pop-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes zent-toast-in {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes zent-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+@keyframes zent-progress {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+@keyframes zent-celebrate {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.06) rotate(-1.5deg); }
+  70% { transform: scale(0.99) rotate(0.8deg); }
+  100% { transform: scale(1); }
+}
+
+.anim-fade-in { animation: zent-fade-in 180ms ease-out both; }
+.anim-pop-in { animation: zent-pop-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.anim-toast-in { animation: zent-toast-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.anim-celebrate { animation: zent-celebrate 600ms ease-in-out both; }
+
+.skeleton {
+  background: linear-gradient(
+    100deg,
+    var(--surface-2) 40%,
+    var(--surface-3) 50%,
+    var(--surface-2) 60%
+  );
+  background-size: 200% 100%;
+  animation: zent-shimmer 1.4s linear infinite;
+  border-radius: 8px;
+}
+
+/* Acessibilidade: reduz/remove movimento quando o SO pedir */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

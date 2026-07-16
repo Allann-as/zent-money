@@ -1,0 +1,291 @@
+import { _electron as electron, type ElectronApplication, type Page } from 'playwright'
+import { test, expect } from '@playwright/test'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+
+/**
+ * E2E do Zent Money v2 (§10.2): percorre as 8 seções, cria todas as
+ * entidades pelos formulários, exercita gráficos/filtros/tema/sidebar,
+ * a seção Parcelas, a Carteira com classes, a busca global, recorrentes
+ * e o alerta de limite — com ZERO erros de console.
+ */
+
+let app: ElectronApplication
+let page: Page
+let userDataDir: string
+const consoleErrors: string[] = []
+
+test.beforeAll(async () => {
+  userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'zent-e2e-'))
+  const env = { ...process.env, ZENT_USER_DATA: userDataDir } as Record<string, string>
+  delete env['ELECTRON_RUN_AS_NODE'] // shells do VS Code herdam isso e quebram o launch
+  app = await electron.launch({ args: ['out/main/main.js'], env })
+  page = await app.firstWindow()
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') consoleErrors.push(msg.text())
+  })
+  page.on('pageerror', (err) => consoleErrors.push(`pageerror: ${String(err)}`))
+  await page.waitForSelector('aside', { timeout: 20_000 })
+})
+
+test.afterAll(async () => {
+  await app?.close()
+  fs.rmSync(userDataDir, { recursive: true, force: true })
+})
+
+async function goTo(label: string): Promise<void> {
+  await page.click(`aside >> text="${label}"`)
+  await page.waitForTimeout(250)
+}
+
+test('1. visão geral abre com o seed (hero + saudação + balão)', async () => {
+  await expect(page.getByText('Olá, Allan')).toBeVisible()
+  await expect(page.getByText('Patrimônio total')).toBeVisible()
+  await expect(page.getByText(/^Resumo de/)).toBeVisible() // balão inteligente
+})
+
+test('2. sidebar recolhe e expande (hambúrguer e Ctrl+B)', async () => {
+  const aside = page.locator('aside')
+  await page.getByRole('button', { name: 'Recolher menu' }).click()
+  await page.waitForTimeout(350)
+  expect((await aside.boundingBox())?.width ?? 0).toBeLessThan(100)
+  await page.keyboard.press('Control+b')
+  await page.waitForTimeout(350)
+  expect((await aside.boundingBox())?.width ?? 0).toBeGreaterThan(200)
+})
+
+test('3. tema alterna para claro e volta', async () => {
+  await page.getByText('Olá, Allan').click()
+  const switchEl = page.getByRole('switch', { name: 'Alternar tema escuro' })
+  await switchEl.click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+  await switchEl.click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await page.keyboard.press('Escape')
+})
+
+test('4. ganhos: salário e extra somam no total de entradas', async () => {
+  await goTo('Ganhos')
+  await page.getByRole('button', { name: 'Editar', exact: true }).click()
+  let dialog = page.getByRole('dialog')
+  await dialog.getByRole('textbox', { name: 'Salário mensal' }).fill('3.200,00')
+  await dialog.getByRole('button', { name: 'Salvar' }).click()
+  await expect(page.getByText('Salário atualizado')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Novo extra' }).click()
+  dialog = page.getByRole('dialog')
+  await dialog.getByPlaceholder('Ex.: Presente da vó, Freela…').fill('Freela site')
+  await dialog.getByRole('textbox', { name: 'Valor do ganho extra' }).fill('400')
+  await dialog.getByRole('button', { name: 'Adicionar' }).click()
+  await expect(page.getByText('R$ 3.600,00')).toBeVisible()
+})
+
+test('5. gastos: onboarding cria categorias sem nada pré-criado', async () => {
+  await goTo('Gastos')
+  await expect(page.getByText('Suas categorias, do seu jeito')).toBeVisible()
+  await page.getByRole('button', { name: /^Criar \d+ categorias?$/ }).click()
+  await expect(page.getByText(/categorias? criadas?/)).toBeVisible()
+})
+
+test('6. gastos: lançamento, reclassificação, filtro e alerta de limite', async () => {
+  await page.getByRole('button', { name: 'Novo gasto' }).click()
+  let dialog = page.getByRole('dialog')
+  await dialog.locator('select').selectOption({ label: 'Mercado' })
+  await dialog.getByPlaceholder('Ex.: Compras da semana').fill('Compras da semana')
+  await dialog.getByRole('textbox', { name: 'Valor do gasto' }).fill('150')
+  await dialog.getByRole('button', { name: 'Adicionar' }).click()
+  await expect(page.getByText('Gasto registrado')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Novo gasto' }).click()
+  dialog = page.getByRole('dialog')
+  await dialog.locator('select').selectOption({ label: 'Lazer' })
+  await dialog.getByPlaceholder('Ex.: Compras da semana').fill('Cinema')
+  await dialog.getByRole('textbox', { name: 'Valor do gasto' }).fill('60')
+  await dialog.getByRole('radio', { name: 'Supérfluo', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Adicionar' }).click()
+
+  await expect(page.getByText('é aqui que dá pra poupar')).toBeVisible()
+
+  // reclassificar direto na lista
+  await page.locator('li', { hasText: 'Cinema' }).getByRole('button', { name: 'Supérfluo' }).click()
+  await expect(
+    page.locator('li', { hasText: 'Cinema' }).getByRole('button', { name: 'Necessário' }),
+  ).toBeVisible()
+
+  // filtro por categoria destaca total e %
+  await page.getByLabel('Filtrar por categoria').selectOption({ label: 'Mercado' })
+  await expect(page.getByText(/em Mercado · \d+% do total/)).toBeVisible()
+  await page.getByLabel('Filtrar por categoria').selectOption({ label: 'Todas as categorias' })
+
+  // alerta de limite: define teto de 100 em Lazer e estoura com um gasto de 90
+  await page.getByRole('button', { name: 'Categorias' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Editar categoria Lazer' }).click()
+  await page.getByRole('dialog').getByRole('textbox', { name: 'Limite mensal da categoria' }).fill('100')
+  await page.getByRole('dialog').getByRole('button', { name: 'Salvar' }).click()
+  await page.getByRole('button', { name: 'Novo gasto' }).click()
+  dialog = page.getByRole('dialog')
+  await dialog.locator('select').selectOption({ label: 'Lazer' })
+  await dialog.getByRole('textbox', { name: 'Valor do gasto' }).fill('90')
+  await dialog.getByRole('button', { name: 'Adicionar' }).click()
+  await expect(page.getByText('Limite de Lazer estourado')).toBeVisible()
+})
+
+test('7. gastos: lançamento recorrente cria template gerenciável', async () => {
+  await page.getByRole('button', { name: 'Novo gasto' }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.locator('select').selectOption({ label: 'Mercado' })
+  await dialog.getByPlaceholder('Ex.: Compras da semana').fill('Assinatura mensal')
+  await dialog.getByRole('textbox', { name: 'Valor do gasto' }).fill('39,90')
+  await dialog.getByRole('checkbox', { name: 'Repetir todo mês' }).check()
+  await dialog.getByRole('button', { name: 'Adicionar' }).click()
+  await expect(page.getByText('Gasto recorrente criado')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Recorrentes' }).click()
+  const modal = page.getByRole('dialog')
+  await expect(modal.getByText('Assinatura mensal')).toBeVisible()
+  await modal.getByRole('button', { name: 'Encerrar' }).click()
+  await expect(page.getByText('"Assinatura mensal" encerrada')).toBeVisible()
+  await page.keyboard.press('Escape')
+})
+
+test('8. cartão: parcela reduz o limite (caso 5.000 / 100×10 da spec)', async () => {
+  await goTo('Bancos & Cartões')
+  await page.getByRole('button', { name: 'Cartão', exact: true }).first().click()
+  let dialog = page.getByRole('dialog')
+  await dialog.getByPlaceholder('Ex.: Ultravioleta').fill('Ultravioleta')
+  await dialog.getByRole('textbox', { name: 'Limite total do cartão' }).fill('5.000,00')
+  await dialog.getByRole('button', { name: 'Adicionar' }).click()
+  await expect(page.getByText('Cartão "Ultravioleta" adicionado')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Compra parcelada' }).first().click()
+  dialog = page.getByRole('dialog')
+  await dialog.getByPlaceholder('Ex.: Notebook').fill('Notebook')
+  await dialog.getByRole('textbox', { name: 'Valor da parcela' }).fill('100')
+  await dialog.getByLabel('Total de parcelas').fill('10')
+  await dialog.getByRole('button', { name: 'Adicionar' }).click()
+
+  // disponível = 5.000 − 0 − 10×100 = 4.000
+  await expect(page.getByText('R$ 4.000,00')).toBeVisible()
+  await page.getByRole('button', { name: '1 paga' }).click()
+  await expect(page.getByText('R$ 4.100,00')).toBeVisible()
+  await page.getByRole('button', { name: 'desfazer' }).click()
+  await expect(page.getByText('R$ 4.000,00')).toBeVisible()
+})
+
+test('9. parcelas: visão consolidada com ações +1 paga/desfazer', async () => {
+  await goTo('Parcelas')
+  await expect(page.getByText('Comprometido por mês')).toBeVisible()
+  await expect(page.getByText(/1 compra ativa/)).toBeVisible() // balão
+  const item = page.locator('li', { hasText: 'Notebook' })
+  await expect(item).toBeVisible()
+  await expect(item.getByText('0/10')).toBeVisible()
+
+  await item.getByRole('button', { name: '1 paga' }).click()
+  await expect(item.getByText('1/10')).toBeVisible()
+  await item.getByRole('button', { name: 'desfazer' }).click()
+  await expect(item.getByText('0/10')).toBeVisible()
+})
+
+test('10. carteira: ativo com classe + aporte + 3 modos + filtros', async () => {
+  await goTo('Carteira')
+  await page.getByRole('button', { name: 'Novo ativo' }).click()
+  let dialog = page.getByRole('dialog')
+  await dialog.getByPlaceholder('Ex.: CDB Liquidez Diária').fill('CDB Teste')
+  await dialog.getByLabel('Classe do ativo').selectOption({ label: 'Prefixado' })
+  await dialog.getByRole('textbox', { name: 'Taxa (% a.a.)' }).fill('12')
+  await dialog.getByRole('button', { name: 'Criar ativo' }).click()
+  await expect(page.getByText('Ativo "CDB Teste" criado')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Aporte', exact: true }).click()
+  dialog = page.getByRole('dialog')
+  await dialog.getByRole('textbox', { name: 'Valor do aporte' }).fill('1.000,00')
+  await dialog.getByRole('button', { name: 'Registrar aporte' }).click()
+  await expect(page.getByText('Aporte registrado')).toBeVisible()
+  await expect(page.getByText('Total aportado').locator('..')).toContainText('R$ 1.000,00')
+
+  // 3 modos de gráfico
+  await page.getByRole('tab', { name: 'Composição' }).click()
+  await expect(page.getByText('Carteira', { exact: true }).first()).toBeVisible()
+  await page.getByRole('tab', { name: 'Rendimento mês a mês' }).click()
+  await expect(page.locator('svg[aria-label="Gráfico de barras"]')).toBeVisible()
+  await page.getByRole('tab', { name: 'Evolução' }).click()
+  await expect(page.locator('svg[aria-label="Gráfico de evolução"]')).toBeVisible()
+
+  // filtro por banco combinado com filtro por classe
+  await page.getByRole('group', { name: 'Filtrar por banco' }).getByRole('button', { name: 'Nubank' }).click()
+  await expect(page.getByText('CDB Teste').first()).toBeVisible()
+  await page.getByRole('group', { name: 'Filtrar por classe' }).getByRole('button', { name: 'Renda fixa IPCA+' }).click()
+  await expect(page.getByText('Nada com esses filtros')).toBeVisible()
+  await page.getByRole('group', { name: 'Filtrar por classe' }).getByRole('button', { name: 'Todas as classes' }).click()
+  await page.getByRole('group', { name: 'Filtrar por banco' }).getByRole('button', { name: 'Todos' }).click()
+})
+
+test('11. carteira: ativo manual com atualização de valor de mercado', async () => {
+  await page.getByRole('button', { name: 'Novo ativo' }).click()
+  let dialog = page.getByRole('dialog')
+  await dialog.getByPlaceholder('Ex.: CDB Liquidez Diária').fill('FII Teste')
+  await dialog.getByLabel('Classe do ativo').selectOption({ label: 'Outros ativos' })
+  await dialog.getByRole('textbox', { name: 'Valor de mercado atual' }).fill('2.000,00')
+  await dialog.getByRole('button', { name: 'Criar ativo' }).click()
+  await expect(page.getByText('Ativo "FII Teste" criado')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Atualizar valor' }).click()
+  dialog = page.getByRole('dialog')
+  await dialog.getByRole('textbox', { name: 'Novo valor de mercado' }).fill('2.150,00')
+  await dialog.getByRole('button', { name: 'Registrar valor' }).click()
+  await expect(page.getByText('Valor atualizado')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByText('R$ 2.150,00').first()).toBeVisible()
+})
+
+test('12. busca global (Ctrl+K) encontra e navega', async () => {
+  await page.keyboard.press('Control+k')
+  const search = page.getByRole('dialog', { name: 'Busca global' })
+  await expect(search).toBeVisible()
+  await search.getByRole('textbox', { name: 'Buscar em tudo' }).fill('Notebook')
+  await expect(search.getByText('Compra parcelada · R$ 100,00/mês')).toBeVisible()
+  await page.keyboard.press('Enter')
+  // navegou para Parcelas
+  await expect(page.getByRole('heading', { level: 1, name: 'Parcelas' })).toBeVisible()
+})
+
+test('13. caixinhas: seed presente + nova caixinha manual com progresso', async () => {
+  await goTo('Caixinhas')
+  await expect(page.getByText('Reserva de emergência')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Nova caixinha' }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByPlaceholder('Ex.: Reserva de emergência').fill('Viagem')
+  await dialog.getByRole('textbox', { name: 'Valor alvo da caixinha' }).fill('1.000,00')
+  await dialog.getByRole('textbox', { name: 'Valor guardado' }).fill('250')
+  await dialog.getByRole('button', { name: 'Criar caixinha' }).click()
+
+  await expect(page.getByText('Viagem', { exact: true })).toBeVisible()
+  await expect(page.getByText('25%')).toBeVisible()
+})
+
+test('14. linha do tempo: janela de 12 meses com recordes', async () => {
+  await goTo('Linha do tempo')
+  await expect(page.getByText('Sobra mês a mês (entradas − saídas)')).toBeVisible()
+  await expect(page.getByText('Recordes do período')).toBeVisible()
+  await expect(page.getByText('Melhor mês de sobra')).toBeVisible()
+})
+
+test('15. visão geral consolidada + navegação de mês + balões', async () => {
+  await goTo('Visão geral')
+  await expect(page.getByText('Para onde foi o dinheiro')).toBeVisible()
+  await expect(page.getByText(/recebidos e/)).toBeVisible() // balão narrando o mês
+  await page.getByRole('button', { name: 'Mês anterior' }).click()
+  await expect(page.getByText('Sem gastos neste mês')).toBeVisible()
+  await page.getByRole('button', { name: 'Próximo mês' }).click()
+  await expect(page.getByText(/supérfluos|Necessário|R\$/).first()).toBeVisible()
+
+  // balão de Bancos & Cartões
+  await goTo('Bancos & Cartões')
+  await expect(page.getByText('Resumo de crédito e contas')).toBeVisible()
+})
+
+test('16. zero erros de console/runtime em toda a sessão', () => {
+  expect(consoleErrors, `Erros de console:\n${consoleErrors.join('\n')}`).toHaveLength(0)
+})

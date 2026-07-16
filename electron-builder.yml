@@ -1,0 +1,33 @@
+appId: com.zent.money
+productName: Zent Money
+copyright: Zent Money
+
+directories:
+  output: release
+  buildResources: assets/icon
+
+files:
+  - out/**
+  - package.json
+
+# A pasta de logos vai junto do app instalado — o usuário pode soltar
+# nubank.svg etc. em resources/assets/logos e o app detecta sozinho.
+extraResources:
+  - from: assets/logos
+    to: assets/logos
+    filter: ['**/*']
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: assets/icon/zent.ico
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: Zent Money
+  artifactName: ZentMoney-Setup-${version}.${ext}
