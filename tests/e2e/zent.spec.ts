@@ -277,7 +277,7 @@ test('15. visão geral consolidada + navegação de mês + balões', async () =>
   await expect(page.getByText('Para onde foi o dinheiro')).toBeVisible()
   await expect(page.getByText(/recebidos e/)).toBeVisible() // balão narrando o mês
   await page.getByRole('button', { name: 'Mês anterior' }).click()
-  await expect(page.getByText('Sem gastos neste mês')).toBeVisible()
+  await expect(page.getByText('Sem gastos neste mês').first()).toBeVisible()
   await page.getByRole('button', { name: 'Próximo mês' }).click()
   await expect(page.getByText(/supérfluos|Necessário|R\$/).first()).toBeVisible()
 
@@ -286,6 +286,40 @@ test('15. visão geral consolidada + navegação de mês + balões', async () =>
   await expect(page.getByText('Resumo de crédito e contas')).toBeVisible()
 })
 
-test('16. zero erros de console/runtime em toda a sessão', () => {
+test('16. modo privacidade borra os valores e persiste no atributo', async () => {
+  await page.getByRole('button', { name: 'Ocultar valores (modo privacidade)' }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-privacy', 'on')
+  await page.getByRole('button', { name: 'Mostrar valores' }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-privacy', 'off')
+})
+
+test('17. paleta de comandos: ação rápida abre o formulário da seção', async () => {
+  await page.keyboard.press('Control+k')
+  const search = page.getByRole('dialog', { name: 'Busca global' })
+  await expect(search.getByText('Novo gasto')).toBeVisible() // ações no estado vazio
+  await search.getByRole('textbox', { name: 'Buscar em tudo' }).fill('nova caixinha')
+  await page.keyboard.press('Enter')
+  // navegou para Caixinhas e abriu o dialog
+  await expect(page.getByRole('dialog', { name: 'Nova caixinha' })).toBeVisible()
+  await page.keyboard.press('Escape')
+})
+
+test('18. overlay ? lista os atalhos de teclado', async () => {
+  await page.keyboard.press('?')
+  const overlay = page.getByRole('dialog', { name: 'Atalhos de teclado' })
+  await expect(overlay).toBeVisible()
+  await expect(overlay.getByText('Busca global e paleta de comandos')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(overlay).not.toBeVisible()
+})
+
+test('19. logos dos bancos detectados (incluindo os dois BTGs)', async () => {
+  await goTo('Bancos & Cartões')
+  await expect(page.locator('img[alt="Logo Nubank"]').first()).toBeVisible()
+  await expect(page.locator('img[alt="Logo BTG Investimentos"]').first()).toBeVisible()
+  await expect(page.locator('img[alt="Logo BTG Banking"]').first()).toBeVisible()
+})
+
+test('20. zero erros de console/runtime em toda a sessão', () => {
   expect(consoleErrors, `Erros de console:\n${consoleErrors.join('\n')}`).toHaveLength(0)
 })

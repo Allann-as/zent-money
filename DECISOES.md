@@ -2,6 +2,50 @@
 
 Registro das decisões tomadas onde a especificação deixou eixos livres.
 
+## Release 2 — refinamento profissional
+
+- **Fonte premium: Geist** (variável, 400–700, `@fontsource-variable/geist`, local).
+  Comparativo curto: *Geist* foi desenhada para interfaces técnicas (Vercel) — dígitos
+  tabulares impecáveis, formas neutras e sérias, excelente render em 12–14px, com cara
+  de terminal financeiro. *Instrument Sans* é mais editorial/humanista (ótima para
+  marketing, menos para densidade numérica). *Schibsted Grotesk* é display/identidade
+  (títulos), mais fraca em números pequenos. Numerais tabulares obrigatórios via `.tnum`.
+- **Disciplina de cor**: neutros navy + **um acento** (azul-céu). O violeta da v2 foi
+  removido; chips de ícone agora em azul-céu translúcido. Verde/vermelho SÓ em valores
+  monetários e variações; âmbar só em alertas reais; barras de orçamento/uso de limite
+  em acento neutro até 90% do teto (âmbar), estourado (vermelho). **Multicolor apenas na
+  rosca de gastos**: paleta categórica dessaturada `--cat-1..10` — a paleta curada do
+  usuário e o onboarding usam exatamente esses tons (cores-DADO persistidas).
+- **Zero emojis**: schema v3 troca `box.emoji` por `box.icon` (chave de um set único de
+  18 ícones Lucide de traço fino, cor via tokens); migração v2→v3 mapeia os emojis
+  conhecidos (ex.: salva-vidas→lifebuoy) e desconhecidos viram `target`. Celebração de
+  meta: brilho sutil no anel via drop-shadow com token, sem confete.
+- **Nova marca "Z em degraus"**: três traços horizontais arredondados em degrau
+  ascendente (lê como Z e como gráfico subindo); monocromática via `currentColor`.
+  Variações: símbolo (`ZentMark`), chip (`ZentLogo`), wordmark (`ZentWordmark`).
+  Ícone do app: navy profundo com gradiente vertical + traço de luz no topo + símbolo céu.
+- **Movimento (só transform/opacity, respeitando reduced-motion)**: páginas com
+  fade+slide 200ms e stagger de 30ms nos blocos; count-up (~550ms easeOutCubic) nos
+  números-herói e StatCards; sidebar com `cubic-bezier(0.22,1,0.36,1)`; linha do gráfico
+  "se escreve" (stroke-dashoffset) e barras sobem (scaleY com fill-box).
+- **Dashboards novos da Visão geral**: Ritmo do mês (média diária + projeção
+  `gasto/dias corridos × dias do mês` vs mês anterior), Taxa de poupança 6m
+  (mini-barras), Mapa de calor (calendário com intensidade navy→acento), Patrimônio 12m.
+  Extra aprovado: variação ±% vs mês anterior nos StatCards (verde/vermelho por sinal,
+  invertido para "Saiu").
+- **Complementos**: modo privacidade borra QUALQUER `.tnum` via `data-privacy` no root
+  (persistido; um clique no olho); Ctrl+K virou paleta de comandos (ações rápidas de
+  criação via `pendingAction` no uiStore, tema, privacidade, menu); overlay `?`;
+  clique em valor monetário copia (handler global, ignora elementos interativos e
+  modo privacidade).
+- **Logos dos bancos**: SVGs oficiais (Wikimedia Commons/Simple Icons) compostos em
+  quadrado arredondado na cor da marca + marca branca — consistência entre os 6 e
+  contraste nos 2 temas. **Dois BTGs distintos** no seed: BTG Investimentos (navy
+  #0A2540, corretora) e BTG Banking (azul #2C5EA9, conta do dia a dia). `BankSelect`
+  (popover com logo) no formulário de ativo. Fallback monograma intacto.
+- **Backlog futuro**: blur automático ao perder o foco da janela, exportar CSV do mês,
+  atalhos 1–8/N/←→, tags nos gastos, relatório mensal em PDF.
+
 ## v2 — redesign navy premium e novas seções
 
 - **Paleta v2 (padrão da referência "Settei")**: fundo navy quase preto com gradiente

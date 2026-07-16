@@ -1,5 +1,32 @@
 # AUDITORIA.md — Zent Money
 
+## Release 2 — checklist de aceite (§10 da spec R2)
+
+- [x] Instalador `.exe` gera, instala e abre sem erros; **causa-raiz documentada abaixo**
+- [x] `package.json` válido, lockfile consistente, Node fixado em `engines` (>=20 <25)
+- [x] **Zero emojis no produto** — varredura por regex comprova (única ocorrência restante:
+      o mapa de migração v2→v3 em `migrations.ts`, que é DADO necessário); ícones SVG
+      únicos (Lucide, traço fino, `currentColor`), legíveis nos dois temas
+- [x] Disciplina de cor: neutros navy + 1 acento (azul-céu) + semânticas restritas;
+      multicolor só na rosca de gastos (`--cat-1..10` dessaturada); nenhuma cor de tema
+      fora de tokens (varredura; exceção documentada: cores-DADO de marca/categoria)
+- [x] Fonte premium única (**Geist**) empacotada, numerais tabulares, hierarquia editorial
+- [x] Sidebar hambúrguer **sem** texto "recolher menu"; animações suaves (colapso com
+      ease-out-quint, páginas com fade+slide+stagger, count-up, gráficos que se desenham)
+      respeitando `prefers-reduced-motion`
+- [x] Nova logo "Z em degraus" (símbolo + wordmark) e novo ícone `.ico` multi-tamanho
+      (16–256) aplicados em app, instalador e atalho
+- [x] Logos dos bancos em todos os contextos (cards, chips da Carteira, Parcelas,
+      BankSelect) com contraste garantido; **2 BTGs distintos**; fallback intacto
+- [x] Visão geral com os 4 novos dashboards (ritmo do mês, taxa de poupança 6m,
+      mapa de calor, patrimônio 12m) + variação ±% vs mês anterior (extra aprovado)
+- [x] Modo privacidade, Ctrl+K com ações, overlay `?` e copiar-valor funcionando (E2E)
+- [x] Suíte completa verde: **71 unit + 20 E2E, zero erros de console**; screenshots dos
+      dois temas em `screenshots/r2/`; performance 50k sem regressão (seções 53–145ms,
+      navegação de mês ~85ms)
+
+---
+
 ## INCIDENTE E CAUSA-RAIZ DO INSTALADOR (Release 2, §2) — 16/07/2026
 
 ### Sintomas relatados
@@ -36,14 +63,22 @@ Build do instalador falhando e `package.json` marcado em vermelho no VS Code.
    Um repositório **git** local foi inicializado como proteção permanente
    (commit inicial `9d9b706`).
 
+### Nota de diagnóstico (para futuros testes na máquina de dev)
+Shells abertos pelo VS Code exportam `ELECTRON_RUN_AS_NODE=1`. Qualquer app Electron
+lançado a partir deles roda como Node puro (sem janela). Ao testar o app instalado via
+terminal, remova a variável do ambiente do processo — pelo atalho/Explorer não há problema.
+
 ### Validação final do instalador (§2 itens 3–4)
 - `package.json` validado (parse estrito, sem BOM, sem chaves duplicadas); `engines`
   fixa Node `>=20 <25`; lockfile regenerado com instalação limpa.
 - `npm run dist` gera `release/ZentMoney-Setup-1.0.0.exe` (78,6 MB).
 - Instalação silenciosa a partir de %TEMP%: **exit 0 em 4 s**, app em
-  `%LOCALAPPDATA%\Programs\Zent Money`, atalho criado.
+  `%LOCALAPPDATA%\Programs\Zent Money`, atalho criado, registro NSIS apontando
+  para o destino correto.
 - App instalado abre e **persiste os dados no diretório de usuário**
   (`%APPDATA%\Zent Money\zent-data.json` + `backups/`), não no diretório de instalação.
+- Revalidado com o build da R2: o app instalado abriu e **migrou o arquivo de dados
+  real v1→v3 automaticamente** no primeiro boot.
 
 ---
 

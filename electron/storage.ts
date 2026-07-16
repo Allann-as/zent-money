@@ -80,12 +80,23 @@ const LOGO_EXTENSIONS: Record<string, string> = {
   '.webp': 'image/webp',
 }
 
-/** Pasta de logos: `assets/logos` no projeto (dev) ou em resources (empacotado). */
+/**
+ * Pasta de logos: em resources (empacotado) ou `assets/logos` do projeto.
+ * Em dev, `app.getAppPath()` pode apontar para `out/main` (Electron lançado
+ * pelo arquivo) — sobe até achar a pasta real.
+ */
 export function logosDir(): string {
-  if (app.isPackaged) {
-    return path.join(process.resourcesPath, 'assets', 'logos')
+  const candidates = app.isPackaged
+    ? [path.join(process.resourcesPath, 'assets', 'logos')]
+    : [
+        path.join(app.getAppPath(), 'assets', 'logos'),
+        path.join(app.getAppPath(), '..', 'assets', 'logos'),
+        path.join(app.getAppPath(), '..', '..', 'assets', 'logos'),
+      ]
+  for (const dir of candidates) {
+    if (fs.existsSync(dir)) return dir
   }
-  return path.join(app.getAppPath(), 'assets', 'logos')
+  return candidates[0] ?? path.join(app.getAppPath(), 'assets', 'logos')
 }
 
 /**

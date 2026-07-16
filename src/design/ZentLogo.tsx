@@ -41,9 +41,11 @@ export function ZentLogo({ size = 34 }: { size?: number }): ReactNode {
 /** Símbolo + wordmark "Zent Money" (sidebar expandida, sobre). */
 export function ZentWordmark({ className }: { className?: string }): ReactNode {
   return (
-    <span className={cn('inline-flex items-center gap-2', className)}>
-      <ZentMark size={18} className="text-primary" />
-      <span className="font-display text-[15px] font-bold text-ink tracking-tight">Zent Money</span>
+    <span className={cn('inline-flex items-center gap-2 min-w-0', className)}>
+      <ZentMark size={18} className="text-primary shrink-0" />
+      <span className="font-display text-[15px] font-bold text-ink tracking-tight whitespace-nowrap truncate">
+        Zent Money
+      </span>
     </span>
   )
 }
