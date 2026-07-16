@@ -3,9 +3,10 @@
 Painel de comando pessoal de finanças — bancos, cartões, parcelas, carteira de investimentos e
 metas em um só lugar. **100% offline**: nenhum dado sai do seu computador.
 
-**Seções:** Visão geral · Ganhos · Gastos · Bancos & Cartões · Parcelas · Carteira · Caixinhas ·
-Linha do tempo. **Extras:** busca global (Ctrl+K), lançamentos recorrentes, alerta de limite por
-categoria, balões de resumo inteligente.
+**Seções:** Visão geral · Ganhos · Gastos · Bancos & Cartões (com página por banco) · Parcelas
+(de cartão e avulsas) · Carteira · Caixinhas · Linha do tempo. **Extras:** busca global (Ctrl+K),
+lançamentos recorrentes, alerta de limite por categoria, balões de resumo inteligente, modo
+privacidade.
 
 ## Requisitos de desenvolvimento
 
@@ -57,7 +58,10 @@ O app detecta automaticamente logos colocados na pasta `assets/logos/`:
 - **App instalado:** `<pasta de instalação>/resources/assets/logos/`
 
 O nome do arquivo deve ser o nome do banco em minúsculas, sem acentos nem espaços —
-`nubank.svg`, `itau.png`, `bradesco.svg`, `santander.png`, `btg.svg` (SVG, PNG, JPG ou WEBP).
+`nubank.svg`, `itau.png`, `bradesco.svg`, `santander.png`, `btgbanking.svg` (SVG, PNG, JPG ou WEBP).
+Os logos que acompanham o app são gerados por `node scripts/gen-bank-logos.mjs` a partir dos
+vetores oficiais em `assets/logos-src/` (recorta o símbolo do lockup — wordmark some, que a 34px
+seria ilegível).
 Sem arquivo, o app usa um monograma com a cor oficial da marca. A pasta é monitorada:
 adicionou um logo com o app aberto, ele aparece na hora.
 

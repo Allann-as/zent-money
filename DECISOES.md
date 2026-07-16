@@ -4,6 +4,66 @@ Registro das decisões tomadas onde a especificação deixou eixos livres.
 
 ## Release 3 — correções, bancos em profundidade e design final
 
+- **Parcela avulsa é discriminada por `cardId: null`** (§2), sem um campo `kind`
+  paralelo: dois campos para o mesmo fato podem divergir (um `kind: 'card'` com
+  `cardId: null` seria um estado impossível representável). `isStandalone(p)` deriva o
+  tipo. Consequência de graça: `committedAmount`/`availableLimit` filtram por id de
+  cartão, então avulsa **nunca** entra na regra do limite — por construção, não por um
+  `if` que alguém pode esquecer. `creditor` só existe nas avulsas.
+- **Compromissos = faturas + parcelas de cartão + avulsas**; no tooltip, a parte "de
+  cartão" é derivada de `total − avulsas` para que as três linhas somem exatamente o
+  número exibido (somar as partes independentes deixaria órfãs de fora e o tooltip
+  discordaria do card).
+- **"Pago com" (§3.4) é união discriminada** (`{kind:'bank'|'card'}`), não dois campos
+  anuláveis que poderiam ser preenchidos juntos. Origem-cartão conta para o banco dono
+  do cartão (`expenseBankId`); cartão apagado devolve `null` em vez de atribuir a um
+  banco errado. Templates de recorrência não guardam origem — a instância nasce sem e o
+  usuário atribui depois.
+- **Fatura: manual, com opt-in explícito** (§3.4, decisão do usuário). A fatura é um
+  **snapshot que o usuário digita** olhando o app do banco, não um livro-razão derivado:
+  somar cada gasto automaticamente **contaria em dobro** (a fatura já o inclui) e
+  inflaria Compromissos junto. Além disso o app não modela ciclo de fatura
+  (fechamento/vencimento), então "em qual fatura cai uma compra do dia 28?" não teria
+  resposta correta, e o vínculo automático exigiria ainda abater no pagamento. O
+  checkbox soma **uma vez**, só quando marcado, e avisa do risco de contagem dupla.
+- **Drill-down do banco (§3.3) é rota filha de `banks`** (`bankDetailId` no uiStore), não
+  uma ViewId nova: ele não é item de menu e trocar de seção deve voltar para a lista —
+  `setView` limpa o id. Banco excluído → cai na lista em vez de quebrar.
+- **BTG duplo (§3.1): a migração preserva o `id`** do BTG existente ao renomeá-lo para
+  "BTG Banking", então cartões, ativos e parcelas continuam apontando para ele; "BTG
+  Investimentos" nasce ao lado, vazio. Quem já tem os dois (seed da R2) não ganha
+  duplicata; sem BTG, nada é inventado. Os hex da migração são **literais**: uma migração
+  descreve o passado e não pode mudar de resultado quando o seed evoluir.
+- **`bank.color` NÃO virou navy nos dois BTG.** As imagens aprovadas mostram os dois em
+  navy, mas `color` no app é **acento de UI** (barra do banco, chip do cartão, monograma),
+  não o logo: navy no Banking apagaria seu acento no tema escuro (navy sobre navy). A
+  distinção pedida vive no **logo** (invertido). Banking segue `#2C5EA9`, Investimentos
+  `#0A2540`.
+- **Logos só-símbolo (§3.2)**: os arquivos da R2 eram o **lockup horizontal** (símbolo +
+  wordmark) espremido num quadrado — a 34px, o tamanho real de uso, "bradesco"/
+  "Santander"/"pactual" viravam um borrão. Nubank e Itaú escaparam porque suas marcas já
+  são curtas. Como símbolo e wordmark estão fundidos num **único path**, não dá para
+  apagar o wordmark removendo elementos: `scripts/gen-bank-logos.mjs` recorta o símbolo
+  com `<clipPath>` no espaço de coordenadas original e o recentraliza — o vetor segue
+  sendo o **oficial**, sem redesenho à mão. Fontes em `assets/logos-src/` (fora de
+  `assets/logos/`, que vai para o instalador), então a geração é reproduzível.
+- **Barra de título (§4)**: `titleBarStyle: 'hidden'` + `titleBarOverlay`. Os botões
+  continuam **nativos** de propósito — minimizar/maximizar/fechar e o snap-assist do
+  Win11 vêm corretos de graça, sem reimplementar. A faixa lê `--titlebar-bg` no CSS e os
+  botões, que só o main consegue pintar, recebem o **mesmo token lido do DOM** via IPC:
+  fonte única, sem hex duplicado que pudesse divergir do tema.
+  *Exceção documentada ao anti-hex*: `TITLE_BAR_BOOT` em `electron/main.ts` espelha o
+  token do tema escuro para o primeiro frame — o main não tem DOM para ler CSS, e sem
+  isso haveria um flash de barra branca no boot.
+- **Fundo com vida (§4)** em UM pseudo-elemento (`#root::before`), `pointer-events:none`:
+  só gradientes estáticos (glow radial, malha 22px, vinheta) — sem blur de área gigante e
+  sem animação em loop. O AppShell perdeu o fundo opaco, que taparia as camadas; a base é
+  pintada pelo `body`.
+- **Empty states: UMA cena parametrizada** pelo ícone da seção, não ~12 ilustrações
+  distintas — que envelheceriam separadas e sairiam de estilo uma a uma.
+- **Sugestões do §5 recusadas pelo usuário** (blur ao perder foco, exportar CSV, ←/→ nos
+  meses): voltam ao backlog.
+
 - **Padrão único de campo monetário (§1): digitação livre no foco, normalização no
   blur.** Confirmado como padrão de 100% dos campos monetários do app (salário, gastos,
   aportes, limites, faturas, metas, saldo inline) — todos passam pelo componente

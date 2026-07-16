@@ -1,5 +1,55 @@
 # AUDITORIA.md — Zent Money
 
+## Release 3 — checklist de aceite (§9 da spec R3)
+
+- [x] Salário aceita "2000" (e "1.234,56" / "1234.56") em digitação natural; padrão
+      aplicado a todos os campos monetários; regressão coberta por testes
+      — **causa-raiz era o `Modal`, não o campo** (seção abaixo)
+- [x] Parcelas avulsas: criar, pagar, desfazer; entram em Compromissos e resumos;
+      **NÃO afetam limite de cartão** (unit + E2E provam); filtro "Avulsas"
+- [x] BTG Banking e BTG Investimentos distintos, com migração preservando dados
+      (ensaiada contra uma **cópia do arquivo real** do usuário: v3→v6 sem perda)
+- [x] Logos n1–n4 aplicadas em todos os contextos, nos dois temas — símbolo oficial
+      recortado do lockup; a 34px agora são legíveis (antes eram um borrão)
+- [x] Drill-down do banco: cards, resumo, gráficos (investido, gastos por origem, uso
+      de limite), cartões e parcelas, saldo editável
+- [x] Gasto com "Pago com" opcional; análises por origem; migração ok
+- [x] Fundo com glow/malha/vinheta; Visão geral recomposta (hero 52px, grid
+      assimétrico, micro-títulos); empty states ilustrados; microdetalhes;
+      reduced-motion respeitado
+- [x] **Barra de título integrada ao app** (pedido do usuário nesta release): a barra
+      branca do Windows saiu; faixa navy com a marca + botões nativos repintados
+- [x] Suíte completa verde: **88 unit + 24 E2E, zero erros de console**; varreduras
+      anti-emoji e anti-hex re-executadas
+- [x] Performance 50k medida **contra a R2 de verdade** (não contra o número
+      declarado) — ver quadro abaixo: overhead pequeno e dentro do ruído
+- [x] `AUDITORIA.md` e `DECISOES.md` atualizados; instalador regenerado e validado
+
+### Performance 50k — R3 vs R2 medida (§6)
+
+O número "53–145ms" da R2 **não se reproduz**: a 1ª execução após um build é sempre
+**a frio** (boot ~1s) e as seguintes estabilizam. Para comparar igual com igual, a R2
+foi reconstruída a partir do commit `2d9c000` e medida na mesma máquina, 3× cada,
+descartando a corrida fria:
+
+| Medida (50k, quente) | R2 | R3 | Δ |
+|---|---|---|---|
+| Boot até a Visão geral | ~375ms | ~396ms | +21ms |
+| Abrir "Ganhos" | ~140ms | ~178ms | +38ms |
+| Abrir "Gastos" | ~208ms | ~224ms | +16ms |
+| Navegar 12 meses (por clique) | ~86ms | ~90ms | +4ms |
+| Abrir Gastos (2ª vez) | ~142ms | ~160ms | +18ms |
+| Demais seções | 29–86ms | 35–71ms | ≈ |
+
+**Leitura honesta:** há um overhead pequeno e consistente (+4 a +38ms), esperado das
+camadas de fundo do §4 e da UI nova (filtro de origem, drill-down). Um experimento
+desligando `#root::before` devolveu só ~15ms no "Ganhos" e **piorou** o "Gastos"
+(271ms) — ou seja, o ruído da medição (±40ms) domina a atribuição. Nada é perceptível
+e tudo segue dentro do envelope de 95–406ms da auditoria original. Agrupamentos
+mês→dados continuam memoizados; navegar meses não regrediu.
+
+---
+
 ## BUG BLOQUEANTE DO SALÁRIO (Release 3, §1) — causa-raiz — 16/07/2026
 
 ### Sintoma
@@ -181,13 +231,20 @@ monta; agrupamentos mês→dados memoizados; séries incrementais O(meses+aporte
 6. Varredura completa do histórico ao navegar meses violaria §10.4 — agrupamento memoizado.
 7. Rename da seção para "Carteira" quebrou o script de perf — rótulos atualizados.
 8. **Release 2:** incidente do instalador (seção acima) — registro NSIS + OneDrive.
+9. **Release 3:** `Modal` roubava o foco do campo em uso a cada tecla (bug do salário,
+   seção acima) — `onClose` inline nas deps do efeito + foco no "Fechar".
+10. **Release 3:** `<Field>` (um `<label>`) em volta de um `Segmented` (tablist)
+    reivindicava o primeiro botão e embaralhava o nome acessível das abas — pego pelo
+    E2E em modo estrito. O seletor de tipo não usa `Field`; `Segmented` ganhou `ariaLabel`.
+11. **Release 3:** os logos de Bradesco/Santander/BTG eram o lockup horizontal espremido
+    num quadrado — ilegíveis a 34px, o tamanho real de uso.
 
 ## 6. Comandos de reprodução
 
 ```bash
 npm run typecheck && npm run lint   # estático
-npm test                            # 66 testes unitários
-npm run build && npm run test:e2e   # 16 testes E2E no Electron real
+npm test                            # 88 testes unitários
+npm run build && npm run test:e2e   # 24 testes E2E no Electron real
 node scripts/perf-test.mjs          # performance 50k + migração v1→v2 real
 npm run dist                        # instalador em release/
 ```
