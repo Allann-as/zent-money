@@ -1,5 +1,55 @@
 # AUDITORIA.md — Zent Money
 
+## APP SUBIA SEM JANELA (Release 3) — causa-raiz — 16/07/2026
+
+### Sintoma
+O usuário abriu o atalho e "não deu certo": nada aparecia. O app **estava rodando** —
+8 processos vivos por tentativa (e 12 acumulados de 4 cliques), renderer carregado,
+zero erro — mas **`MainWindowHandle: 0`**: nenhuma janela, para sempre.
+
+### Causa-raiz — `titleBarOverlay` impede `ready-to-show`
+A janela nasce com `show: false` e só aparecia em `ready-to-show`. Com
+`titleBarStyle: 'hidden'` + `titleBarOverlay` (a barra de título integrada, R3), esse
+evento **nunca dispara** no Windows (Electron 33). Sem ele, nada chamava `show()`.
+
+A/B que isolou a causa (mesma máquina, build local, ambiente limpo):
+
+| Build | MainWindowHandle |
+|---|---|
+| R3 com `titleBarStyle: 'hidden'` + `titleBarOverlay` | **0 — sem janela** |
+| Idêntico, só sem essas duas opções | 1902252 — janela "Zent Money" |
+
+Instrumentando o ciclo de vida: `dom-ready` **dispara**, `did-finish-load` **dispara**,
+`ready-to-show` **nunca**.
+
+### Correção
+`did-finish-load` passa a revelar a janela (dispara e é suficiente — o conteúdo já
+está carregado, então não há flash), com `ready-to-show` mantido como gatilho
+alternativo e um **timer de 4s como rede de segurança**: nenhum evento perdido
+justifica um app sem janela, e `backgroundColor` já pinta o navy enquanto isso.
+A barra de título integrada foi preservada.
+
+### O ponto cego — por que a suíte inteira passou verde
+**Nenhum teste que fale com o app pelo Playwright pode provar que o usuário vê algo.**
+O Playwright conversa via CDP: `firstWindow()`, `capturePage()`, cliques e asserções
+funcionam com a janela **oculta**. Os 24 E2E passaram, os 8 screenshots foram gerados
+e até `win.isVisible()` retornou `true` sob o Playwright (a depuração anexada muda o
+comportamento) — tudo isso com o app invisível para quem clica no atalho. A validação
+"o app instalado abre" desta release era, portanto, **sem valor** para esta classe de
+bug.
+
+**Lacuna fechada:** `scripts/smoke-window.mjs` (`npm run test:smoke`) lança o app como
+o usuário lança — processo solto, sem depuração anexada — e pergunta ao **Windows** se
+existe janela de topo, filtrando por **nome de processo**. Provado contra o bug antes
+de confiar nele: falha (exit 1) com `ready-to-show` sozinho, passa (exit 0, janela em
+~1s) com a correção. Roda contra o build local e contra o `.exe` instalado.
+
+> Nota: a 1ª versão do smoke dava **falso positivo** filtrando por título — a janela do
+> VS Code se chama "… Zent Money … - Visual Studio Code". Por isso o filtro é por
+> processo, e por isso um teste novo só vale depois de vê-lo falhar.
+
+---
+
 ## Release 3 — checklist de aceite (§9 da spec R3)
 
 - [x] Salário aceita "2000" (e "1.234,56" / "1234.56") em digitação natural; padrão
@@ -18,7 +68,9 @@
       assimétrico, micro-títulos); empty states ilustrados; microdetalhes;
       reduced-motion respeitado
 - [x] **Barra de título integrada ao app** (pedido do usuário nesta release): a barra
-      branca do Windows saiu; faixa navy com a marca + botões nativos repintados
+      branca do Windows saiu; faixa navy com a marca + botões nativos repintados.
+      **Custou um bug de app-sem-janela** (seção no topo) — corrigido e coberto por
+      um smoke test que prova que a janela aparece de verdade
 - [x] Suíte completa verde: **88 unit + 24 E2E, zero erros de console**; varreduras
       anti-emoji e anti-hex re-executadas
 - [x] Performance 50k medida **contra a R2 de verdade** (não contra o número
@@ -259,6 +311,9 @@ monta; agrupamentos mês→dados memoizados; séries incrementais O(meses+aporte
     E2E em modo estrito. O seletor de tipo não usa `Field`; `Segmented` ganhou `ariaLabel`.
 11. **Release 3:** os logos de Bradesco/Santander/BTG eram o lockup horizontal espremido
     num quadrado — ilegíveis a 34px, o tamanho real de uso.
+12. **Release 3:** `titleBarOverlay` impede `ready-to-show` de disparar → o app subia
+    sem nunca mostrar a janela (seção no topo). A suíte E2E não pegava porque o
+    Playwright dirige o app com a janela oculta; daí o `npm run test:smoke`.
 
 ## 6. Comandos de reprodução
 

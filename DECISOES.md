@@ -47,6 +47,11 @@ Registro das decisões tomadas onde a especificação deixou eixos livres.
   com `<clipPath>` no espaço de coordenadas original e o recentraliza — o vetor segue
   sendo o **oficial**, sem redesenho à mão. Fontes em `assets/logos-src/` (fora de
   `assets/logos/`, que vai para o instalador), então a geração é reproduzível.
+- **Janela revelada em `did-finish-load`, não em `ready-to-show`**: com `titleBarOverlay`
+  o `ready-to-show` nunca dispara no Windows e a janela ficava invisível para sempre
+  (ver AUDITORIA.md). Há ainda um timer de 4s como rede de segurança — o custo é zero e
+  a alternativa é um app que não abre. **`npm run test:smoke`** existe porque nenhum
+  teste via Playwright prova que a janela aparece: o CDP dirige o app oculto.
 - **Barra de título (§4)**: `titleBarStyle: 'hidden'` + `titleBarOverlay`. Os botões
   continuam **nativos** de propósito — minimizar/maximizar/fechar e o snap-assist do
   Win11 vêm corretos de graça, sem reimplementar. A faixa lê `--titlebar-bg` no CSS e os

@@ -50,7 +50,26 @@ function createWindow(): void {
 
   Menu.setApplicationMenu(null)
 
-  mainWindow.once('ready-to-show', () => mainWindow?.show())
+  /**
+   * Exibir a janela: `ready-to-show` **NÃO dispara** quando a janela usa
+   * `titleBarOverlay` (Electron 33 no Windows). Com `show: false`, a janela ficava
+   * invisível para sempre — o app subia (processo vivo, renderer carregado) e nada
+   * aparecia. Diagnóstico: `dom-ready` e `did-finish-load` disparam, `ready-to-show`
+   * nunca. Ver AUDITORIA.md.
+   *
+   * `did-finish-load` dispara e basta: o conteúdo já está carregado, então não há
+   * flash. O timer é rede de segurança — nenhum evento perdido justifica um app sem
+   * janela, e `backgroundColor` já pinta o navy enquanto isso.
+   */
+  let revealed = false
+  const reveal = (): void => {
+    if (revealed) return
+    revealed = true
+    mainWindow?.show()
+  }
+  mainWindow.once('ready-to-show', reveal)
+  mainWindow.webContents.once('did-finish-load', reveal)
+  setTimeout(reveal, 4000)
 
   // Links externos (ex.: "sobre") abrem no navegador, nunca na janela do app
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {

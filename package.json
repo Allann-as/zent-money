@@ -18,6 +18,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:smoke": "node scripts/smoke-window.mjs",
     "dist": "electron-vite build && electron-builder --win"
   },
   "devDependencies": {
