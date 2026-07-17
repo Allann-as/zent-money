@@ -330,9 +330,14 @@ Registro das decisões tomadas onde a especificação deixou eixos livres.
 - **Mês previsto de quitação de parcela**: cronograma original (`startYm + total − 1`);
   se o pagamento estiver atrasado em relação ao cronograma, projeta as parcelas restantes
   em meses consecutivos a partir do mês atual (o maior dos dois).
-- **Sparkline do hero de patrimônio**: evolução do investido nos últimos 12 meses somada ao
+- ~~**Sparkline do hero de patrimônio**: evolução do investido nos últimos 12 meses somada ao
   saldo em conta atual. Contas bancárias não têm histórico (saldo é editável livremente),
-  então o traço reflete a única série histórica real — a dos investimentos.
+  então o traço reflete a única série histórica real — a dos investimentos.~~
+  **Revogado na R4:** com o ledger, todo movimento de conta é datado e o saldo passado é
+  derivável (`accountBalanceSeries`). A premissa "conta não tem histórico" morreu junto com
+  `bank.balance`. Ela custava caro: o gráfico embutia o saldo de HOJE em janeiro
+  (superestimando o passado) e a variação do hero era **cega ao salário** — `total` e
+  `prevTotal` carregavam o mesmo saldo, então só o investido variava.
 - Salário: histórico de vigências (`startYm`); editar cria/atualiza a vigência do mês
   corrente em diante e meses passados exibem o salário da época, como pede a spec.
 - Taxas de referência iniciais (16/07/2026): Selic 14,25% a.a. · CDI 14,15% a.a. ·

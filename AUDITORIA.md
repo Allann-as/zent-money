@@ -62,7 +62,7 @@ o número é a soma do que foi declarado.
 - [x] **Frase de privacidade atualizada**; rede **mockada** nos testes (`ZENT_OFFLINE=1`
       + `fetch` injetado); parsers com **fixtures das duas APIs**
 - [x] **Revisão de consistência documentada** (11 achados corrigidos — quadro abaixo)
-- [x] **Suíte completa verde: 140 unit + 26 E2E**, zero erros de console; perf 50k sem
+- [x] **Suíte completa verde: 147 unit + 26 E2E**, zero erros de console; perf 50k sem
       regressão; instalador regenerado e validado; smoke da janela verde
 
 ### Validação do instalador (R4)
@@ -162,6 +162,31 @@ foi encontrado por varredura do código (não por acaso) e corrigido.
 enquanto os cards ainda contam — divergência transitória de animação, não de dados;
 `formatBRLCompact` usa 1 casa decimal, mas só em rótulo de eixo de gráfico, onde a
 precisão cheia não cabe nem serve.
+
+### Revisão final: o que uma releitura cética da spec ainda encontrou
+
+Depois de a suíte já estar verde, uma auditoria dedicada (implementação × spec, e caça a
+regressões do saldo derivado) achou **5 defeitos reais** que os testes não pegavam:
+
+| # | Defeito | Gravidade | Correção |
+|---|---|---|---|
+| 12 | **Sem tick diário do salário**: `runSalaryMaterialization` só rodava no boot. Quem deixa o app aberto atravessava o dia de pagamento sem crédito — e a UI promete "todo dia 5, o salário entra no saldo" | **Alta** — a promessa da tela não se cumpria | `setInterval` de 1h em `App.tsx`; sem mês vencido a função sai no primeiro `if`, então custa nada |
+| 13 | **`creditSalaryFor`/`pendingSalaryCredits` sem a guarda de conta existente** que o caminho automático tinha: o clique criaria um crédito órfão, `bankBalances` o ignoraria e o **toast diria "o saldo já reflete a entrada"** sobre um saldo parado — além de queimar o mês no marcador | **Alta** — mentir sobre dinheiro é o pior defeito possível aqui | Guarda nos dois caminhos + `removeBank` limpa `salaryConfig.bankId` |
+| 14 | **`removeBank` apagava pagamentos de fatura feitos por OUTRA conta** (cartão do banco X pago com dinheiro do banco Y) → o saldo do Y subiria sozinho | **Alta** — dinheiro aparecendo do nada | Só os pagamentos feitos **por** esta conta morrem com ela; os outros ficam, e o histórico diz "Fatura de cartão removido" |
+| 15 | **`removeCard` não limpava `expense.origin`**, ao contrário do `removeBank`: o gasto ficava com um `cardId` morto e sumia de **todo** filtro de origem (não casa com "Sem origem" nem com cartão nenhum) | Média — lançamento invisível | Volta a "sem origem" |
+| 16 | **Saldo corrido do histórico errava com lançamento retroativo**: o "Saldo inicial" era datado em `meta.createdAt` e um gasto anterior a ele ordenava antes, produzindo um corrido que nunca existiu — justo na tela cujo trabalho é denunciar quando a conta não fecha | Média | O saldo inicial recua para o mínimo entre `createdAt` e o movimento mais antigo, e fica sempre por último |
+
+E um achado que **não era bug, era uma verdade vencida**: o comentário
+"o saldo em conta não tem histórico, então repete-se o de hoje em todos os meses" (v2)
+deixou de valer nesta release — todo movimento é datado agora. O custo dele era real: o
+sparkline embutia o saldo de HOJE em janeiro e **a variação do hero era cega ao salário**
+(`total` e `prevTotal` carregavam o mesmo saldo, então só o investido variava).
+`accountBalanceSeries()` deriva o saldo mês a mês em uma passada + prefix-sum; a decisão
+antiga foi marcada como revogada no `DECISOES.md`.
+
+**A lição:** uma premissa documentada continua sendo lida como verdade muito depois de a
+release que a criou ter mudado o mundo. Todo comentário que começa com "X não tem Y" é um
+candidato a auditoria a cada release que mexe em Y.
 
 ---
 
@@ -492,12 +517,17 @@ monta; agrupamentos mês→dados memoizados; séries incrementais O(meses+aporte
 15. **Release 4:** o `smoke-window.mjs` (nascido na R3 para provar que a janela aparece)
     rodava contra os **dados reais** e a **rede real** — violando a regra da R2 sem que
     ninguém notasse, porque ele foi escrito para resolver outro problema. Seção acima.
+16. **Release 4 (pegos na revisão final, não pelos testes):** salário sem tick diário;
+    crédito órfão com toast mentindo que o saldo mudou; `removeBank` apagando pagamento de
+    fatura feito por outra conta (dinheiro do nada); `removeCard` deixando gasto invisível
+    em todo filtro; saldo corrido errado com lançamento retroativo. Quadro na seção de
+    consistência.
 
 ## 6. Comandos de reprodução
 
 ```bash
 npm run typecheck && npm run lint   # estático
-npm test                            # 140 testes unitários (rede sempre mockada)
+npm test                            # 147 testes unitários (rede sempre mockada)
 npm run build && npm run test:e2e   # 26 testes E2E no Electron real (ZENT_OFFLINE=1)
 npm run test:smoke                  # a janela aparece? (dados isolados, sem rede)
 node scripts/perf-test.mjs          # performance 50k + migração v1→v7 real

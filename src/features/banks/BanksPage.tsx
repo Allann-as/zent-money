@@ -165,6 +165,28 @@ export function BanksPage(): ReactNode {
       d.cards = d.cards.filter((c) => c.bankId !== bank.id)
       // parcelas avulsas não pertencem a banco nenhum — sobrevivem à exclusão
       d.purchases = d.purchases.filter((p) => p.cardId === null || !cardIds.has(p.cardId))
+
+      // Ledger (R4): os movimentos da conta morrem com ela. `bankBalances` já
+      // ignora movimento órfão, então nada quebraria — mas deixá-los no arquivo
+      // seria lixo que ressuscita se um id for reaproveitado, e o histórico de
+      // uma conta que não existe mais não descreve nada.
+      d.salaryCredits = d.salaryCredits.filter((c) => c.bankId !== bank.id)
+      d.transfers = d.transfers.filter((t) => t.fromBankId !== bank.id && t.toBankId !== bank.id)
+      d.adjustments = d.adjustments.filter((a) => a.bankId !== bank.id)
+      // Só os pagamentos feitos POR esta conta. Um pagamento de um cartão daqui
+      // feito com dinheiro de OUTRA conta continua valendo: o dinheiro saiu de
+      // lá de verdade, e apagá-lo faria o saldo da outra conta subir sozinho.
+      // O histórico dela passa a dizer "Fatura de cartão removido" — honesto.
+      d.invoicePayments = d.invoicePayments.filter((p) => p.bankId !== bank.id)
+      // Vínculos apontando para a conta morta voltam a "sem origem": manter o id
+      // faria a UI prometer "cai em sua conta todo dia 5" sobre uma conta que
+      // não existe, e o gasto ficaria com uma origem invisível para sempre.
+      if (d.salaryConfig.bankId === bank.id) d.salaryConfig.bankId = null
+      for (const e of d.extraIncomes) if (e.receivedIn === bank.id) e.receivedIn = null
+      for (const e of d.expenses) {
+        if (e.origin?.kind === 'bank' && e.origin.bankId === bank.id) e.origin = null
+        if (e.origin?.kind === 'card' && cardIds.has(e.origin.cardId)) e.origin = null
+      }
     })
     toast.success(`${bank.name} excluído`)
   }
@@ -427,6 +449,15 @@ function CardBlock({
     mutate((d) => {
       d.cards = d.cards.filter((c) => c.id !== card.id)
       d.purchases = d.purchases.filter((p) => p.cardId !== card.id)
+      // Gastos pagos por este cartão voltam a "sem origem", como no removeBank.
+      // Com um cardId morto o gasto sumia de TODO filtro de origem (o option do
+      // cartão deixa de existir, e ele não casa nem com "Sem origem") — um
+      // lançamento invisível é pior do que um sem origem.
+      // Os `invoicePayments` FICAM: o dinheiro saiu da conta de verdade, e o
+      // histórico dela passa a dizer "Fatura de cartão removido".
+      for (const e of d.expenses) {
+        if (e.origin?.kind === 'card' && e.origin.cardId === card.id) e.origin = null
+      }
     })
     toast.success(`Cartão ${card.name} excluído`)
   }

@@ -75,6 +75,11 @@ export function creditSalaryFor(ym: Ym): boolean {
   if (!data) return false
   const { bankId, payDay } = data.salaryConfig
   if (bankId === null) return false
+  // A conta precisa existir. Sem esta guarda, um vínculo apontando para banco
+  // excluído criaria um crédito que `bankBalances` ignora — e o toast diria "o
+  // saldo já reflete a entrada" sobre um saldo que não se moveu. Mentir sobre
+  // dinheiro é o pior defeito que este app pode ter.
+  if (!data.banks.some((b) => b.id === bankId)) return false
   if (data.salaryCredits.some((c) => c.ym === ym)) return false
   const amount = salaryForYm(data.salaryHistory, ym)
   if (amount <= 0) return false

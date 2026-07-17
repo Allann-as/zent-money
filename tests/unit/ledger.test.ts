@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ZentData } from '@/data/schema'
 import {
+  accountBalanceSeries,
   bankBalance,
   bankBalances,
   bankMovements,
@@ -137,6 +138,29 @@ describe('saldo derivado (R4 §1)', () => {
     expect(bankBalance(d, 'b2')).toBe(450_00)
   })
 
+  it('excluir um banco não pode mexer no saldo de OUTRO', () => {
+    // Cartão do Nubank (b1) pago com dinheiro do Itaú (b2). Se a exclusão do
+    // Nubank apagasse esse pagamento, o saldo do Itaú subiria sozinho — mas o
+    // dinheiro saiu de lá de verdade. Ver removeBank em BanksPage.
+    const antes = baseData({
+      invoicePayments: [{ id: 'ip1', date: '2026-07-12', cardId: 'k1', bankId: 'b2', amount: 200_00 }],
+    })
+    expect(bankBalance(antes, 'b2')).toBe(300_00)
+
+    // o que removeBank('b1') deixa no arquivo: some o banco, seus cartões e os
+    // movimentos DELE — o pagamento feito pelo b2 sobrevive
+    const depois = baseData({
+      banks: [{ id: 'b2', name: 'Itaú', color: '#EC7000', openingBalance: 500_00 }],
+      cards: [],
+      invoicePayments: [{ id: 'ip1', date: '2026-07-12', cardId: 'k1', bankId: 'b2', amount: 200_00 }],
+    })
+    expect(bankBalance(depois, 'b2')).toBe(300_00)
+    // e o histórico do Itaú admite que o cartão sumiu, em vez de esconder
+    expect(bankMovements(depois, 'b2').find((m) => m.kind === 'invoice')?.description).toBe(
+      'Fatura de cartão removido',
+    )
+  })
+
   it('movimento apontando para banco excluído é ignorado, não vira saldo fantasma', () => {
     const d = baseData({
       salaryCredits: [{ id: 'sc1', ym: '2026-07', date: '2026-07-05', bankId: 'sumiu', amount: 2_000_00 }],
@@ -215,6 +239,69 @@ describe('histórico da conta fecha o saldo (R4 §1)', () => {
 
   it('banco inexistente devolve histórico vazio em vez de quebrar', () => {
     expect(bankMovements(d, 'nao-existe')).toEqual([])
+  })
+
+  it('o saldo inicial é sempre o mais antigo, mesmo com lançamento retroativo', () => {
+    // O campo de data é livre: lançar um gasto ANTES da criação do arquivo é
+    // normal. Se o saldo inicial não ficasse por último, o saldo corrido do
+    // histórico exibiria números que nunca existiram.
+    const retro = baseData({
+      banks: [{ id: 'b1', name: 'Nubank', color: '#820AD1', openingBalance: 1_000_00 }],
+      expenses: [
+        { ...expense('e1', 100_00, { kind: 'bank', bankId: 'b1' }), date: '2025-12-20' },
+      ],
+      meta: { ...baseData().meta, createdAt: '2026-01-01' },
+    })
+    const ms = bankMovements(retro, 'b1')
+    expect(ms[ms.length - 1]?.kind).toBe('opening')
+    expect(ms[ms.length - 1]?.date).toBe('2025-12-20') // recuou junto com o gasto
+
+    // e o corrido, somado do mais antigo para o mais novo, fecha no saldo
+    let running = 0
+    for (const m of [...ms].reverse()) running += m.amount
+    expect(running).toBe(bankBalance(retro, 'b1'))
+    expect(running).toBe(900_00)
+  })
+})
+
+describe('série histórica do saldo em conta (R4 §3)', () => {
+  it('o passado deixa de repetir o saldo de hoje — cada mês tem o seu', () => {
+    const d = baseData({
+      banks: [{ id: 'b1', name: 'Nubank', color: '#820AD1', openingBalance: 100_00 }],
+      salaryCredits: [
+        { id: 'sc1', ym: '2026-06', date: '2026-06-05', bankId: 'b1', amount: 2_000_00 },
+        { id: 'sc2', ym: '2026-07', date: '2026-07-05', bankId: 'b1', amount: 2_000_00 },
+      ],
+      expenses: [{ ...expense('e1', 500_00, { kind: 'bank', bankId: 'b1' }), date: '2026-07-10' }],
+    })
+    const series = accountBalanceSeries(d, ['2026-05', '2026-06', '2026-07'])
+    expect(series).toEqual([100_00, 2_100_00, 3_600_00])
+    // o último ponto é o saldo de hoje — a série e o card não podem discordar
+    expect(series[series.length - 1]).toBe(totalInAccounts(d))
+  })
+
+  it('o que aconteceu antes da janela já está embutido no primeiro ponto', () => {
+    const d = baseData({
+      banks: [{ id: 'b1', name: 'Nubank', color: '#820AD1', openingBalance: 0 }],
+      salaryCredits: [{ id: 'sc1', ym: '2026-01', date: '2026-01-05', bankId: 'b1', amount: 1_000_00 }],
+    })
+    expect(accountBalanceSeries(d, ['2026-06', '2026-07'])).toEqual([1_000_00, 1_000_00])
+  })
+
+  it('transferência entre contas não mexe no total do patrimônio', () => {
+    const d = baseData({
+      transfers: [{ id: 't1', date: '2026-07-10', fromBankId: 'b2', toBankId: 'b1', amount: 200_00 }],
+    })
+    expect(accountBalanceSeries(d, ['2026-06', '2026-07'])).toEqual([500_00, 500_00])
+  })
+
+  it('sem ledger, a série é uma reta no saldo declarado — o app de antes', () => {
+    const d = baseData()
+    expect(accountBalanceSeries(d, ['2026-05', '2026-06', '2026-07'])).toEqual([500_00, 500_00, 500_00])
+  })
+
+  it('janela vazia devolve série vazia em vez de quebrar', () => {
+    expect(accountBalanceSeries(baseData(), [])).toEqual([])
   })
 })
 

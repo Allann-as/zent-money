@@ -123,17 +123,7 @@ export function bankMovements(data: ZentData, bankId: string): Movement[] {
   const bank = data.banks.find((b) => b.id === bankId)
   if (!bank) return []
 
-  const out: Movement[] = [
-    {
-      id: `opening-${bank.id}`,
-      date: data.meta.createdAt,
-      bankId: bank.id,
-      amount: bank.openingBalance,
-      kind: 'opening',
-      description: 'Saldo inicial',
-      sourceId: bank.id,
-    },
-  ]
+  const out: Movement[] = []
 
   for (const c of data.salaryCredits) {
     if (c.bankId !== bankId) continue
@@ -229,10 +219,87 @@ export function bankMovements(data: ZentData, bankId: string): Movement[] {
     })
   }
 
+  /**
+   * O saldo inicial precisa ser SEMPRE o movimento mais antigo — é a definição
+   * dele: o que havia na conta antes de tudo que o app conhece. Datá-lo em
+   * `meta.createdAt` e confiar não funciona: o usuário pode lançar um gasto
+   * retroativo (o campo de data é livre), que então ordenaria ANTES do saldo
+   * inicial e faria a coluna de saldo corrido exibir números que nunca
+   * existiram — bem na tela cujo trabalho é denunciar quando a conta não fecha.
+   * Por isso a data é o mínimo entre `createdAt` e o movimento mais antigo.
+   */
+  let earliest = data.meta.createdAt
+  for (const m of out) if (m.date < earliest) earliest = m.date
+  out.push({
+    id: `opening-${bank.id}`,
+    date: earliest,
+    bankId: bank.id,
+    amount: bank.openingBalance,
+    kind: 'opening',
+    description: 'Saldo inicial',
+    sourceId: bank.id,
+  })
+
   // Mais recente primeiro; empate desempatado pelo id para a ordem ser estável
   // (dois movimentos do mesmo dia não podem trocar de lugar entre renders).
-  out.sort((x, y) => (x.date === y.date ? x.id.localeCompare(y.id) : y.date.localeCompare(x.date)))
+  // O saldo inicial tem de ficar por ÚLTIMO mesmo empatando na data: o id
+  // "opening-…" não garante isso, então ele é tratado à parte.
+  out.sort((x, y) => {
+    if (x.kind === 'opening') return 1
+    if (y.kind === 'opening') return -1
+    return x.date === y.date ? x.id.localeCompare(y.id) : y.date.localeCompare(x.date)
+  })
   return out
+}
+
+/**
+ * Saldo somado de TODAS as contas ao fim de cada mês da janela (R4 §3).
+ *
+ * Existe porque a R4 tornou falsa a premissa que o app carregava desde a v2 —
+ * "saldo em conta não tem histórico, então repete-se o de hoje em todos os
+ * meses". Agora todo movimento é datado, e o passado é derivável. Sem isto, o
+ * sparkline de patrimônio embutia o saldo de HOJE em janeiro (superestimando o
+ * passado) e a variação do hero ficava **cega ao salário**: `total` e
+ * `prevTotal` carregavam o mesmo saldo, então só o investido variava.
+ *
+ * Custo: uma passada por array + uma pelos meses (prefix-sum), não uma varredura
+ * por mês.
+ */
+export function accountBalanceSeries(data: ZentData, months: readonly Ym[]): number[] {
+  const opening = data.banks.reduce((a, b) => a + b.openingBalance, 0)
+  const known = new Set(data.banks.map((b) => b.id))
+
+  // mês → delta do mês (só movimentos de contas que ainda existem)
+  const deltas = new Map<Ym, number>()
+  const add = (bankId: string | null, date: string, amount: number): void => {
+    if (bankId === null || !known.has(bankId)) return
+    const m = ymOfDate(date)
+    deltas.set(m, (deltas.get(m) ?? 0) + amount)
+  }
+  for (const c of data.salaryCredits) add(c.bankId, c.date, c.amount)
+  for (const e of data.extraIncomes) add(e.receivedIn, e.date, e.amount)
+  for (const e of data.expenses) {
+    if (e.origin?.kind === 'bank') add(e.origin.bankId, e.date, -e.amount)
+  }
+  for (const t of data.transfers) {
+    // transferência entre contas não muda o TOTAL — mas se uma das pontas foi
+    // excluída, a outra ponta muda, e é isso que estas duas linhas capturam
+    add(t.fromBankId, t.date, -t.amount)
+    add(t.toBankId, t.date, t.amount)
+  }
+  for (const p of data.invoicePayments) add(p.bankId, p.date, -p.amount)
+  for (const a of data.adjustments) add(a.bankId, a.date, a.amount)
+
+  // Tudo que aconteceu ANTES da janela já está embutido no primeiro ponto.
+  const first = months[0]
+  if (first === undefined) return []
+  let running = opening
+  for (const [m, delta] of deltas) if (ymCompare(m, first) < 0) running += delta
+
+  return months.map((m) => {
+    running += deltas.get(m) ?? 0
+    return running
+  })
 }
 
 /**
@@ -301,6 +368,9 @@ export function materializeSalaryCredits(data: ZentData, todayIsoStr: string): M
 export function pendingSalaryCredits(data: ZentData, todayIsoStr: string): Ym[] {
   const { bankId, payDay, autoCredit } = data.salaryConfig
   if (bankId === null || autoCredit) return []
+  // Mesma guarda do automático: sem a conta, não há onde creditar. Sem ela, o
+  // banner ofereceria "Confirmar recebimento" numa conta que não existe mais.
+  if (!data.banks.some((b) => b.id === bankId)) return []
   const today = ymOfDate(todayIsoStr)
   const credited = new Set(data.salaryCredits.map((c) => c.ym))
   const out: Ym[] = []

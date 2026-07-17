@@ -20,6 +20,7 @@ export function App(): ReactNode {
   useEffect(() => {
     let cancelled = false
     let ratesTimer: ReturnType<typeof setInterval> | undefined
+    let salaryTimer: ReturnType<typeof setInterval> | undefined
     async function start(): Promise<void> {
       try {
         const [data, logos] = await Promise.all([loadZentData(), window.zent.listLogos()])
@@ -70,6 +71,23 @@ export function App(): ReactNode {
         void refreshRates()
         ratesTimer = setInterval(() => void refreshRates(), 24 * 60 * 60 * 1000)
 
+        /**
+         * Tick do salário (R4 §1.1): a materialização do boot não basta. Quem
+         * deixa o app aberto de um dia para o outro atravessaria o dia de
+         * pagamento sem crédito nenhum — e a UI promete "todo dia 5, o salário
+         * entra no saldo". A checagem é de hora em hora e custa nada: sem mês
+         * vencido, `materializeSalaryCredits` sai no primeiro `if`.
+         */
+        salaryTimer = setInterval(() => {
+          const n = runSalaryMaterialization()
+          if (n > 0) {
+            toast.info(
+              n === 1 ? 'Salário creditado' : `${n} salários creditados`,
+              'Entrou no saldo da sua conta. Dá para desfazer no histórico.',
+            )
+          }
+        }, 60 * 60 * 1000)
+
         // Lembrete de backup manual (45 dias)
         const last = data.meta.lastManualExport ?? data.meta.createdAt
         if (diffDays(last, todayIso()) > 45) {
@@ -95,6 +113,7 @@ export function App(): ReactNode {
       cancelled = true
       unsubscribe()
       if (ratesTimer !== undefined) clearInterval(ratesTimer)
+      if (salaryTimer !== undefined) clearInterval(salaryTimer)
     }
   }, [])
 

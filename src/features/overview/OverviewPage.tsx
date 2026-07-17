@@ -36,7 +36,7 @@ import {
 } from '@/engine/aggregations'
 import { combineSeries, investmentSeries, investmentSnapshot } from '@/engine/investments'
 import { standaloneMonthlyCommitment, totalInvoices, totalMonthlyCommitment } from '@/engine/cards'
-import { isLedgerLinked, totalInAccounts } from '@/engine/ledger'
+import { accountBalanceSeries, isLedgerLinked, totalInAccounts } from '@/engine/ledger'
 import { Tooltip } from '@/design/components/Tooltip'
 import { formatBRL, formatPercent } from '@/engine/money'
 import {
@@ -98,16 +98,19 @@ export function OverviewPage(): ReactNode {
     )
     const invested = snapshots.reduce((a, s) => a + s.balance, 0)
     const perMonth = snapshots.reduce((a, s) => a + s.yieldPerMonth, 0)
-    // Série: evolução do investido nos últimos 12m + saldo em conta atual
+    // Série do patrimônio: investido + saldo em conta, os DOIS com histórico
+    // real (R4). Até a R3 o saldo em conta não tinha passado e o app repetia o
+    // de hoje em todos os meses — o gráfico superestimava janeiro e a variação
+    // do hero era cega ao salário, porque `total` e `prevTotal` carregavam o
+    // mesmo saldo. Com o ledger, cada movimento é datado e o passado é
+    // derivável de verdade.
     const series = combineSeries(
       data.investments.map((inv) => investmentSeries(inv, data.contributions, data.rates)),
       currentYm(),
       12,
     )
-    const values = series.balances.map((b) => b + inAccounts)
-    // Patrimônio do mês anterior: penúltimo ponto da mesma série (o saldo em
-    // conta não tem histórico, então entra igual nos dois — a variação reflete
-    // o que de fato varia, o investido).
+    const accounts = accountBalanceSeries(data, series.months)
+    const values = series.balances.map((b, i) => b + (accounts[i] ?? inAccounts))
     const prevTotal = values[values.length - 2] ?? inAccounts + invested
     return {
       inAccounts,
