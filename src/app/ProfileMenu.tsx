@@ -1,9 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, Download, Moon, Pencil, Sun, Upload, AlertTriangle, X } from 'lucide-react'
+import { Check, Download, Moon, Pencil, RefreshCw, Sun, Upload, AlertTriangle, X } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { useUiStore } from '@/store/uiStore'
 import { useDataStore, useZentData } from '@/store/dataStore'
+import { clearRateOverride, refreshRates, setRatesAutoUpdate } from '@/store/ratesActions'
 import { Button } from '@/design/components/Button'
 import { Input } from '@/design/components/Input'
 import { Switch } from '@/design/components/Switch'
@@ -25,19 +26,36 @@ function fmtPercent(n: number): string {
   return n.toLocaleString('pt-BR', { maximumFractionDigits: 4 })
 }
 
+/** "2026-07-16T14:32:05.000Z" → "16/07/2026 11:32" (hora local do usuário). */
+function formatDateTimeBR(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  return `${formatDateBR(todayIso(d))} ${hh}:${mm}`
+}
+
 function PercentField({
   label,
   value,
   onChange,
+  manual = false,
 }: {
   label: string
   value: string
   onChange(v: string): void
+  /** Taxa sob override manual: o automático não a atualiza (§2). */
+  manual?: boolean
 }): ReactNode {
   const invalid = value.trim() !== '' && parsePercent(value) === null
   return (
     <label className="flex flex-col gap-1 min-w-0">
-      <span className="text-[11.5px] font-medium text-ink-soft">{label}</span>
+      <span className="text-[11.5px] font-medium text-ink-soft flex items-center gap-1">
+        {label}
+        {manual && (
+          <Pencil size={9.5} className="text-ink-faint shrink-0" aria-label="sob edição manual" />
+        )}
+      </span>
       <div className="relative">
         <Input
           value={value}
@@ -75,6 +93,7 @@ export function ProfileMenu({
   const [cdi, setCdi] = useState(fmtPercent(data.rates.cdi))
   const [ipca, setIpca] = useState(fmtPercent(data.rates.ipca))
   const [version, setVersion] = useState('')
+  const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
     void window.zent.getVersion().then(setVersion)
@@ -104,13 +123,19 @@ export function ProfileMenu({
   if (!open) return null
 
   const ratesAge = diffDays(data.rates.updatedAt, todayIso())
-  const ratesStale = ratesAge > 45
+  // Só faz sentido cobrar atualização manual de quem não tem o automático
+  // funcionando: com auto ligado e uma busca recente, o alerta seria ruído.
+  const ratesStale = ratesAge > 45 && !(data.rates.autoUpdate && data.rates.lastAutoAt !== null)
   const ratesDirty =
     parsePercent(selic) !== data.rates.selic ||
     parsePercent(cdi) !== data.rates.cdi ||
     parsePercent(ipca) !== data.rates.ipca
   const ratesValid =
     parsePercent(selic) !== null && parsePercent(cdi) !== null && parsePercent(ipca) !== null
+  const overrideNames = (['selic', 'cdi', 'ipca'] as const)
+    .filter((k) => data.rates.overrides[k])
+    .map((k) => ({ selic: 'Selic', cdi: 'CDI', ipca: 'IPCA' })[k])
+  const anyOverride = overrideNames.length > 0
 
   function saveName(): void {
     const clean = nameDraft.trim()
@@ -125,15 +150,68 @@ export function ProfileMenu({
     toast.success('Nome atualizado', `A partir de agora é "Olá, ${clean}".`)
   }
 
+  /**
+   * Salvar taxas à mão (§2): cada taxa alterada vira **override** — o
+   * automático para de mexer nela até o usuário devolvê-la. Sem isso, o próximo
+   * fetch (boot ou 24h) apagaria em silêncio o valor que ele acabou de digitar.
+   */
   function saveRates(): void {
     const s = parsePercent(selic)
     const c = parsePercent(cdi)
     const i = parsePercent(ipca)
     if (s === null || c === null || i === null) return
+    const overridden: string[] = []
+    if (s !== data.rates.selic) overridden.push('Selic')
+    if (c !== data.rates.cdi) overridden.push('CDI')
+    if (i !== data.rates.ipca) overridden.push('IPCA')
     mutate((d) => {
-      d.rates = { selic: s, cdi: c, ipca: i, updatedAt: todayIso() }
+      if (s !== d.rates.selic) d.rates.overrides.selic = true
+      if (c !== d.rates.cdi) d.rates.overrides.cdi = true
+      if (i !== d.rates.ipca) d.rates.overrides.ipca = true
+      d.rates.selic = s
+      d.rates.cdi = c
+      d.rates.ipca = i
+      d.rates.updatedAt = todayIso()
     })
-    toast.success('Taxas atualizadas', 'Todos os rendimentos foram recalculados.')
+    toast.success(
+      'Taxas atualizadas',
+      overridden.length > 0 && data.rates.autoUpdate
+        ? `Todos os rendimentos foram recalculados. ${overridden.join(', ')} ${overridden.length === 1 ? 'ficou' : 'ficaram'} sob edição manual — a atualização automática não vai mexer ${overridden.length === 1 ? 'nela' : 'nelas'}.`
+        : 'Todos os rendimentos foram recalculados.',
+    )
+  }
+
+  async function handleRefreshRates(): Promise<void> {
+    setRefreshing(true)
+    const outcome = await refreshRates(true)
+    setRefreshing(false)
+    if (outcome === 'offline') {
+      toast.warning(
+        'Não deu para consultar agora',
+        'Sem resposta das fontes oficiais. Suas taxas atuais continuam valendo.',
+      )
+      return
+    }
+    // Ressincroniza os campos com o que veio da rede
+    const next = useDataStore.getState().data
+    if (next) {
+      setSelic(fmtPercent(next.rates.selic))
+      setCdi(fmtPercent(next.rates.cdi))
+      setIpca(fmtPercent(next.rates.ipca))
+    }
+    toast.success(
+      outcome === 'updated' ? 'Taxas atualizadas' : 'Taxas conferidas',
+      outcome === 'updated'
+        ? 'Vieram das fontes oficiais e os rendimentos já foram recalculados.'
+        : 'As fontes oficiais confirmaram os valores que você já tinha.',
+    )
+  }
+
+  function handleClearOverrides(): void {
+    for (const key of ['selic', 'cdi', 'ipca'] as const) {
+      if (data.rates.overrides[key]) clearRateOverride(key)
+    }
+    void handleRefreshRates()
   }
 
   async function handleExport(): Promise<void> {
@@ -246,7 +324,7 @@ export function ProfileMenu({
             />
           </div>
 
-          {/* Taxas de referência */}
+          {/* Taxas de referência (R4 §2) */}
           <div className="px-4 py-3 border-b border-line">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[13px] font-medium text-ink">Taxas de referência</span>
@@ -261,14 +339,63 @@ export function ProfileMenu({
               </span>
             </div>
             <div className="grid grid-cols-3 gap-2">
-              <PercentField label="Selic a.a." value={selic} onChange={setSelic} />
-              <PercentField label="CDI a.a." value={cdi} onChange={setCdi} />
-              <PercentField label="IPCA 12m" value={ipca} onChange={setIpca} />
+              <PercentField label="Selic a.a." value={selic} onChange={setSelic} manual={data.rates.overrides.selic} />
+              <PercentField label="CDI a.a." value={cdi} onChange={setCdi} manual={data.rates.overrides.cdi} />
+              <PercentField label="IPCA 12m" value={ipca} onChange={setIpca} manual={data.rates.overrides.ipca} />
             </div>
+
+            {/* Estado do automático + "Atualizar agora" */}
+            <div className="flex items-center justify-between gap-2 mt-2.5">
+              <p className="text-[11px] text-ink-faint leading-snug min-w-0">
+                {data.rates.lastAutoAt !== null
+                  ? `Última atualização automática: ${formatDateTimeBR(data.rates.lastAutoAt)}`
+                  : data.rates.autoUpdate
+                    ? 'Ainda não foi possível consultar as fontes oficiais.'
+                    : 'Atualização automática desligada.'}
+              </p>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="shrink-0"
+                disabled={refreshing}
+                onClick={() => void handleRefreshRates()}
+              >
+                <RefreshCw size={12.5} className={cn(refreshing && 'animate-spin')} />
+                {refreshing ? 'Consultando…' : 'Atualizar agora'}
+              </Button>
+            </div>
+
+            {anyOverride && (
+              <div className="flex items-center justify-between gap-2 mt-1.5 bg-surface-2 border border-line rounded-[9px] px-2.5 py-2">
+                <p className="text-[11px] text-ink-soft leading-snug min-w-0">
+                  {overrideNames.join(', ')} sob edição manual — o automático não mexe {overrideNames.length === 1 ? 'nela' : 'nelas'}.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleClearOverrides}
+                  className="text-[11px] font-medium text-primary hover:underline shrink-0 cursor-pointer"
+                >
+                  Voltar ao automático
+                </button>
+              </div>
+            )}
+
+            <label className="flex items-center justify-between gap-2 mt-2.5 cursor-pointer select-none">
+              <span className="text-[12px] text-ink-soft">Atualização automática de taxas</span>
+              <Switch
+                checked={data.rates.autoUpdate}
+                onChange={(on) => {
+                  setRatesAutoUpdate(on)
+                  if (on) void refreshRates()
+                }}
+                aria-label="Atualização automática de taxas"
+              />
+            </label>
+
             {ratesStale && (
               <p className="text-[11.5px] text-warn mt-2 leading-snug">
-                Faz mais de 45 dias (um ciclo do Copom). Pesquise “Selic hoje” e atualize aqui — tudo
-                recalcula sozinho.
+                Faz mais de 45 dias (um ciclo do Copom) e o automático não trouxe nada. Use “Atualizar
+                agora” ou digite os valores — tudo recalcula sozinho.
               </p>
             )}
             {ratesDirty && (
@@ -304,7 +431,13 @@ export function ProfileMenu({
               <p className="text-[12.5px] font-medium text-ink">
                 Zent Money {version && <span className="text-ink-faint tnum">v{version}</span>}
               </p>
-              <p className="text-[11px] text-ink-faint">100% offline · seus dados são só seus</p>
+              {/* R4 §2: a frase "100% offline" deixou de ser verdade quando o app
+                  passou a consultar as taxas. Dizer o que ele faz de fato é mais
+                  forte do que uma promessa que o código não cumpre. */}
+              <p className="text-[11px] text-ink-faint leading-snug">
+                Seus dados nunca saem do seu computador — a única conexão é a consulta opcional das
+                taxas oficiais.
+              </p>
             </div>
           </div>
         </div>

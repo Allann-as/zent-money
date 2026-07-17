@@ -20,6 +20,9 @@
   },
   "include": [
     "electron",
+    // O main importa o buscador de taxas (R4 §2): ele vive em src/engine
+    // porque é lógica pura testável, mas só roda no main (CORS).
+    "src/engine/rates-source.ts",
     "electron.vite.config.ts",
     "vitest.config.ts",
     "playwright.config.ts",

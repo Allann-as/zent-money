@@ -31,10 +31,12 @@ import {
   groupByMonth,
   incomeByMonth,
   monthPace,
+  savingsRatio,
   sumByMonth,
 } from '@/engine/aggregations'
 import { combineSeries, investmentSeries, investmentSnapshot } from '@/engine/investments'
-import { standaloneMonthlyCommitment, totalMonthlyCommitment } from '@/engine/cards'
+import { standaloneMonthlyCommitment, totalInvoices, totalMonthlyCommitment } from '@/engine/cards'
+import { isLedgerLinked, totalInAccounts } from '@/engine/ledger'
 import { Tooltip } from '@/design/components/Tooltip'
 import { formatBRL, formatPercent } from '@/engine/money'
 import {
@@ -50,9 +52,16 @@ import {
 import { cn } from '@/lib/cn'
 import type { Category } from '@/data/schema'
 
-/** Variação ±% vs mês anterior (extra aprovado da R2). */
+/**
+ * Variação ±% vs mês anterior (extra aprovado da R2).
+ *
+ * **Devolve `null` quando não há base de comparação** (R4 §3): antes, um mês sem
+ * anterior comparável mostrava "— vs mês anterior", um travessão solto que
+ * ocupava espaço sem dizer nada. Sem base, a linha inteira some — quem chama
+ * trata o null.
+ */
 function Delta({ now, prev, invert = false }: { now: number; prev: number; invert?: boolean }): ReactNode {
-  if (prev <= 0) return <span className="text-ink-faint">— vs mês anterior</span>
+  if (prev <= 0) return null
   const ratio = (now - prev) / prev
   if (Math.abs(ratio) < 0.0005) return <span className="text-ink-faint">estável vs mês anterior</span>
   const up = ratio > 0
@@ -64,6 +73,15 @@ function Delta({ now, prev, invert = false }: { now: number; prev: number; inver
   )
 }
 
+/**
+ * `detail` do StatCard é opcional e o projeto roda com `exactOptionalPropertyTypes`:
+ * passar `undefined` não é o mesmo que não passar. Este helper transforma "não
+ * há detalhe" na ausência da prop, que é o que faz a linha sumir (R4 §3).
+ */
+function detailProp(node: ReactNode): { detail?: ReactNode } {
+  return node === null || node === false ? {} : { detail: node }
+}
+
 export function OverviewPage(): ReactNode {
   const data = useZentData()
   const ym = useUiStore((s) => s.activeYm)
@@ -71,7 +89,10 @@ export function OverviewPage(): ReactNode {
 
   // ── Patrimônio (hero + série 12m) ──────────────────────────────────
   const wealth = useMemo(() => {
-    const inAccounts = data.banks.reduce((a, b) => a + b.balance, 0)
+    // Saldo derivado do ledger (v7) — a MESMA função que alimenta Bancos e o
+    // drill-down. Um `reduce` local aqui foi por anos a chance de esta tela
+    // discordar daquelas.
+    const inAccounts = totalInAccounts(data)
     const snapshots = data.investments.map((inv) =>
       investmentSnapshot(inv, data.contributions, data.rates),
     )
@@ -97,7 +118,7 @@ export function OverviewPage(): ReactNode {
       months: series.months,
       values,
     }
-  }, [data.banks, data.investments, data.contributions, data.rates])
+  }, [data])
 
   // Mapa mês→total de gastos calculado UMA vez por mudança de dados —
   // navegar entre meses não varre o histórico completo de novo (§10.4)
@@ -119,7 +140,7 @@ export function OverviewPage(): ReactNode {
     // Compromissos = faturas abertas + parcelas de cartão + parcelas avulsas (R3 §2/§5).
     // A parte "de cartão" é derivada do total menos as avulsas para que as três linhas
     // do tooltip somem exatamente o número exibido.
-    const invoices = data.cards.reduce((a, c) => a + c.invoice, 0)
+    const invoices = totalInvoices(data.cards)
     const standaloneCommit = standaloneMonthlyCommitment(data.purchases)
     const cardCommit = totalMonthlyCommitment(data.purchases) - standaloneCommit
     const commitments = invoices + cardCommit + standaloneCommit
@@ -134,8 +155,35 @@ export function OverviewPage(): ReactNode {
       invoices,
       cardCommit,
       standaloneCommit,
+      /**
+       * Sobra como fração da renda — UM cálculo só, consumido pelo card e pelo
+       * balão (R4 §3). Antes cada um dividia por conta própria: mesmos inputs
+       * hoje, dois lugares para divergir amanhã.
+       * `null` = não há renda no mês, então a fração não existe (e não é 0).
+       */
+      savingsRatio: savingsRatio(income, spent),
+      /** Mês sem nenhuma movimentação: nem entrada, nem saída. */
+      empty: income === 0 && spent === 0,
     }
   }, [data, expensesMap, ym])
+
+  // Ledger ligado? Decide o texto do tooltip de "em conta" (§1.6).
+  const ledgerLinked = useMemo(() => isLedgerLinked(data), [data])
+
+  /**
+   * Detalhe da Sobra (R4 §3). Um mês sem gasto algum mostrava "100% da renda":
+   * tecnicamente verdade, mas lido como se o mês tivesse sido analisado quando
+   * nada foi lançado. Agora a linha diz o que de fato aconteceu.
+   */
+  const sobraDelta = <Delta now={month.net} prev={month.prevNet} />
+  const sobraDetail: ReactNode = month.empty ? null : month.spent === 0 ? (
+    <span className="text-ink-faint">nenhum gasto lançado</span>
+  ) : month.savingsRatio === null ? null : (
+    <>
+      {formatPercent(month.savingsRatio, 0)} da renda
+      {sobraDelta !== null && <> · {sobraDelta}</>}
+    </>
+  )
 
   // ── NOVO: ritmo do mês (média diária + projeção) ───────────────────
   const pace = useMemo(() => monthPace(monthExpenses, ym, todayIso()), [monthExpenses, ym])
@@ -147,7 +195,8 @@ export function OverviewPage(): ReactNode {
     return window.map((m) => {
       const inc = income.get(m) ?? 0
       const spent = expensesMap.get(m) ?? 0
-      return { ym: m, rate: inc > 0 ? (inc - spent) / inc : 0, income: inc }
+      // mesmo helper do card da Sobra e do balão (§3); null = mês sem renda
+      return { ym: m, rate: savingsRatio(inc, spent) ?? 0, income: inc }
     })
   }, [data.salaryHistory, data.extraIncomes, expensesMap, ym])
 
@@ -204,6 +253,7 @@ export function OverviewPage(): ReactNode {
   }, [data.salaryHistory, data.extraIncomes, expensesMap, ym])
 
   const hasFlow = flow12.some((f) => f.income > 0 || f.expenses > 0)
+  const viewingCurrentMonth = ym === currentYm()
   const hasWealthHistory =
     wealth.values.length >= 2 && wealth.values.some((v) => v !== wealth.values[0])
 
@@ -226,8 +276,13 @@ export function OverviewPage(): ReactNode {
         />
         <div className="flex items-end justify-between gap-8 relative">
           <div className="min-w-0">
+            {/* R4 §3: o hero é sempre o patrimônio de HOJE (saldo em conta não
+                tem histórico), enquanto os cards abaixo são do mês navegado.
+                Fora do mês corrente, os dois ficariam lado a lado sem dizer que
+                falam de tempos diferentes — o marcador "hoje" resolve. */}
             <p className="label-caps flex items-center gap-1.5">
               <Wallet size={13.5} /> Patrimônio total
+              {!viewingCurrentMonth && <span className="text-ink-faint normal-case">· hoje</span>}
             </p>
             <div className="flex items-baseline gap-3 mt-1.5 flex-wrap">
               <p className="font-display text-[52px] font-bold text-ink tnum leading-none">
@@ -242,9 +297,21 @@ export function OverviewPage(): ReactNode {
               )}
             </div>
             <div className="flex items-center gap-6 mt-4 text-[12.5px] tnum">
-              <span className="text-ink-soft">
-                em conta <strong className="text-ink font-semibold">{formatBRL(wealth.inAccounts)}</strong>
-              </span>
+              {/* Tooltip honesto (R4 §1.6): sem nada vinculado, "em conta" é a
+                  soma do que o usuário declarou — a tela diz isso em vez de
+                  sugerir que o número acompanha os lançamentos sozinho. */}
+              <Tooltip
+                side="top"
+                label={
+                  ledgerLinked
+                    ? 'Soma dos saldos das contas — recebimentos, gastos, transferências e ajustes já estão embutidos.'
+                    : 'Soma dos saldos declarados nos bancos. Vincule recebimentos e pagamentos às contas para este número se atualizar sozinho.'
+                }
+              >
+                <span className="text-ink-soft cursor-help">
+                  em conta <strong className="text-ink font-semibold">{formatBRL(wealth.inAccounts)}</strong>
+                </span>
+              </Tooltip>
               <span className="text-ink-soft">
                 investido <strong className="text-ink font-semibold">{formatBRL(wealth.invested)}</strong>
               </span>
@@ -262,33 +329,26 @@ export function OverviewPage(): ReactNode {
 
       {/* Cards do mês com variação vs mês anterior */}
       <div className="grid grid-cols-4 gap-4 mb-4">
+        {/* R4 §3: `detail` só existe quando tem o que dizer — sem mês anterior
+            comparável a linha some, em vez de exibir um travessão solto. */}
         <StatCard
           icon={ArrowDownRight}
           value={<AnimatedMoney cents={month.income} />}
           label="Entrou no mês"
-          detail={<Delta now={month.income} prev={month.prevIncome} />}
+          {...detailProp(<Delta now={month.income} prev={month.prevIncome} />)}
         />
         <StatCard
           icon={ArrowUpRight}
           value={<AnimatedMoney cents={month.spent} />}
           label="Saiu no mês"
-          detail={<Delta now={month.spent} prev={month.prevSpent} invert />}
+          {...detailProp(<Delta now={month.spent} prev={month.prevSpent} invert />)}
         />
         <StatCard
           icon={Target}
           value={<AnimatedMoney cents={month.net} />}
           label="Sobra"
           tone={month.net >= 0 ? 'pos' : 'neg'}
-          detail={
-            month.income > 0 ? (
-              <>
-                {formatPercent(month.net / month.income, 0)} da renda ·{' '}
-                <Delta now={month.net} prev={month.prevNet} />
-              </>
-            ) : (
-              '—'
-            )
-          }
+          {...detailProp(sobraDetail)}
         />
         {/* R3 §5: o tooltip discrimina faturas × parcelas de cartão × avulsas */}
         <Tooltip
@@ -324,7 +384,7 @@ export function OverviewPage(): ReactNode {
         title={`Resumo de ${formatYmLong(ym)}`}
         className="mb-4"
         segments={
-          month.income === 0 && month.spent === 0
+          month.empty
             ? [
                 'Nenhuma movimentação registrada neste mês ainda. Registre entradas em ',
                 { value: 'Ganhos', tone: 'primary', goTo: 'income' },
@@ -342,7 +402,8 @@ export function OverviewPage(): ReactNode {
                 ' comprometidos entre faturas e parcelas. ',
                 month.net >= 0 ? 'Sobra de ' : 'Falta de ',
                 { value: formatBRL(Math.abs(month.net)), tone: month.net >= 0 ? 'pos' : 'neg' },
-                month.income > 0 ? ` (${formatPercent(month.net / month.income, 0)} da renda).` : '.',
+                // mesma fração do card da Sobra, do mesmo memo (§3)
+                month.savingsRatio !== null ? ` (${formatPercent(month.savingsRatio, 0)} da renda).` : '.',
               ]
         }
       />

@@ -1,5 +1,13 @@
-import { useMemo, type ReactNode } from 'react'
-import { ArrowLeft, CreditCard, Landmark, Receipt, TrendingUp, Wallet } from 'lucide-react'
+import { useMemo, useState, type ReactNode } from 'react'
+import {
+  ArrowLeft,
+  ArrowLeftRight,
+  CreditCard,
+  Landmark,
+  Receipt,
+  TrendingUp,
+  Wallet,
+} from 'lucide-react'
 import { Card, CardTitle } from '@/design/components/Card'
 import { Button } from '@/design/components/Button'
 import { StatCard } from '@/design/components/StatCard'
@@ -9,16 +17,21 @@ import { EmptyState } from '@/design/components/EmptyState'
 import { LineArea } from '@/design/charts/LineArea'
 import { Bars } from '@/design/charts/Bars'
 import { useChartColors } from '@/design/charts/useChartColors'
-import { useDataStore, useZentData } from '@/store/dataStore'
+import { toast } from '@/design/components/toast'
+import { useZentData } from '@/store/dataStore'
 import { useUiStore } from '@/store/uiStore'
+import { reconcileBankBalance } from '@/store/ledgerActions'
 import { availableLimit, monthlyCommitment } from '@/engine/cards'
 import { combineSeries, investmentSeries } from '@/engine/investments'
 import { expensesOfBank, groupByMonth } from '@/engine/aggregations'
+import { bankBalances, bankMovements } from '@/engine/ledger'
 import { formatBRL, formatPercent } from '@/engine/money'
 import { currentYm, formatYmLong, formatYmTiny } from '@/engine/dates'
 import type { Bank } from '@/data/schema'
 import { BankLogo } from './BankLogo'
 import { InlineMoney } from './BanksPage'
+import { AccountHistory } from './AccountHistory'
+import { PayInvoiceDialog, TransferDialog } from './ledgerDialogs'
 
 /**
  * Drill-down de um banco (R3 §3.3): tudo daquele banco em uma página —
@@ -33,6 +46,14 @@ export function BankDetailPage({ bank }: { bank: Bank }): ReactNode {
   const setView = useUiStore((s) => s.setView)
   const ym = useUiStore((s) => s.activeYm)
   const colors = useChartColors()
+
+  const [transferOpen, setTransferOpen] = useState(false)
+  const [payInvoiceOpen, setPayInvoiceOpen] = useState(false)
+
+  // Saldo e histórico DERIVADOS dos movimentos (ledger v7) — o card, o balão e
+  // a última linha do histórico saem todos daqui, então não têm como divergir.
+  const balance = useMemo(() => bankBalances(data).get(bank.id) ?? 0, [data, bank.id])
+  const movements = useMemo(() => bankMovements(data, bank.id), [data, bank.id])
 
   const cards = useMemo(() => data.cards.filter((c) => c.bankId === bank.id), [data.cards, bank.id])
   const cardsById = useMemo(() => new Map(data.cards.map((c) => [c.id, c])), [data.cards])
@@ -103,10 +124,24 @@ export function BankDetailPage({ bank }: { bank: Bank }): ReactNode {
     [data.purchases, cardIds],
   )
 
+  /**
+   * Gastos do mês lançados com origem em cada cartão (R4 §1.7). Existe para a
+   * UI poder CONFRONTAR os dois números — o que você lançou × a fatura que
+   * digitou — em vez de somar um no outro, que contaria em dobro (a fatura já
+   * inclui as compras). Quem concilia é o usuário; o app só mostra a diferença.
+   */
+  const monthSpendByCard = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const e of expensesByYm.get(ym) ?? []) {
+      if (e.origin?.kind === 'card') map.set(e.origin.cardId, (map.get(e.origin.cardId) ?? 0) + e.amount)
+    }
+    return map
+  }, [expensesByYm, ym])
+
   const balloon: BalloonSegment[] = useMemo(() => {
     const segs: BalloonSegment[] = [
       `Em ${bank.name} você tem `,
-      { value: formatBRL(bank.balance), tone: bank.balance >= 0 ? 'pos' : 'neg' },
+      { value: formatBRL(balance), tone: balance >= 0 ? 'pos' : 'neg' },
       ' em conta',
     ]
     if (invested > 0) {
@@ -132,7 +167,7 @@ export function BankDetailPage({ bank }: { bank: Bank }): ReactNode {
     }
     segs.push('.')
     return segs
-  }, [bank, invested, cards.length, stats, spentByBank])
+  }, [bank, balance, invested, cards.length, stats, spentByBank])
 
   return (
     <>
@@ -150,19 +185,32 @@ export function BankDetailPage({ bank }: { bank: Bank }): ReactNode {
             <div className="text-[13px] text-ink-soft flex items-center gap-1">
               Saldo em conta:
               <InlineMoney
-                value={bank.balance}
+                value={balance}
                 label="Saldo em conta"
                 allowNegative
-                onSave={(v) =>
-                  useDataStore.getState().mutate((d) => {
-                    const b = d.banks.find((x) => x.id === bank.id)
-                    if (b) b.balance = v
-                  })
-                }
+                onSave={(v) => {
+                  // Conciliação (§1.5): registra a diferença, não sobrescreve.
+                  const applied = reconcileBankBalance(bank.id, v)
+                  if (applied === 0) return
+                  toast.success(
+                    'Saldo conciliado',
+                    `Ajuste de ${applied > 0 ? '+' : '−'}${formatBRL(Math.abs(applied))} registrado no histórico.`,
+                  )
+                }}
                 className="font-semibold text-ink"
               />
             </div>
           </div>
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setTransferOpen(true)}>
+            <ArrowLeftRight size={13.5} /> Transferir
+          </Button>
+          {cards.length > 0 && (
+            <Button variant="outline" size="sm" onClick={() => setPayInvoiceOpen(true)}>
+              <Receipt size={13.5} /> Pagar fatura
+            </Button>
+          )}
         </div>
       </div>
 
@@ -170,7 +218,11 @@ export function BankDetailPage({ bank }: { bank: Bank }): ReactNode {
       <div className="grid grid-cols-4 gap-4 mb-4">
         <StatCard icon={TrendingUp} value={<AnimatedMoney cents={invested} />} label="Investido aqui" tone="primary" />
         <StatCard icon={Receipt} value={<AnimatedMoney cents={stats.invoices} />} label="Faturas abertas" tone={stats.invoices > 0 ? 'neg' : 'default'} />
-        <StatCard icon={CreditCard} value={<AnimatedMoney cents={stats.committed} />} label="Parcelas por mês" />
+        <StatCard
+          icon={CreditCard}
+          value={<AnimatedMoney cents={stats.committed} />}
+          label="Parcelas de cartão/mês"
+        />
         <StatCard
           icon={Wallet}
           value={<AnimatedMoney cents={stats.available} />}
@@ -336,12 +388,37 @@ export function BankDetailPage({ bank }: { bank: Bank }): ReactNode {
                       style={{ width: `${pct * 100}%` }}
                     />
                   </div>
+                  {/* Conciliação da fatura (§1.7): os dois números lado a lado, sem
+                      somar um no outro — a fatura já embute as compras do mês. */}
+                  {(monthSpendByCard.get(c.id) ?? 0) > 0 && (
+                    <p className="text-[11.5px] text-ink-faint mt-2.5 leading-snug tnum">
+                      Gastos de {formatYmLong(ym)} lançados neste cartão:{' '}
+                      <strong className="text-ink-soft font-semibold">
+                        {formatBRL(monthSpendByCard.get(c.id) ?? 0)}
+                      </strong>{' '}
+                      · fatura que você digitou:{' '}
+                      <strong className="text-ink-soft font-semibold">{formatBRL(c.invoice)}</strong>. A
+                      fatura não soma seus lançamentos — ela já os inclui.
+                    </p>
+                  )}
                 </li>
               )
             })}
           </ul>
         )}
       </Card>
+
+      {/* Histórico da conta (R4 §1): a prova de que o saldo é derivado */}
+      <div className="mt-4">
+        <AccountHistory movements={movements} balance={balance} />
+      </div>
+
+      <TransferDialog
+        open={transferOpen}
+        onClose={() => setTransferOpen(false)}
+        defaultFromBankId={bank.id}
+      />
+      <PayInvoiceDialog open={payInvoiceOpen} onClose={() => setPayInvoiceOpen(false)} bankId={bank.id} />
     </>
   )
 }

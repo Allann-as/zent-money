@@ -2,6 +2,108 @@
 
 Registro das decisões tomadas onde a especificação deixou eixos livres.
 
+## Release 4 — coerência contábil, taxas ao vivo e revisão fina
+
+### Ledger híbrido (§1)
+
+- **O saldo virou DERIVADO; `bank.balance` deixou de existir.** O arquivo guarda
+  `openingBalance` (o ponto de partida) e os MOVIMENTOS; `bankBalances()` soma. Guardar
+  um `balance` ao lado dos movimentos seria estado redundante livre para divergir do
+  próprio histórico — exatamente o defeito que a release veio corrigir. Consequência de
+  graça: o histórico da conta **fecha** no saldo por construção, e a tela mostra o saldo
+  corrido linha a linha; se um dia não fechar, ela denuncia em vez de esconder.
+- **Movimentos são eventos, não somas.** Crédito de salário, transferência, ajuste e
+  pagamento de fatura viraram registros próprios (`salaryCredits`, `transfers`,
+  `adjustments`, `invoicePayments`); gasto-com-origem e extra-recebido-em são derivados
+  dos registros que já existiam, sem duplicar dado. "Desfazer" é apagar o evento — não
+  há saldo para "corrigir de volta".
+- **Crédito automático do salário, reversível (decisão do usuário).** No dia configurado
+  o app credita sozinho, com evento no histórico, toast e "Desfazer" de um clique; um
+  toggle troca para "Confirmar recebimento" (para quem tem salário que atrasa). Regras,
+  todas com um porquê: (a) **nunca credita antes do dia**; (b) **não inventa passado** —
+  na primeira configuração começa no mês corrente, porque o saldo que o usuário digitou
+  já embute os meses anteriores e creditá-los contaria em dobro; (c) o marcador
+  `meta.lastSalaryCreditYm` **só avança para meses creditados**, e é ele — não a
+  existência do crédito — que faz o "Desfazer" grudar: sem marcador, o próximo boot
+  recriaria o que o usuário acabou de desfazer.
+- **Vincular a conta credita na hora**, não só no próximo boot: a queixa que abriu a
+  release é "entrou R$ 2.000 e Em conta = R$ 0,00"; resolvê-la só amanhã seria não
+  resolvê-la. É a mesma função do boot, com as mesmas regras.
+- **Editar o saldo à mão virou conciliação (§1.5)**, não sobrescrita: o app calcula a
+  diferença contra o saldo derivado e grava um **ajuste**. O texto
+  "Ajuste de conciliação: +R$ 137,50" é montado pela UI a partir do `amount`; a nota
+  guarda só o motivo. Gravar o valor dentro do texto seria o mesmo dado em dois lugares,
+  livre para divergir do movimento que descreve.
+- **"Pagar fatura" entrou no escopo (decisão do usuário).** Sem ele o dinheiro gasto no
+  cartão nunca saía de conta nenhuma — um furo do mesmo tipo que a R4 veio fechar. Debita
+  a conta e abate a fatura **na mesma transação**: são dois efeitos de um fato só, e
+  separá-los deixaria o app num estado onde o dinheiro saiu mas a fatura continua cheia.
+- **Anti-dupla contagem (§1.7): gasto com origem-cartão NÃO debita conta.** Ele vira
+  dívida no cartão (a fatura, que o usuário digita — decisão mantida da R3) e só toca o
+  saldo quando a fatura é paga. Compromissos segue = faturas + parcelas de cartão +
+  avulsas, sem gasto algum. No cartão, a UI **confronta** os dois números
+  ("gastos lançados neste cartão: R$ X · fatura que você digitou: R$ Y — a fatura não
+  soma seus lançamentos, ela já os inclui") em vez de somar um no outro.
+- **Retrocompatibilidade real (§1.6)**: sem nada vinculado, todos os arrays de movimento
+  ficam vazios e o saldo derivado colapsa no `openingBalance` — o app de ontem, idêntico.
+  `isLedgerLinked()` decide o tooltip honesto do "em conta". Origem-CARTÃO sozinha não
+  liga o ledger: nenhuma conta se move por ela.
+- **Templates de recorrência não guardam conta**, como já não guardavam origem: a
+  instância nasce sem vínculo e o usuário atribui depois.
+
+### Taxas ao vivo (§2)
+
+- **Busca no processo main**, não no renderer: as duas APIs bateriam em CORS. A lógica
+  pura (`engine/rates-source.ts`) recebe o `fetch` **injetado** — é isso que permite
+  mockar a rede em 100% dos testes. Um teste que depende de o BC estar de pé é aposta,
+  não teste.
+- **Uma série do SGS faltando derruba a busca inteira.** Publicar duas taxas novas e uma
+  velha como se fossem do mesmo momento é pior do que manter as três antigas com data
+  honesta.
+- **Override por taxa, não global.** Editar a Selic à mão pausa só a Selic; o automático
+  segue mandando no CDI e no IPCA. Sem isso, o próximo fetch apagaria em silêncio o valor
+  que o usuário acabou de digitar.
+- **`updatedAt` × `lastAutoAt` são coisas diferentes**: `updatedAt` descreve os NÚMEROS
+  (só avança quando alguma taxa muda de valor) e `lastAutoAt`, a última vez que o app
+  conseguiu falar com as fontes. Misturá-los faria a UI dizer "atualizadas hoje" sobre
+  valores de 45 dias atrás.
+- **Falha é silêncio**, não toast: sem rede, os últimos valores continuam valendo e a UI
+  mostra a data deles. Um erro a cada boot num café sem wi-fi é ruído, não informação.
+  O alerta de 45 dias só aparece para quem *não* tem o automático funcionando.
+- **"Atualizar agora" funciona com o toggle desligado**: o toggle governa o automático,
+  não o direito de o usuário consultar quando quiser.
+- **`ZENT_OFFLINE=1` corta a rede na raiz.** Garante que a suíte jamais toque a internet
+  e, de quebra, o E2E inteiro roda offline — o caminho de falha virou caminho testado.
+- **A frase "100% offline" foi aposentada.** Deixou de ser verdade quando o app passou a
+  consultar taxas; agora diz o que ele faz de fato: *"seus dados nunca saem do seu
+  computador — a única conexão é a consulta opcional das taxas oficiais"*. Dizer o que o
+  código cumpre é mais forte do que uma promessa que ele não cumpre.
+
+### Revisão de consistência (§3)
+
+- **"100% da renda" morreu.** Mês sem gasto algum agora diz "nenhum gasto lançado"; mês
+  sem movimentação nenhuma não mostra linha. O percentual só aparece quando há o que
+  medir.
+- **`Delta` devolve `null` sem base de comparação** e a linha inteira some, em vez do
+  travessão solto "— vs mês anterior". Como o projeto roda com
+  `exactOptionalPropertyTypes`, passar `undefined` não é o mesmo que não passar: o helper
+  `detailProp()` transforma "não há detalhe" na ausência da prop.
+- **Um cálculo, muitos consumidores**: `totalInAccounts`, `totalInvoices` e
+  `savingsRatio` viraram helpers únicos. Antes, `inAccounts` e `invoices` eram `reduce`
+  duplicados em Visão geral × Bancos × drill-down, e o "% da renda" era dividido em dois
+  lugares — mesmos inputs hoje, duas chances de divergir amanhã.
+- **`savingsRatio` devolve `null` sem renda**, não 0: "não há fração" e "não sobrou nada"
+  são afirmações diferentes.
+- **A projeção do mês deriva da média JÁ ARREDONDADA.** Os dois números ficam lado a lado
+  no card "Ritmo do mês" e o usuário pode multiplicar um pelo outro; uma projeção não
+  ganha nada com uma precisão que ninguém consegue conferir.
+- **"Parcelas por mês" virou "Parcelas de cartão/mês"**: o número exclui as avulsas de
+  propósito (elas não pertencem a banco nenhum), e o rótulo genérico o fazia parecer
+  discordar de Compromissos.
+- **O hero ganhou o marcador "· hoje"** fora do mês corrente: ele é o patrimônio de
+  agora (saldo em conta não tem histórico) enquanto os cards abaixo são do mês navegado.
+  Sem o marcador, dois tempos diferentes ficavam lado a lado sem avisar.
+
 ## Release 3 — correções, bancos em profundidade e design final
 
 - **Parcela avulsa é discriminada por `cardId: null`** (§2), sem um campo `kind`

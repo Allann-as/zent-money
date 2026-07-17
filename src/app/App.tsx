@@ -8,6 +8,8 @@ import { AppShell } from './AppShell'
 import { ZentLogo } from '@/design/ZentLogo'
 import { currentYm, diffDays, todayIso } from '@/engine/dates'
 import { materializeRecurrences } from '@/engine/recurring'
+import { runSalaryMaterialization } from '@/store/ledgerActions'
+import { refreshRates } from '@/store/ratesActions'
 import { newId } from '@/lib/id'
 
 type BootState = { status: 'loading' } | { status: 'ready' } | { status: 'error'; message: string }
@@ -17,6 +19,7 @@ export function App(): ReactNode {
 
   useEffect(() => {
     let cancelled = false
+    let ratesTimer: ReturnType<typeof setInterval> | undefined
     async function start(): Promise<void> {
       try {
         const [data, logos] = await Promise.all([loadZentData(), window.zent.listLogos()])
@@ -45,7 +48,27 @@ export function App(): ReactNode {
           }
         }
 
+        // Crédito automático do salário nos meses vencidos (R4 §1.1). Roda
+        // depois das recorrências: ambos materializam o tempo que passou desde
+        // o último boot, e o salário lê o histórico já atualizado.
+        const credited = runSalaryMaterialization()
+        if (credited > 0) {
+          const bankName =
+            useDataStore.getState().data?.banks.find((b) => b.id === data.salaryConfig.bankId)?.name ??
+            'sua conta'
+          toast.info(
+            credited === 1 ? 'Salário creditado' : `${credited} salários creditados`,
+            `Entrou no saldo de ${bankName}. Dá para desfazer no histórico da conta.`,
+          )
+        }
+
         setBoot({ status: 'ready' })
+
+        // Taxas oficiais (R4 §2): no boot e a cada 24h, em silêncio. Não é
+        // aguardado de propósito — a tela não espera a rede para abrir, e sem
+        // internet o app é exatamente o mesmo app.
+        void refreshRates()
+        ratesTimer = setInterval(() => void refreshRates(), 24 * 60 * 60 * 1000)
 
         // Lembrete de backup manual (45 dias)
         const last = data.meta.lastManualExport ?? data.meta.createdAt
@@ -71,6 +94,7 @@ export function App(): ReactNode {
     return () => {
       cancelled = true
       unsubscribe()
+      if (ratesTimer !== undefined) clearInterval(ratesTimer)
     }
   }, [])
 

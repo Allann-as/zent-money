@@ -1,5 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import {
+  ArrowLeftRight,
   ChevronDown,
   ChevronRight,
   CreditCard,
@@ -23,7 +24,9 @@ import { toast } from '@/design/components/toast'
 import { confirmDialog } from '@/design/components/confirm'
 import { useDataStore, useZentData } from '@/store/dataStore'
 import { useUiStore } from '@/store/uiStore'
-import { availableLimit, monthlyCommitment, payoffYm, remainingAmount, remainingInstallments } from '@/engine/cards'
+import { availableLimit, monthlyCommitment, payoffYm, remainingAmount, remainingInstallments, totalInvoices } from '@/engine/cards'
+import { bankBalances } from '@/engine/ledger'
+import { reconcileBankBalance } from '@/store/ledgerActions'
 import { formatBRL } from '@/engine/money'
 import { formatYmShort } from '@/engine/dates'
 import { cn } from '@/lib/cn'
@@ -38,6 +41,7 @@ import {
   type CardDialogState,
   type PurchaseDialogState,
 } from './dialogs'
+import { TransferDialog } from './ledgerDialogs'
 
 /** Valor monetário editável inline (clique no lápis, Enter salva). */
 export function InlineMoney({
@@ -121,13 +125,19 @@ export function BanksPage(): ReactNode {
   const [bankDialog, setBankDialog] = useState<BankDialogState>('closed')
   const [cardDialog, setCardDialog] = useState<CardDialogState>('closed')
   const [purchaseDialog, setPurchaseDialog] = useState<PurchaseDialogState>('closed')
+  const [transferOpen, setTransferOpen] = useState(false)
+
+  // Saldos derivados do ledger (v7), calculados UMA vez e passados aos blocos:
+  // cada banco lendo o seu por conta própria seria uma varredura por banco.
+  const balances = useMemo(() => bankBalances(data), [data])
 
   const totals = useMemo(() => {
-    const inAccounts = data.banks.reduce((a, b) => a + b.balance, 0)
-    const invoices = data.cards.reduce((a, c) => a + c.invoice, 0)
+    let inAccounts = 0
+    for (const v of balances.values()) inAccounts += v
+    const invoices = totalInvoices(data.cards)
     const monthly = data.cards.reduce((a, c) => a + monthlyCommitment(c.id, data.purchases), 0)
     return { inAccounts, invoices, monthly }
-  }, [data.banks, data.cards, data.purchases])
+  }, [balances, data.cards, data.purchases])
 
   async function removeBank(bank: Bank): Promise<void> {
     const hasInvestments = data.investments.some((i) => i.bankId === bank.id)
@@ -169,9 +179,16 @@ export function BanksPage(): ReactNode {
         title="Bancos & Cartões"
         subtitle="Hub central de contas e crédito"
         actions={
-          <Button onClick={() => setBankDialog('new')}>
-            <Plus size={15} /> Novo banco
-          </Button>
+          <div className="flex items-center gap-2">
+            {data.banks.length > 1 && (
+              <Button variant="outline" onClick={() => setTransferOpen(true)}>
+                <ArrowLeftRight size={14} /> Transferir
+              </Button>
+            )}
+            <Button onClick={() => setBankDialog('new')}>
+              <Plus size={15} /> Novo banco
+            </Button>
+          </div>
         }
       />
 
@@ -184,7 +201,14 @@ export function BanksPage(): ReactNode {
           tone={totals.inAccounts < 0 ? 'neg' : 'default'}
         />
         <StatCard icon={Receipt} value={<AnimatedMoney cents={totals.invoices} />} label="Faturas abertas" />
-        <StatCard icon={CreditCard} value={<AnimatedMoney cents={totals.monthly} />} label="Parcelas por mês" />
+        {/* "Parcelas de cartão/mês", não "Parcelas por mês" (R4 §3): este número
+            exclui as avulsas de propósito (elas não pertencem a banco nenhum), e
+            o rótulo genérico o fazia parecer discordar de Compromissos. */}
+        <StatCard
+          icon={CreditCard}
+          value={<AnimatedMoney cents={totals.monthly} />}
+          label="Parcelas de cartão/mês"
+        />
       </div>
 
       {/* Balão de resumo inteligente (§3) */}
@@ -222,6 +246,7 @@ export function BanksPage(): ReactNode {
             <BankBlock
               key={bank.id}
               bank={bank}
+              balance={balances.get(bank.id) ?? 0}
               cards={data.cards.filter((c) => c.bankId === bank.id)}
               purchases={data.purchases}
               onOpen={() => openBankDetail(bank.id)}
@@ -239,12 +264,14 @@ export function BanksPage(): ReactNode {
       <BankDialog state={bankDialog} onClose={() => setBankDialog('closed')} />
       <CardDialog state={cardDialog} onClose={() => setCardDialog('closed')} />
       <PurchaseDialog state={purchaseDialog} onClose={() => setPurchaseDialog('closed')} />
+      <TransferDialog open={transferOpen} onClose={() => setTransferOpen(false)} />
     </>
   )
 }
 
 function BankBlock({
   bank,
+  balance,
   cards,
   purchases,
   onOpen,
@@ -256,6 +283,8 @@ function BankBlock({
   onEditPurchase,
 }: {
   bank: Bank
+  /** Saldo DERIVADO (ledger v7) — calculado uma vez pela página. */
+  balance: number
   cards: Card[]
   purchases: Purchase[]
   onOpen(): void
@@ -266,8 +295,6 @@ function BankBlock({
   onNewPurchase(cardId: string): void
   onEditPurchase(purchase: Purchase): void
 }): ReactNode {
-  const mutate = useDataStore((s) => s.mutate)
-
   return (
     <Panel className="overflow-hidden">
       {/* Cabeçalho do banco */}
@@ -302,17 +329,20 @@ function BankBlock({
           <div className="text-[13px] text-ink-soft flex items-center gap-1">
             Saldo em conta:{' '}
             <InlineMoney
-              value={bank.balance}
+              value={balance}
               allowNegative
               label={`Saldo do ${bank.name}`}
               onSave={(v) => {
-                mutate((d) => {
-                  const b = d.banks.find((x) => x.id === bank.id)
-                  if (b) b.balance = v
-                })
-                toast.success('Saldo atualizado', `${bank.name}: ${formatBRL(v)}`)
+                // Editar o saldo à mão não sobrescreve nada: registra a diferença
+                // como ajuste de conciliação e o saldo segue derivado (§1.5).
+                const applied = reconcileBankBalance(bank.id, v)
+                if (applied === 0) return
+                toast.success(
+                  'Saldo conciliado',
+                  `${bank.name}: ${formatBRL(v)} — ajuste de ${applied > 0 ? '+' : '−'}${formatBRL(Math.abs(applied))} registrado no histórico.`,
+                )
               }}
-              className={cn('font-semibold', bank.balance < 0 ? 'text-neg' : 'text-ink')}
+              className={cn('font-semibold', balance < 0 ? 'text-neg' : 'text-ink')}
             />
           </div>
         </div>
@@ -538,7 +568,8 @@ function CardBlock({
               className={cn('transition-transform duration-200', !expanded && '-rotate-90')}
             />
             {active.length} {active.length === 1 ? 'compra ativa' : 'compras ativas'}
-            {done.length > 0 ? ` · ${done.length} quitada${done.length > 1 ? 's' : ''}` : ''}
+            {/* `!== 1` como no resto do app: `> 1` daria "0 quitada" no singular */}
+            {done.length > 0 ? ` · ${done.length} ${done.length === 1 ? 'quitada' : 'quitadas'}` : ''}
           </button>
 
           {expanded && (

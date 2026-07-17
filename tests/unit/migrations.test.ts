@@ -34,11 +34,27 @@ function v1Data(): Record<string, unknown> {
   }
 }
 
-describe('migração de dados v1 → v6', () => {
+describe('migração de dados v1 → v7', () => {
   it('migra um arquivo v1 completo em cadeia e passa na validação do schema atual', () => {
     const migrated = migrate(v1Data())
     const parsed = zentDataSchema.parse(migrated)
-    expect(parsed.version).toBe(6)
+    expect(parsed.version).toBe(7)
+    // v6→v7: o saldo digitado vira o PONTO DE PARTIDA do ledger e os arrays de
+    // movimento nascem vazios — o saldo derivado é idêntico ao de antes
+    expect(parsed.banks[0]?.openingBalance).toBe(0)
+    expect('balance' in (parsed.banks[0] ?? {})).toBe(false)
+    expect(parsed.salaryConfig).toEqual({ bankId: null, payDay: 5, autoCredit: true })
+    expect(parsed.salaryCredits).toEqual([])
+    expect(parsed.transfers).toEqual([])
+    expect(parsed.adjustments).toEqual([])
+    expect(parsed.invoicePayments).toEqual([])
+    expect(parsed.extraIncomes[0]?.receivedIn).toBeNull()
+    expect(parsed.meta.lastSalaryCreditYm).toBeNull()
+    // taxas do arquivo antigo vieram da mão do usuário, nunca do automático
+    expect(parsed.rates.autoUpdate).toBe(true)
+    expect(parsed.rates.lastAutoAt).toBeNull()
+    expect(parsed.rates.overrides).toEqual({ selic: false, cdi: false, ipca: false })
+    expect(parsed.rates.selic).toBe(14.25)
     // v5→v6: gastos antigos ficam sem origem
     expect(parsed.expenses[0]?.origin).toBeNull()
     // v1→v2
@@ -102,7 +118,7 @@ describe('migração de dados v1 → v6', () => {
       expect(banking).toBeDefined()
       // MESMO id: nada que apontava para o BTG se perde
       expect(banking?.id).toBe('btg1')
-      expect(banking?.balance).toBe(250000)
+      expect(banking?.openingBalance).toBe(250000)
       expect(parsed.cards[0]?.bankId).toBe('btg1')
       expect(parsed.investments[0]?.bankId).toBe('btg1')
       // e a parcela do cartão do BTG segue vinculada
@@ -113,7 +129,7 @@ describe('migração de dados v1 → v6', () => {
       const parsed = zentDataSchema.parse(migrate(comBtgUnico()))
       const inv = parsed.banks.find((b) => b.name === 'BTG Investimentos')
       expect(inv).toBeDefined()
-      expect(inv?.balance).toBe(0)
+      expect(inv?.openingBalance).toBe(0)
       expect(inv?.id).not.toBe('btg1')
       // não sobrou nenhum banco chamado só "BTG"
       expect(parsed.banks.some((b) => b.name === 'BTG')).toBe(false)
@@ -141,7 +157,7 @@ describe('migração de dados v1 → v6', () => {
       raw['investments'] = []
       const parsed = zentDataSchema.parse(migrate(raw))
       expect(parsed.banks.filter((b) => b.name.startsWith('BTG'))).toHaveLength(2)
-      expect(parsed.banks.find((b) => b.id === 'x1')?.balance).toBe(100)
+      expect(parsed.banks.find((b) => b.id === 'x1')?.openingBalance).toBe(100)
     })
 
     it('sem BTG nenhum, a migração não inventa bancos', () => {

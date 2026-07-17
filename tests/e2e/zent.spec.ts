@@ -18,7 +18,14 @@ const consoleErrors: string[] = []
 
 test.beforeAll(async () => {
   userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'zent-e2e-'))
-  const env = { ...process.env, ZENT_USER_DATA: userDataDir } as Record<string, string>
+  const env = {
+    ...process.env,
+    ZENT_USER_DATA: userDataDir,
+    // R4 §2: a suíte NUNCA toca a rede. Todo o E2E roda, portanto, no modo
+    // offline — o app inteiro tem de funcionar sem conexão, e isso passa a ser
+    // verificado a cada execução em vez de ser uma promessa.
+    ZENT_OFFLINE: '1',
+  } as Record<string, string>
   delete env['ELECTRON_RUN_AS_NODE'] // shells do VS Code herdam isso e quebram o launch
   app = await electron.launch({ args: ['out/main/main.js'], env })
   page = await app.firstWindow()
@@ -474,6 +481,105 @@ test('20. campos monetários aceitam digitação natural (2000 · 1.234,56 · 12
   await expect(page.getByText('/ R$ 1.234,56')).toBeVisible()
 })
 
-test('21. zero erros de console/runtime em toda a sessão', () => {
+/**
+ * R4 §1 — ledger híbrido. Este é o caso de aceite da release: o salário entra na
+ * conta, o gasto pago pela conta sai dela, e o histórico fecha o saldo.
+ * Estado herdado: salário = R$ 2.000 (teste 20) e Nubank conciliado em
+ * R$ 1.500 (teste 19c).
+ */
+test('22. ledger: salário credita, gasto debita, transferência e ajuste fecham a conta', async () => {
+  // (a) vincular a conta de recebimento — o dia 5 de julho já passou, então o
+  //     crédito acontece na hora, sem esperar o próximo boot
+  await goTo('Ganhos')
+  await page.getByRole('button', { name: 'Editar', exact: true }).click()
+  let dialog = page.getByRole('dialog')
+  await dialog.getByLabel('Conta de recebimento do salário').selectOption({ label: 'Nubank' })
+  await dialog.getByLabel('Dia do pagamento').fill('5')
+  await dialog.getByRole('button', { name: 'Salvar' }).click()
+  await expect(page.getByText('passa a cair em Nubank todo dia 5')).toBeVisible()
+  await expect(page.getByText('cai em Nubank todo dia 5')).toBeVisible()
+
+  // (b) "Em conta" reflete o salário: 1.500 (ajuste) + 2.000 (salário)
+  await goTo('Bancos & Cartões')
+  await expect(page.getByRole('button', { name: /editar saldo do nubank/i })).toContainText('R$ 3.500,00')
+
+  // (c) gasto pago PELA CONTA debita o saldo
+  await goTo('Gastos')
+  await page.getByRole('button', { name: 'Novo gasto' }).click()
+  dialog = page.getByRole('dialog')
+  await dialog.getByLabel('Categoria').selectOption({ label: 'Mercado' })
+  await dialog.getByPlaceholder('Ex.: Compras da semana').fill('Feira paga pela conta')
+  await dialog.getByRole('textbox', { name: 'Valor do gasto' }).fill('100')
+  await dialog.getByLabel('Pago com').selectOption({ label: 'Nubank' })
+  await dialog.getByRole('button', { name: 'Adicionar' }).click()
+  await goTo('Bancos & Cartões')
+  await expect(page.getByRole('button', { name: /editar saldo do nubank/i })).toContainText('R$ 3.400,00')
+
+  // (d) transferência move dinheiro entre as duas contas, sem criar nem sumir
+  await page.getByRole('button', { name: 'Transferir' }).click()
+  dialog = page.getByRole('dialog')
+  await dialog.getByLabel('Conta de origem').selectOption({ label: 'Nubank' })
+  await dialog.getByLabel('Conta de destino').selectOption({ label: 'Itaú' })
+  await dialog.getByRole('textbox', { name: 'Valor da transferência' }).fill('400')
+  await dialog.getByRole('button', { name: 'Transferir' }).click()
+  await expect(page.getByText('Transferência registrada')).toBeVisible()
+  await expect(page.getByRole('button', { name: /editar saldo do nubank/i })).toContainText('R$ 3.000,00')
+  await expect(page.getByRole('button', { name: /editar saldo do itaú/i })).toContainText('R$ 400,00')
+
+  // (e) o histórico da conta mostra cada movimento e FECHA no saldo
+  await page.getByRole('button', { name: 'Abrir Nubank' }).click()
+  const history = page.getByRole('list', { name: 'Movimentos da conta' })
+  await expect(history).toContainText('Salário')
+  await expect(history).toContainText('Feira paga pela conta')
+  await expect(history).toContainText('Transferência para Itaú')
+  await expect(history).toContainText('Ajuste de conciliação')
+  await expect(history).toContainText('Saldo inicial')
+  await expect(page.getByText('Saldo atual da conta').locator('..')).toContainText('R$ 3.000,00')
+  // o gasto no cartão (teste 19b) NÃO debita a conta: ele vive na fatura
+  await expect(history).not.toContainText('Compra no cartão')
+
+  // (f) desfazer o crédito de salário tira exatamente os R$ 2.000
+  await page.getByRole('button', { name: /^Desfazer crédito de salário/ }).click()
+  await expect(page.getByText('Crédito desfeito')).toBeVisible()
+  await expect(page.getByText('Saldo atual da conta').locator('..')).toContainText('R$ 1.000,00')
+  await page.getByRole('button', { name: 'Voltar para Bancos & Cartões' }).click()
+})
+
+/**
+ * R4 §2 — taxas. O app roda o E2E inteiro com `ZENT_OFFLINE=1`: nenhuma
+ * requisição sai daqui. Este teste prova que, sem rede, o app abre, funciona e
+ * mantém as taxas que já tinha — o caminho de falha é um caminho testado.
+ */
+test('23. sem rede: app funciona, taxas antigas seguem valendo e o manual vira override', async () => {
+  await page.getByText('Olá, Allan').click()
+  const menu = page.getByRole('dialog', { name: 'Menu de perfil' })
+  await expect(menu.getByText('Taxas de referência')).toBeVisible()
+  // as taxas do seed continuam de pé, com a data delas
+  await expect(menu.getByRole('textbox', { name: 'Selic a.a.' })).toHaveValue('14,25')
+  await expect(menu.getByText('atualizadas em 16/07/2026')).toBeVisible()
+  await expect(menu.getByText('Ainda não foi possível consultar as fontes oficiais.')).toBeVisible()
+  await expect(menu.getByRole('switch', { name: 'Atualização automática de taxas' })).toBeVisible()
+
+  // "Atualizar agora" sem rede avisa e preserva os valores — sem quebrar nada
+  await menu.getByRole('button', { name: 'Atualizar agora' }).click()
+  await expect(page.getByText('Não deu para consultar agora')).toBeVisible()
+  await expect(menu.getByRole('textbox', { name: 'Selic a.a.' })).toHaveValue('14,25')
+
+  // editar à mão vira override: o automático não mexe mais nessa taxa
+  await menu.getByRole('textbox', { name: 'Selic a.a.' }).fill('15')
+  await menu.getByRole('button', { name: 'Salvar taxas' }).click()
+  await expect(page.getByText(/Selic ficou sob edição manual/)).toBeVisible()
+  await expect(menu.getByText(/Selic sob edição manual/)).toBeVisible()
+
+  // e dá para devolvê-la ao automático
+  await menu.getByRole('button', { name: 'Voltar ao automático' }).click()
+  await expect(menu.getByText(/sob edição manual/)).toHaveCount(0)
+
+  // a frase de privacidade não promete mais "100% offline"
+  await expect(menu.getByText(/a única conexão é a consulta opcional das taxas oficiais/)).toBeVisible()
+  await page.keyboard.press('Escape')
+})
+
+test('24. zero erros de console/runtime em toda a sessão', () => {
   expect(consoleErrors, `Erros de console:\n${consoleErrors.join('\n')}`).toHaveLength(0)
 })

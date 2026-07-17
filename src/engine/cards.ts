@@ -39,6 +39,17 @@ export function committedAmount(cardId: string, purchases: readonly Purchase[]):
 }
 
 /**
+ * Soma das faturas em aberto. Helper único de propósito: este número aparece na
+ * Visão geral, em Bancos e no drill-down, e três `reduce` iguais espalhados são
+ * três chances de as telas discordarem entre si (revisão de consistência, R4 §3).
+ */
+export function totalInvoices(cards: readonly Card[]): number {
+  let total = 0
+  for (const c of cards) total += c.invoice
+  return total
+}
+
+/**
  * Compromisso mensal TOTAL em parcelas — cartões E avulsas.
  * Base do card "Compromissos" e do comprometido/mês.
  */

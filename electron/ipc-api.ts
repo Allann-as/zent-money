@@ -22,6 +22,22 @@ export interface ZentBridge {
    * título é do sistema, então só o processo main consegue mudá-la.
    */
   setTitleBarTheme(color: string, symbolColor: string): Promise<void>
+  /**
+   * Busca as taxas oficiais na rede (R4 §2) — a ÚNICA conexão do app: dois GET
+   * públicos, nada do usuário sai daqui. Roda no main porque o renderer bateria
+   * em CORS. Retorna null em qualquer falha (rede fora, formato inesperado,
+   * timeout de 5s): o chamador mantém os últimos valores em silêncio.
+   */
+  fetchRates(): Promise<FetchedRatesDTO | null>
+}
+
+/** Taxas vindas da rede (§2). Espelha `FetchedRates` do engine sem importá-lo:
+ *  o preload não deve depender do código do renderer. */
+export interface FetchedRatesDTO {
+  selic: number
+  cdi: number
+  ipca: number
+  source: 'brasilapi' | 'sgs'
 }
 
 export const IPC = {
@@ -33,4 +49,5 @@ export const IPC = {
   logosChanged: 'zent:logos-changed',
   getVersion: 'zent:get-version',
   setTitleBarTheme: 'zent:set-titlebar-theme',
+  fetchRates: 'zent:fetch-rates',
 } as const

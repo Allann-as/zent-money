@@ -3,7 +3,15 @@ import type { Contribution, Investment, Rates, ValueUpdate } from '@/data/schema
 import { investmentSnapshot, manualSeries } from '@/engine/investments'
 import { assetClass, ASSET_CLASS_LABELS } from '@/engine/rates'
 
-const RATES: Rates = { selic: 14.25, cdi: 14.15, ipca: 4.64, updatedAt: '2026-07-16' }
+const RATES: Rates = {
+  selic: 14.25,
+  cdi: 14.15,
+  ipca: 4.64,
+  updatedAt: '2026-07-16',
+  autoUpdate: true,
+  lastAutoAt: null,
+  overrides: { selic: false, cdi: false, ipca: false },
+}
 
 function upd(date: string, value: number): ValueUpdate {
   return { id: `u-${date}`, date, value }

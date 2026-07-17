@@ -4,7 +4,15 @@ import { annualRate, monthlyRate } from '@/engine/rates'
 import { buildSeries, combineSeries, investmentSeries, investmentSnapshot } from '@/engine/investments'
 import { diffMonths } from '@/engine/dates'
 
-const RATES: Rates = { selic: 14.25, cdi: 14.15, ipca: 4.64, updatedAt: '2026-07-16' }
+const RATES: Rates = {
+  selic: 14.25,
+  cdi: 14.15,
+  ipca: 4.64,
+  updatedAt: '2026-07-16',
+  autoUpdate: true,
+  lastAutoAt: null,
+  overrides: { selic: false, cdi: false, ipca: false },
+}
 
 function contrib(date: string, amount: number, investmentId = 'inv1'): Contribution {
   return { id: `c-${date}-${amount}`, investmentId, date, amount }

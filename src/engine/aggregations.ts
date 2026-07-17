@@ -92,6 +92,17 @@ export function expensesByCategory(expenses: readonly Expense[], ym: Ym): Map<st
   return map
 }
 
+/**
+ * Taxa de poupança de um mês: fração da renda que sobrou.
+ * `null` quando não houve renda — a fração não existe, e devolver 0 diria
+ * "não sobrou nada", que é uma afirmação diferente (R4 §3).
+ * Helper único: o card da Sobra, o balão e as mini-barras de 6 meses usam esta
+ * mesma conta, em vez de três divisões espalhadas que podem divergir.
+ */
+export function savingsRatio(income: number, spent: number): number | null {
+  return income > 0 ? (income - spent) / income : null
+}
+
 export interface MonthPace {
   /** Gasto acumulado no mês (centavos). */
   spentSoFar: number
@@ -131,11 +142,16 @@ export function monthPace(
     return { spentSoFar: 0, avgPerDay: 0, projected: 0, daysElapsed: 0, daysInMonth: days, closed: false }
   }
   const elapsed = Math.max(1, Number(todayIsoStr.slice(8, 10)))
-  const avg = total / elapsed
+  const avgPerDay = Math.round(total / elapsed)
   return {
     spentSoFar: total,
-    avgPerDay: Math.round(avg),
-    projected: Math.round(avg * days),
+    avgPerDay,
+    // Projeção derivada da média JÁ ARREDONDADA (R4 §3): os dois números ficam
+    // lado a lado no card "Ritmo do mês" e o usuário pode multiplicar um pelo
+    // outro. Projetar de `total/elapsed` cru daria um número alguns centavos
+    // fora da conta que a própria tela mostra — e uma projeção não ganha nada
+    // com uma precisão que ninguém consegue conferir.
+    projected: avgPerDay * days,
     daysElapsed: elapsed,
     daysInMonth: days,
     closed: false,

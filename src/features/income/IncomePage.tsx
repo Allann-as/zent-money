@@ -8,12 +8,15 @@ import { StatCard } from '@/design/components/StatCard'
 import { AnimatedMoney } from '@/design/AnimatedMoney'
 import { Button } from '@/design/components/Button'
 import { Field, Input, MoneyInput } from '@/design/components/Input'
+import { Select } from '@/design/components/Select'
 import { Modal } from '@/design/components/Modal'
 import { EmptyState } from '@/design/components/EmptyState'
 import { toast } from '@/design/components/toast'
 import { confirmDialog } from '@/design/components/confirm'
 import { useDataStore, useZentData } from '@/store/dataStore'
 import { useUiStore } from '@/store/uiStore'
+import { creditSalaryFor, runSalaryMaterialization } from '@/store/ledgerActions'
+import { pendingSalaryCredits } from '@/engine/ledger'
 import { groupByMonth, salaryForYm, sumByMonth } from '@/engine/aggregations'
 import { formatBRL } from '@/engine/money'
 import { currentYm, formatDateShort, formatYmLong, todayIso, ymCompare, ymOfDate } from '@/engine/dates'
@@ -27,6 +30,10 @@ export function IncomePage(): ReactNode {
 
   const [salaryModal, setSalaryModal] = useState(false)
   const [salaryDraft, setSalaryDraft] = useState<number | null>(null)
+  // Recebimento do salário (R4 §1.1) — rascunhos do mesmo modal
+  const [bankDraft, setBankDraft] = useState('')
+  const [payDayDraft, setPayDayDraft] = useState('5')
+  const [autoCreditDraft, setAutoCreditDraft] = useState(true)
   const [extraModal, setExtraModal] = useState<'closed' | 'new' | ExtraIncome>('closed')
   const [recurringOpen, setRecurringOpen] = useState(false)
 
@@ -51,16 +58,53 @@ export function IncomePage(): ReactNode {
   const total = salary + extrasTotal
   const viewingPast = ymCompare(ym, currentYm()) < 0
 
+  // Salários vencidos aguardando confirmação (modo manual do §1.1)
+  const pending = useMemo(() => pendingSalaryCredits(data, todayIso()), [data])
+  const salaryBankName = data.banks.find((b) => b.id === data.salaryConfig.bankId)?.name ?? 'sua conta'
+
+  function confirmPending(): void {
+    let credited = 0
+    for (const m of pending) if (creditSalaryFor(m)) credited++
+    if (credited > 0) {
+      toast.success(
+        credited === 1 ? 'Salário creditado' : `${credited} salários creditados`,
+        `O saldo de ${salaryBankName} já reflete a entrada.`,
+      )
+    }
+  }
+
+  function openSalaryModal(): void {
+    setSalaryDraft(salaryForYm(data.salaryHistory, currentYm()) || null)
+    setBankDraft(data.salaryConfig.bankId ?? '')
+    setPayDayDraft(String(data.salaryConfig.payDay))
+    setAutoCreditDraft(data.salaryConfig.autoCredit)
+    setSalaryModal(true)
+  }
+
   function saveSalary(): void {
     if (salaryDraft === null) return
     const start = currentYm()
+    const payDay = Math.min(31, Math.max(1, Number(payDayDraft) || 1))
+    const nextBankId = bankDraft === '' ? null : bankDraft
+    const linking = nextBankId !== null && data.salaryConfig.bankId === null
     mutate((d) => {
       const existing = d.salaryHistory.find((s) => s.startYm === start)
       if (existing) existing.amount = salaryDraft
       else d.salaryHistory.push({ id: newId(), startYm: start, amount: salaryDraft })
+      d.salaryConfig = { bankId: nextBankId, payDay, autoCredit: autoCreditDraft }
     })
+    // Vincular a conta agora deve refletir no saldo agora, não só no próximo
+    // boot — é justamente a queixa que abriu esta release ("entrou, mas Em
+    // conta = 0"). A materialização é a mesma do boot, com as mesmas regras.
+    if (nextBankId !== null) runSalaryMaterialization()
     setSalaryModal(false)
-    toast.success('Salário atualizado', `Vale de ${formatYmLong(start)} em diante. Meses passados mantêm o valor da época.`)
+    const bankName = data.banks.find((b) => b.id === nextBankId)?.name
+    toast.success(
+      'Salário atualizado',
+      linking && bankName !== undefined
+        ? `Vale de ${formatYmLong(start)} em diante e passa a cair em ${bankName} todo dia ${payDay}.`
+        : `Vale de ${formatYmLong(start)} em diante. Meses passados mantêm o valor da época.`,
+    )
   }
 
   async function removeExtra(extra: ExtraIncome): Promise<void> {
@@ -81,6 +125,29 @@ export function IncomePage(): ReactNode {
     <>
       <PageHeader title="Ganhos" subtitle="Salário e entradas extras" actions={<MonthNav />} />
 
+      {/* Fila do modo "Confirmar recebimento" (R4 §1.1): só existe para quem
+          desligou o crédito automático — o app não credita nada sem o clique. */}
+      {pending.length > 0 && (
+        <Card className="mb-4 px-5 py-4 flex items-center gap-4 border-primary/30">
+          <span className="h-9 w-9 rounded-[10px] bg-primary-soft text-primary inline-flex items-center justify-center shrink-0">
+            <Wallet size={17} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[13.5px] font-semibold text-ink">
+              {pending.length === 1
+                ? `Salário de ${formatYmLong(pending[0] ?? '')} já venceu`
+                : `${pending.length} salários já venceram e não foram creditados`}
+            </p>
+            <p className="text-[12.5px] text-ink-soft">
+              Confirme para creditar em {salaryBankName} e atualizar o saldo da conta.
+            </p>
+          </div>
+          <Button size="sm" onClick={confirmPending}>
+            Confirmar recebimento
+          </Button>
+        </Card>
+      )}
+
       {/* Cards de resumo (padrão StatCard) */}
       <div className="grid grid-cols-3 gap-4 mb-4">
         <div className="relative">
@@ -88,16 +155,18 @@ export function IncomePage(): ReactNode {
             icon={Wallet}
             value={<AnimatedMoney cents={salary} />}
             label={viewingPast ? 'Salário da época' : 'Salário vigente'}
+            detail={
+              data.salaryConfig.bankId !== null
+                ? `cai em ${salaryBankName} todo dia ${data.salaryConfig.payDay}`
+                : undefined
+            }
             className="h-full"
           />
           <Button
             size="sm"
             variant="ghost"
             className="absolute top-3.5 right-3.5"
-            onClick={() => {
-              setSalaryDraft(salaryForYm(data.salaryHistory, currentYm()) || null)
-              setSalaryModal(true)
-            }}
+            onClick={openSalaryModal}
           >
             <Pencil size={13} /> Editar
           </Button>
@@ -183,7 +252,7 @@ export function IncomePage(): ReactNode {
         )}
       </Card>
 
-      {/* Modal salário */}
+      {/* Modal salário: valor + recebimento (conta e dia) — R4 §1.1 */}
       <Modal
         open={salaryModal}
         onClose={() => setSalaryModal(false)}
@@ -199,12 +268,72 @@ export function IncomePage(): ReactNode {
           </>
         }
       >
-        <Field
-          label="Novo salário mensal"
-          hint={`Vale de ${formatYmLong(currentYm())} em diante — meses passados continuam exibindo o salário da época.`}
-        >
-          <MoneyInput value={salaryDraft} onChange={setSalaryDraft} autoFocus aria-label="Salário mensal" />
-        </Field>
+        <div className="flex flex-col gap-4">
+          <Field
+            label="Novo salário mensal"
+            hint={`Vale de ${formatYmLong(currentYm())} em diante — meses passados continuam exibindo o salário da época.`}
+          >
+            <MoneyInput value={salaryDraft} onChange={setSalaryDraft} autoFocus aria-label="Salário mensal" />
+          </Field>
+
+          <div className="border-t border-line pt-4 flex flex-col gap-4">
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Cai na conta" hint="Opcional">
+                <Select
+                  value={bankDraft}
+                  onChange={(e) => setBankDraft(e.target.value)}
+                  aria-label="Conta de recebimento do salário"
+                >
+                  <option value="">Não vincular</option>
+                  {data.banks.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Dia do pagamento">
+                <Input
+                  type="number"
+                  min={1}
+                  max={31}
+                  value={payDayDraft}
+                  onChange={(e) => setPayDayDraft(e.target.value)}
+                  className="tnum"
+                  disabled={bankDraft === ''}
+                  aria-label="Dia do pagamento"
+                />
+              </Field>
+            </div>
+            {bankDraft !== '' && (
+              <>
+                <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={autoCreditDraft}
+                    onChange={(e) => setAutoCreditDraft(e.target.checked)}
+                    className="h-4 w-4 mt-0.5 accent-[color:var(--primary)] cursor-pointer"
+                    aria-label="Creditar automaticamente no dia"
+                  />
+                  <span className="text-[13px] text-ink">
+                    Creditar automaticamente no dia{' '}
+                    <span className="text-ink-faint">
+                      — desmarque para o app pedir “Confirmar recebimento” em vez de creditar sozinho
+                      (útil quando o salário costuma atrasar).
+                    </span>
+                  </span>
+                </label>
+                <p className="text-[12.5px] text-ink-soft bg-surface-2 border border-line rounded-[10px] px-3 py-2.5">
+                  Todo dia {Number(payDayDraft) || 1}, o salário entra no saldo de{' '}
+                  <strong className="text-ink">
+                    {data.banks.find((b) => b.id === bankDraft)?.name ?? '—'}
+                  </strong>{' '}
+                  e aparece no histórico da conta. Dá para desfazer com um clique.
+                </p>
+              </>
+            )}
+          </div>
+        </div>
       </Modal>
 
       <ExtraDialog state={extraModal} onClose={() => setExtraModal('closed')} />
@@ -221,12 +350,14 @@ function ExtraDialog({
   onClose(): void
 }): ReactNode {
   const mutate = useDataStore((s) => s.mutate)
+  const data = useZentData()
   const editing = state !== 'closed' && state !== 'new' ? state : null
   const open = state !== 'closed'
 
   const [date, setDate] = useState(todayIso())
   const [description, setDescription] = useState('')
   const [amount, setAmount] = useState<number | null>(null)
+  const [receivedIn, setReceivedIn] = useState('')
   const [repeatMonthly, setRepeatMonthly] = useState(false)
   const [openedFor, setOpenedFor] = useState<'closed' | 'new' | string>('closed')
 
@@ -237,6 +368,7 @@ function ExtraDialog({
     setDate(editing?.date ?? todayIso())
     setDescription(editing?.description ?? '')
     setAmount(editing?.amount ?? null)
+    setReceivedIn(editing?.receivedIn ?? '')
     setRepeatMonthly(false)
   }
   if (!open && openedFor !== 'closed') setOpenedFor('closed')
@@ -246,6 +378,7 @@ function ExtraDialog({
   function save(): void {
     if (!valid || amount === null) return
     const cleanDesc = description.trim()
+    const account = receivedIn === '' ? null : receivedIn
     mutate((d) => {
       if (editing) {
         const e = d.extraIncomes.find((x) => x.id === editing.id)
@@ -253,6 +386,7 @@ function ExtraDialog({
           e.date = date
           e.description = cleanDesc
           e.amount = amount
+          e.receivedIn = account
         }
       } else {
         const recurringId = repeatMonthly ? newId() : null
@@ -271,6 +405,7 @@ function ExtraDialog({
           date,
           description: cleanDesc,
           amount,
+          receivedIn: account,
           ...(recurringId ? { recurringId } : {}),
         })
       }
@@ -318,6 +453,22 @@ function ExtraDialog({
             <MoneyInput value={amount} onChange={setAmount} aria-label="Valor do ganho extra" />
           </Field>
         </div>
+        {/* "Recebido em" (R4 §1.2): opcional — sem conta, o extra segue contando
+            no fluxo do mês e simplesmente não move saldo nenhum. */}
+        <Field label="Recebido em" hint="Opcional — vincule para o saldo da conta subir junto">
+          <Select
+            value={receivedIn}
+            onChange={(e) => setReceivedIn(e.target.value)}
+            aria-label="Conta em que o ganho foi recebido"
+          >
+            <option value="">Não vincular a uma conta</option>
+            {data.banks.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
         {!editing && (
           <label className="flex items-center gap-2.5 cursor-pointer select-none">
             <input

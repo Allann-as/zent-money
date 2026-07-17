@@ -14,6 +14,8 @@
  *      sem argumento, testa o build local (out/main/main.js).
  */
 import { spawn, execFileSync } from 'node:child_process'
+import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
 
@@ -27,6 +29,23 @@ const usingLocalBuild = exeArg === undefined
 // como Node puro — sem janela, e o teste acusaria uma falha que não existe.
 const env = { ...process.env }
 delete env['ELECTRON_RUN_AS_NODE']
+
+/**
+ * ISOLAMENTO (R4). "Lançar como o usuário lança" vale para o PROCESSO — solto,
+ * sem depuração anexada, que é o que dá valor a este teste. Não vale para os
+ * DADOS nem para a REDE: sem estas duas linhas o smoke abria o app contra o
+ * `zent-data.json` real, migrava-o e ainda consultava as taxas na internet.
+ * Foi o que aconteceu de fato na R4 — sem perda, porque o arquivo estava vazio,
+ * mas a regra da R2 ("teste nenhum toca dados reais") já existia justamente
+ * para isso. Uma janela aparecer não depende de quais dados ela mostra.
+ */
+const smokeDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'zent-smoke-'))
+env['ZENT_USER_DATA'] = smokeDataDir
+env['ZENT_OFFLINE'] = '1'
+
+function cleanupDataDir() {
+  fs.rmSync(smokeDataDir, { recursive: true, force: true })
+}
 
 const command = usingLocalBuild
   ? path.resolve('node_modules/electron/dist/electron.exe')
@@ -78,8 +97,10 @@ try {
   // nada a matar
 }
 
+cleanupDataDir()
+
 if (title === '') {
   console.error(`FALHOU: nenhuma janela em ${TIMEOUT_MS}ms — o app subiu sem aparecer.`)
   process.exit(1)
 }
-console.log(`OK: janela "${title}" apareceu em ${elapsed}ms.`)
+console.log(`OK: janela "${title}" apareceu em ${elapsed}ms (dados isolados, sem rede).`)

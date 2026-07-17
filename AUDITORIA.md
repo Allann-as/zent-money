@@ -1,5 +1,170 @@
 # AUDITORIA.md — Zent Money
 
+## LACUNA DE MODELO CONTÁBIL (Release 4, §1) — causa-raiz — 16/07/2026
+
+### Sintoma
+"Entrou R$ 2.000, saiu R$ 0, mas **Em conta = R$ 0,00**" — na mesma tela.
+
+### Causa-raiz — não era cálculo, era ausência de modelo
+O app tinha **dois sistemas que não se falavam**: o **fluxo declarado** (salário + extras
+− gastos → "Entrou/Saiu/Sobra") e o **saldo em conta** (`bank.balance`, um número digitado
+à mão que alimentava "Em conta" e o Patrimônio). Nenhuma linha de código ligava um ao
+outro. Nada estava *errado*: os dois números estavam certos, cada um dentro do seu mundo.
+Faltava o mundo do meio — o dinheiro se movendo.
+
+Diagnóstico confirmado no código antes de qualquer correção: `OverviewPage.tsx:74` fazia
+`data.banks.reduce((a, b) => a + b.balance, 0)`; nenhum lançamento tocava `bank.balance`
+em lugar nenhum do app.
+
+### Correção — o saldo virou derivado
+`bank.balance` **deixou de existir**. O arquivo guarda o ponto de partida
+(`openingBalance`) e os **movimentos**; o saldo sai da soma (`engine/ledger.ts`):
+
+```
+saldo = openingBalance + Σ salário + Σ extras recebidos aqui − Σ gastos com origem-conta
+      + Σ transferências (entrada − saída) − Σ pagamentos de fatura + Σ ajustes
+```
+
+Guardar um `balance` ao lado dos movimentos seria estado redundante livre para divergir do
+próprio histórico — o defeito que a release veio corrigir. O histórico da conta mostra o
+**saldo corrido** linha a linha e a linha mais recente bate com o cabeçalho: se um dia não
+fechar, a tela denuncia sozinha.
+
+### O que impede a dupla contagem (§1.7)
+Gasto com origem-**cartão** não debita conta nenhuma: vira dívida no cartão (a fatura, que
+o usuário digita) e só toca o saldo quando a fatura é paga — via **"Pagar fatura"**, o elo
+que faltava. Compromissos segue = faturas + parcelas de cartão + avulsas, sem gasto algum.
+Provado por 32 testes de unidade, incluindo o caso completo: R$ 300 gastos no cartão saem
+da conta **uma vez só**, junto com a fatura.
+
+### Retrocompatibilidade
+Sem nada vinculado, os arrays de movimento ficam vazios e o saldo derivado colapsa no
+`openingBalance` — o app de ontem, idêntico ao centavo. A migração v6→v7 é, por isso,
+invisível para quem não quer ledger; o card "Em conta" ganhou tooltip honesto dizendo que
+o número é a soma do que foi declarado.
+
+---
+
+## Release 4 — checklist de aceite (§7 da spec R4)
+
+- [x] **Salário com conta padrão + dia de pagamento**; crédito aparece no histórico e no
+      "Em conta"; **reversível** em um clique. Automático por padrão (decisão do usuário),
+      com toggle para "Confirmar recebimento"
+- [x] **Extras com "Recebido em"**; gastos com origem debitam a conta ou compõem a fatura;
+      **transferências entre contas** aparecem no histórico das duas pontas
+- [x] **Edição de saldo gera ajuste de conciliação**; o saldo é derivado e o histórico
+      fecha a conta (coluna de saldo corrido na tela; teste provando que Σ movimentos ≡ saldo)
+- [x] **Zero dupla contagem em Compromissos** (testado, inclusive "R$ 300 no cartão saem da
+      conta uma vez só, junto com a fatura"); **tooltip honesto** quando nada está vinculado
+- [x] **Taxas atualizando sozinhas** via BrasilAPI com fallback SGS/BCB (séries 432 · 4389 ·
+      13522); timestamp visível; "Atualizar agora"; **override por taxa**; toggle;
+      **funciona 100% offline** quando sem rede
+- [x] **Frase de privacidade atualizada**; rede **mockada** nos testes (`ZENT_OFFLINE=1`
+      + `fetch` injetado); parsers com **fixtures das duas APIs**
+- [x] **Revisão de consistência documentada** (11 achados corrigidos — quadro abaixo)
+- [x] **Suíte completa verde: 140 unit + 26 E2E**, zero erros de console; perf 50k sem
+      regressão; instalador regenerado e validado; smoke da janela verde
+
+### Validação do instalador (R4)
+
+- `npm run dist` → `release/ZentMoney-Setup-1.0.0.exe` (**78,5 MB**).
+- Instalação silenciosa **a partir de %TEMP%, com diretório de trabalho neutro** (regra da
+  R2): **exit 0 em 9,2s**, destino `%LOCALAPPDATA%\Programs\Zent Money`, registro NSIS
+  apontando para o destino correto.
+- **Migração ensaiada antes de instalar**, contra uma CÓPIA do arquivo real (v6): validada
+  pelo Zod, sem perda, e o **saldo derivado saiu idêntico** ao que o usuário via antes —
+  que é a prova de que a v7 é invisível para quem não usa o ledger. (O arquivo real está
+  praticamente vazio; quem carrega a prova com conteúdo é o teste de migração v1→v7.)
+- **App instalado + cópia dos dados reais**: abre, zero erros de console, salário "2000"
+  **digitado tecla a tecla** grava `200000` centavos, e vincular a conta credita **na
+  hora**: `salaryCredits: [{ym: "2026-07", date: "2026-07-05", amount: 200000}]` e o saldo
+  do Nubank passa a **R$ 2.000,00** — o caso de aceite do §1 no app empacotado.
+- **`npm run test:smoke` verde** no build local (~1,0s) e no `.exe` instalado (~1,1s): a
+  janela aparece de verdade.
+
+### Performance 50k — R4 vs R3 (§4)
+
+Mesma máquina, mesmo script, corrida quente:
+
+| Medida (50k, quente) | R3 | R4 | Δ |
+|---|---|---|---|
+| Boot até a Visão geral | ~396ms | ~379ms | −17ms |
+| Abrir "Ganhos" | ~178ms | ~183ms | +5ms |
+| Abrir "Gastos" | ~224ms | ~177ms | −47ms |
+| Navegar 12 meses (por clique) | ~90ms | ~89ms | ≈ |
+| Demais seções | 35–71ms | 34–76ms | ≈ |
+
+**Leitura honesta:** o ledger **não** custou performance, e não podia mesmo: `bankBalances`
+é UMA passada por array (nada de varredura por banco), memoizada por página — mesmo padrão
+do `groupByMonth`. As diferenças estão dentro do ruído de medição (±40ms) já documentado na
+R3; a queda em "Gastos" é ruído a favor, não otimização que eu possa reivindicar.
+
+---
+
+## INCIDENTE: o smoke test tocou os dados reais (Release 4) — 16/07/2026
+
+### O que aconteceu
+Durante a validação da R4, `npm run test:smoke` abriu o app contra o
+`%APPDATA%\Zent Money\zent-data.json` **real** do usuário: migrou-o de v6 para v7 e
+persistiu, e — como a rede também estava livre — consultou de fato a BrasilAPI
+(`lastAutoAt: 2026-07-17T01:46:31Z`).
+
+### Dano: nenhum, por sorte
+O arquivo estava praticamente vazio (0 gastos, 0 extras, saldos zerados, 1 vigência de
+salário) e tudo foi preservado; as taxas voltaram idênticas às que já lá estavam
+(14,25 / 14,15 / 4,64 — a fonte oficial confirmou os valores do seed). Havia backup
+automático de 16/07 03:33, e o app instalado passou a ser o R4, que lê v7. **A ausência de
+dano foi acidente, não projeto.**
+
+### Causa-raiz
+O `smoke-window.mjs` nasceu na R3 com a premissa "lançar o app **como o usuário lança**" —
+processo solto, sem depuração anexada. A premissa está certa e é o que dá valor ao teste,
+mas ela vale para o **processo**, não para os **dados** nem para a **rede**. O script
+herdava o ambiente inteiro e, sem `ZENT_USER_DATA`, o Electron usa o diretório real.
+A regra da R2 ("teste nenhum roda contra os dados reais") existia desde então; o smoke
+escapou dela por ter sido escrito para resolver outro problema.
+
+### Correção
+O smoke passa a criar um `ZENT_USER_DATA` temporário (removido ao fim) e a rodar com
+`ZENT_OFFLINE=1`. **Uma janela aparecer não depende de quais dados ela mostra** — o
+isolamento não custa nada ao que o teste prova. Verificado: smoke verde nos dois builds
+(janela em ~1s) com o hash do arquivo real inalterado antes e depois.
+
+### Lição
+A cada release, todo script que **lança o app** — não só os testes — precisa passar pela
+mesma pergunta: contra quais dados, e com qual rede? Os scripts do repositório hoje:
+`perf-test.mjs` (dataset temporário próprio ✓), `screenshot.mjs` (recebe `ZENT_USER_DATA`
+de quem chama ✓), E2E (`ZENT_USER_DATA` temporário + `ZENT_OFFLINE` ✓), `smoke-window.mjs`
+(corrigido nesta seção ✓).
+
+---
+
+## Revisão de consistência R4 (§3) — achados e correções — 16/07/2026
+
+Passe dedicado a números e textos que se contradiziam ou soavam crus. Cada achado abaixo
+foi encontrado por varredura do código (não por acaso) e corrigido.
+
+| # | Achado | Onde | Correção |
+|---|---|---|---|
+| 1 | **"100% da renda"** na Sobra em mês sem gasto algum — tecnicamente verdade, lido como se o mês tivesse sido analisado | `OverviewPage.tsx:289` | Mês sem gasto diz "nenhum gasto lançado"; mês sem movimentação nenhuma não mostra linha. O percentual só aparece quando há o que medir |
+| 2 | **"— vs mês anterior"**: travessão solto ocupando espaço sem informar | `OverviewPage.tsx:55` | `Delta` devolve `null` sem base e a linha some. Como o projeto usa `exactOptionalPropertyTypes`, `undefined` ≠ ausente: o helper `detailProp()` remove a prop |
+| 3 | **`inAccounts` calculado em duplicata** (dois `reduce` idênticos) | `OverviewPage.tsx:74` × `BanksPage.tsx:126` | `totalInAccounts()`/`bankBalances()` — helper único, agora derivado do ledger |
+| 4 | **`invoices` calculado em triplicata** | Visão geral × Bancos × drill-down | `totalInvoices()` em `engine/cards.ts` |
+| 5 | **"% da renda" dividido em dois lugares** (card e balão) | `OverviewPage.tsx:285` e `:345` | `savingsRatio()` em `aggregations.ts`, consumido pelo card, pelo balão e pelas mini-barras de 6m |
+| 6 | **`savingsRatio` devolvia 0 sem renda** — "não há fração" e "não sobrou nada" são afirmações diferentes | idem | devolve `null`; a UI decide o que dizer |
+| 7 | **Projeção ≠ média × dias**: `projected` vinha de `total/elapsed` cru, `avgPerDay` do valor arredondado — os dois lado a lado no card, e o usuário pode multiplicar | `aggregations.ts:137-138` | `projected = avgPerDay × dias`. Uma projeção não ganha nada com precisão que ninguém consegue conferir. Teste trava o par |
+| 8 | **"Parcelas por mês"** (Bancos) parecia discordar de **"Compromissos"** (Visão geral): exclui avulsas de propósito, mas o rótulo não dizia | `BanksPage.tsx:187`, `BankDetailPage.tsx:173` | Renomeado para **"Parcelas de cartão/mês"** |
+| 9 | **Hero × cards em tempos diferentes**: o hero é o patrimônio de HOJE, os cards são do mês navegado — lado a lado, sem avisar | `OverviewPage.tsx:84` | Marcador "**· hoje**" no hero fora do mês corrente |
+| 10 | **Pluralização com `> 1`** em vez de `!== 1` (renderiza "0 quitada" no singular) | `BanksPage.tsx:541` | `=== 1 ? 'quitada' : 'quitadas'`, como no resto do app |
+| 11 | **`Number('')` é 0**: string vazia viraria uma taxa de **0%** e zeraria os rendimentos em silêncio | `rates-source.ts` (código novo) | Guarda explícita → `null`. **Pego por um teste antes de existir em produção** |
+
+**Não corrigidos, com motivo:** durante o count-up (~550ms) o balão mostra o valor final
+enquanto os cards ainda contam — divergência transitória de animação, não de dados;
+`formatBRLCompact` usa 1 casa decimal, mas só em rótulo de eixo de gráfico, onde a
+precisão cheia não cabe nem serve.
+
+---
+
 ## APP SUBIA SEM JANELA (Release 3) — causa-raiz — 16/07/2026
 
 ### Sintoma
@@ -78,6 +243,10 @@ de confiar nele: falha (exit 1) com `ready-to-show` sozinho, passa (exit 0, jane
 - [x] `AUDITORIA.md` e `DECISOES.md` atualizados; instalador regenerado e validado
 - [x] Screenshots dos 2 temas em `screenshots/r3/` (Visão geral · drill-down do banco ·
       Parcelas com avulsa · Ganhos com salário 2000)
+
+> Screenshots da R4 em `screenshots/r4/` (§5): Visão geral com salário creditado e
+> "Em conta" coerente · histórico da conta com crédito de salário, gasto, transferência,
+> fatura paga e ajuste de conciliação · menu de perfil com taxas automáticas e timestamp.
 
 ### Validação do instalador e da migração real (R3)
 
@@ -314,13 +483,27 @@ monta; agrupamentos mês→dados memoizados; séries incrementais O(meses+aporte
 12. **Release 3:** `titleBarOverlay` impede `ready-to-show` de disparar → o app subia
     sem nunca mostrar a janela (seção no topo). A suíte E2E não pegava porque o
     Playwright dirige o app com a janela oculta; daí o `npm run test:smoke`.
+13. **Release 4:** o fluxo declarado e o saldo em conta eram dois sistemas sem ligação —
+    "entrou R$ 2.000, Em conta R$ 0,00" (seção no topo). Não era bug de cálculo: era
+    ausência de modelo. Corrigido com o ledger híbrido e o saldo derivado.
+14. **Release 4:** `Number('')` é `0` — uma resposta vazia das APIs de taxas viraria uma
+    taxa de **0%** e zeraria os rendimentos em silêncio. Pego por um teste do parser
+    **antes** de o código chegar a produção.
+15. **Release 4:** o `smoke-window.mjs` (nascido na R3 para provar que a janela aparece)
+    rodava contra os **dados reais** e a **rede real** — violando a regra da R2 sem que
+    ninguém notasse, porque ele foi escrito para resolver outro problema. Seção acima.
 
 ## 6. Comandos de reprodução
 
 ```bash
 npm run typecheck && npm run lint   # estático
-npm test                            # 88 testes unitários
-npm run build && npm run test:e2e   # 24 testes E2E no Electron real
-node scripts/perf-test.mjs          # performance 50k + migração v1→v2 real
+npm test                            # 140 testes unitários (rede sempre mockada)
+npm run build && npm run test:e2e   # 26 testes E2E no Electron real (ZENT_OFFLINE=1)
+npm run test:smoke                  # a janela aparece? (dados isolados, sem rede)
+node scripts/perf-test.mjs          # performance 50k + migração v1→v7 real
 npm run dist                        # instalador em release/
 ```
+
+Variáveis de ambiente de teste: `ZENT_USER_DATA` (diretório de dados alternativo — **todo
+script que lança o app deve definí-la**) e `ZENT_OFFLINE=1` (corta a única conexão de rede
+do app, a consulta de taxas).

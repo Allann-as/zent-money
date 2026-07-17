@@ -66,6 +66,9 @@ export function materializeRecurrences(
           date: recurrenceDate(ym, t.dayOfMonth),
           description: t.description,
           amount: t.amount,
+          // como a origem dos gastos, o template não guarda a conta: a instância
+          // nasce sem vínculo e o usuário atribui depois, se quiser (R4 §1.2)
+          receivedIn: null,
           recurringId: t.id,
         })
       }

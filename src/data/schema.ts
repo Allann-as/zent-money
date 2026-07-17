@@ -1,14 +1,16 @@
 import { z } from 'zod'
 
 /**
- * Schema v6 dos dados persistidos do Zent Money.
+ * Schema v7 dos dados persistidos do Zent Money.
  * Convenções (ver DECISOES.md):
  * - Dinheiro: inteiro em CENTAVOS, nunca formatado.
  * - Datas: ISO `YYYY-MM-DD`; meses: `YYYY-MM` (tipo `Ym`).
  * - Todo registro tem `id` único (string).
+ * - **Saldo de conta é DERIVADO** (v7): o arquivo guarda o ponto de partida
+ *   (`openingBalance`) e os MOVIMENTOS; o saldo sai da soma (ver engine/ledger.ts).
  */
 
-export const DATA_VERSION = 6
+export const DATA_VERSION = 7
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'data ISO YYYY-MM-DD')
 const ym = z.string().regex(/^\d{4}-\d{2}$/, 'mês YYYY-MM')
@@ -27,8 +29,76 @@ export const extraIncomeSchema = z.object({
   date: isoDate,
   description: z.string(),
   amount: cents.nonnegative(),
+  /** Conta em que o extra caiu (v7); null = não vinculado, não move saldo nenhum. */
+  receivedIn: z.string().nullable(),
   /** Presente quando o lançamento foi gerado por uma recorrência. */
   recurringId: z.string().optional(),
+})
+
+/**
+ * Configuração do recebimento do salário (v7 — R4 §1.1).
+ * `bankId: null` = ninguém vinculou nada: o app segue funcionando como antes,
+ * sem creditar salário em conta alguma.
+ */
+export const salaryConfigSchema = z.object({
+  /** Conta padrão de recebimento; null = sem vínculo. */
+  bankId: z.string().nullable(),
+  /** Dia do pagamento (1–31; meses curtos usam o último dia, como as recorrências). */
+  payDay: z.number().int().min(1).max(31),
+  /** true = o app credita sozinho no dia; false = pede "Confirmar recebimento". */
+  autoCredit: z.boolean(),
+})
+
+/**
+ * Crédito de salário numa conta (v7). Um por mês de competência (`ym`), criado
+ * pela materialização do boot ou pela confirmação manual — e reversível.
+ * É um EVENTO, não um saldo: apagá-lo desfaz o crédito por construção.
+ */
+export const salaryCreditSchema = z.object({
+  id: z.string(),
+  /** Mês de competência do salário creditado. */
+  ym,
+  /** Data do crédito (o dia de pagamento daquele mês). */
+  date: isoDate,
+  bankId: z.string(),
+  amount: cents.nonnegative(),
+})
+
+/** Transferência entre contas (v7): sai de uma, entra na outra, mesmo valor. */
+export const transferSchema = z.object({
+  id: z.string(),
+  date: isoDate,
+  fromBankId: z.string(),
+  toBankId: z.string(),
+  amount: cents.positive(),
+})
+
+/**
+ * Ajuste de conciliação (v7): editar o saldo de um banco à mão não sobrescreve
+ * mais um número — registra a DIFERENÇA como movimento. Assim o saldo continua
+ * derivado e o histórico nunca mente sobre como se chegou nele.
+ * `amount` é assinado (pode ser negativo).
+ */
+export const adjustmentSchema = z.object({
+  id: z.string(),
+  date: isoDate,
+  bankId: z.string(),
+  amount: cents,
+  note: z.string(),
+})
+
+/**
+ * Pagamento de fatura (v7 — R4 §1.7): debita a conta e abate a fatura do cartão.
+ * É o elo que faltava — sem ele o dinheiro gasto no cartão nunca saía de conta
+ * nenhuma. Gasto com origem-cartão NÃO debita a conta; quem debita é isto aqui.
+ */
+export const invoicePaymentSchema = z.object({
+  id: z.string(),
+  date: isoDate,
+  cardId: z.string(),
+  /** Conta de onde saiu o pagamento. */
+  bankId: z.string(),
+  amount: cents.positive(),
 })
 
 export const categorySchema = z.object({
@@ -69,8 +139,12 @@ export const bankSchema = z.object({
   id: z.string(),
   name: z.string(),
   color: hexColor,
-  /** Saldo em conta, editável diretamente. */
-  balance: cents,
+  /**
+   * Ponto de partida do saldo (v7) — o que havia na conta antes de o app
+   * conhecer qualquer movimento. O saldo EXIBIDO é derivado disto mais os
+   * movimentos (`bankBalances`); nunca leia este campo como "o saldo".
+   */
+  openingBalance: cents,
 })
 
 export const cardSchema = z.object({
@@ -176,6 +250,13 @@ export const recurringIncomeSchema = z.object({
   endYm: ym.nullable(),
 })
 
+/** Quais taxas o usuário editou à mão (v7): cada uma pausa o automático só dela. */
+export const rateOverridesSchema = z.object({
+  selic: z.boolean(),
+  cdi: z.boolean(),
+  ipca: z.boolean(),
+})
+
 export const ratesSchema = z.object({
   /** % a.a. */
   selic: z.number(),
@@ -183,8 +264,14 @@ export const ratesSchema = z.object({
   cdi: z.number(),
   /** % acumulado 12m. */
   ipca: z.number(),
-  /** Data da última atualização manual. */
+  /** Data da última atualização (manual ou automática). */
   updatedAt: isoDate,
+  /** v7 — R4 §2: buscar as taxas oficiais na rede (único acesso à rede do app). */
+  autoUpdate: z.boolean(),
+  /** Instante ISO da última atualização automática bem-sucedida; null = nunca. */
+  lastAutoAt: z.string().nullable(),
+  /** Taxas sob override manual — o automático não as toca até "voltar ao automático". */
+  overrides: rateOverridesSchema,
 })
 
 export const zentDataSchema = z.object({
@@ -194,12 +281,18 @@ export const zentDataSchema = z.object({
   }),
   rates: ratesSchema,
   salaryHistory: z.array(salaryEntrySchema),
+  salaryConfig: salaryConfigSchema,
   extraIncomes: z.array(extraIncomeSchema),
   categories: z.array(categorySchema),
   expenses: z.array(expenseSchema),
   banks: z.array(bankSchema),
   cards: z.array(cardSchema),
   purchases: z.array(purchaseSchema),
+  /** Movimentos do ledger (v7) — a origem do saldo derivado de cada conta. */
+  salaryCredits: z.array(salaryCreditSchema),
+  transfers: z.array(transferSchema),
+  adjustments: z.array(adjustmentSchema),
+  invoicePayments: z.array(invoicePaymentSchema),
   investments: z.array(investmentSchema),
   contributions: z.array(contributionSchema),
   boxes: z.array(boxSchema),
@@ -213,11 +306,19 @@ export const zentDataSchema = z.object({
     categoriesOnboarded: z.boolean(),
     /** Último mês com recorrências materializadas (null = nunca rodou). */
     lastRecurringYm: ym.nullable(),
+    /** Último mês com o salário creditado em conta (v7); null = nunca. */
+    lastSalaryCreditYm: ym.nullable(),
   }),
 })
 
 export type ZentData = z.infer<typeof zentDataSchema>
 export type SalaryEntry = z.infer<typeof salaryEntrySchema>
+export type SalaryConfig = z.infer<typeof salaryConfigSchema>
+export type SalaryCredit = z.infer<typeof salaryCreditSchema>
+export type Transfer = z.infer<typeof transferSchema>
+export type Adjustment = z.infer<typeof adjustmentSchema>
+export type InvoicePayment = z.infer<typeof invoicePaymentSchema>
+export type RateOverrides = z.infer<typeof rateOverridesSchema>
 export type ExtraIncome = z.infer<typeof extraIncomeSchema>
 export type Category = z.infer<typeof categorySchema>
 export type Expense = z.infer<typeof expenseSchema>

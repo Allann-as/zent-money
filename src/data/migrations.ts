@@ -37,6 +37,47 @@ const BOX_EMOJI_TO_ICON: Record<string, string> = {
 }
 
 const MIGRATIONS: Record<number, (data: RawData) => RawData> = {
+  // v6 → v7: ledger híbrido (R4 §1). O saldo digitado de cada banco vira o PONTO
+  // DE PARTIDA (`openingBalance`) e o saldo exibido passa a ser derivado dele mais
+  // os movimentos. Como todos os arrays de movimento nascem vazios, o saldo
+  // derivado de quem já usa o app é idêntico ao que ele via ontem — só que agora
+  // com um histórico que explica de onde veio.
+  6: (data) => {
+    const banks = Array.isArray(data['banks'])
+      ? (data['banks'] as RawData[]).map((b) => {
+          const { balance, ...rest } = b as RawData & { balance?: unknown }
+          return { ...rest, openingBalance: typeof balance === 'number' ? balance : 0 }
+        })
+      : []
+    const extraIncomes = Array.isArray(data['extraIncomes'])
+      ? (data['extraIncomes'] as RawData[]).map((e) => ({ receivedIn: null, ...e }))
+      : []
+    const rawRates = typeof data['rates'] === 'object' && data['rates'] !== null ? (data['rates'] as RawData) : {}
+    const meta =
+      typeof data['meta'] === 'object' && data['meta'] !== null
+        ? { ...(data['meta'] as RawData), lastSalaryCreditYm: null }
+        : { lastSalaryCreditYm: null }
+    return {
+      ...data,
+      version: 7,
+      banks,
+      extraIncomes,
+      // Sem conta vinculada, nada é creditado: quem não configurar segue como antes.
+      salaryConfig: { bankId: null, payDay: 5, autoCredit: true },
+      salaryCredits: [],
+      transfers: [],
+      adjustments: [],
+      invoicePayments: [],
+      rates: {
+        ...rawRates,
+        autoUpdate: true,
+        // As taxas atuais vieram da mão do usuário (ou do seed) — nunca do automático.
+        lastAutoAt: null,
+        overrides: { selic: false, cdi: false, ipca: false },
+      },
+      meta,
+    }
+  },
   // v5 → v6: campo "Pago com" nos gastos (R3 §3.4). Gastos antigos ficam sem
   // origem — o campo é opcional e tudo continua funcionando sem ele.
   5: (data) => {

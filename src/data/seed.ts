@@ -30,21 +30,36 @@ export function createSeedData(): ZentData {
   return {
     version: DATA_VERSION,
     profile: { name: 'Allan' },
-    rates: { selic: 14.25, cdi: 14.15, ipca: 4.64, updatedAt: '2026-07-16' },
+    rates: {
+      selic: 14.25,
+      cdi: 14.15,
+      ipca: 4.64,
+      updatedAt: '2026-07-16',
+      autoUpdate: true,
+      lastAutoAt: null,
+      overrides: { selic: false, cdi: false, ipca: false },
+    },
     salaryHistory: [],
+    // Sem conta vinculada: o app só passa a creditar salário depois que o
+    // usuário escolher a conta em Ganhos (R4 §1.1).
+    salaryConfig: { bankId: null, payDay: 5, autoCredit: true },
     extraIncomes: [],
     categories: [],
     expenses: [],
     banks: [
-      { id: newId(), name: 'Nubank', color: BANK_BRAND_COLORS['nubank'] ?? '#820AD1', balance: 0 },
-      { id: newId(), name: 'Itaú', color: BANK_BRAND_COLORS['itau'] ?? '#EC7000', balance: 0 },
-      { id: newId(), name: 'Bradesco', color: BANK_BRAND_COLORS['bradesco'] ?? '#CC092F', balance: 0 },
-      { id: newId(), name: 'Santander', color: BANK_BRAND_COLORS['santander'] ?? '#EA1D25', balance: 0 },
-      { id: newId(), name: 'BTG Investimentos', color: BANK_BRAND_COLORS['btginvestimentos'] ?? '#0A2540', balance: 0 },
-      { id: newId(), name: 'BTG Banking', color: BANK_BRAND_COLORS['btgbanking'] ?? '#2C5EA9', balance: 0 },
+      { id: newId(), name: 'Nubank', color: BANK_BRAND_COLORS['nubank'] ?? '#820AD1', openingBalance: 0 },
+      { id: newId(), name: 'Itaú', color: BANK_BRAND_COLORS['itau'] ?? '#EC7000', openingBalance: 0 },
+      { id: newId(), name: 'Bradesco', color: BANK_BRAND_COLORS['bradesco'] ?? '#CC092F', openingBalance: 0 },
+      { id: newId(), name: 'Santander', color: BANK_BRAND_COLORS['santander'] ?? '#EA1D25', openingBalance: 0 },
+      { id: newId(), name: 'BTG Investimentos', color: BANK_BRAND_COLORS['btginvestimentos'] ?? '#0A2540', openingBalance: 0 },
+      { id: newId(), name: 'BTG Banking', color: BANK_BRAND_COLORS['btgbanking'] ?? '#2C5EA9', openingBalance: 0 },
     ],
     cards: [],
     purchases: [],
+    salaryCredits: [],
+    transfers: [],
+    adjustments: [],
+    invoicePayments: [],
     investments: [],
     contributions: [],
     boxes: [
@@ -65,6 +80,7 @@ export function createSeedData(): ZentData {
       lastManualExport: null,
       categoriesOnboarded: false,
       lastRecurringYm: null,
+      lastSalaryCreditYm: null,
     },
   }
 }

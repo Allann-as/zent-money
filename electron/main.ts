@@ -3,6 +3,7 @@ import path from 'node:path'
 import fs from 'node:fs'
 import { IPC } from './ipc-api'
 import { listLogos, loadData, saveData, watchLogos } from './storage'
+import { fetchRates, type FetchLike } from '../src/engine/rates-source'
 
 // Diretório de dados alternativo (usado pelo E2E para não tocar dados reais)
 const customUserData = process.env['ZENT_USER_DATA']
@@ -118,6 +119,25 @@ function registerIpc(): void {
   ipcMain.handle(IPC.listLogos, () => listLogos())
 
   ipcMain.handle(IPC.getVersion, () => app.getVersion())
+
+  /**
+   * Taxas oficiais (R4 §2) — a única conexão de rede do app. Fica no main
+   * porque o renderer bateria em CORS nas duas APIs. Falha vira `null`: o
+   * renderer mantém os últimos valores em silêncio, sem toast de erro a cada
+   * boot num café sem wi-fi.
+   */
+  ipcMain.handle(IPC.fetchRates, async () => {
+    // `ZENT_OFFLINE=1` corta a rede na raiz. É o que garante que a suíte JAMAIS
+    // bate na internet (um teste que depende do BC estar de pé é aposta, não
+    // teste) e, de quebra, é o modo em que o E2E prova que o app funciona
+    // inteiro sem conexão — o caminho de falha vira um caminho testado.
+    if (process.env['ZENT_OFFLINE'] === '1') return null
+    try {
+      return await fetchRates(globalThis.fetch as unknown as FetchLike)
+    } catch {
+      return null
+    }
+  })
 
   ipcMain.handle(IPC.setTitleBarTheme, (_e, color: string, symbolColor: string) => {
     // setTitleBarOverlay só existe onde há overlay (Windows). Em outras

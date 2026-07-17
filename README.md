@@ -1,7 +1,14 @@
 # Zent Money
 
 Painel de comando pessoal de finanças — bancos, cartões, parcelas, carteira de investimentos e
-metas em um só lugar. **100% offline**: nenhum dado sai do seu computador.
+metas em um só lugar.
+
+**Privacidade:** seus dados nunca saem do seu computador. A **única** conexão de rede do app é
+a consulta das taxas oficiais (Selic, CDI e IPCA) — dois `GET` públicos, sem chave e sem enviar
+um byte seu, na [BrasilAPI](https://brasilapi.com.br/api/taxas/v1) com fallback no
+[SGS do Banco Central](https://api.bcb.gov.br). Ela é **opcional**: o menu de perfil tem um
+toggle "Atualização automática de taxas", e com ele desligado (ou sem internet) o app funciona
+inteiro, mantendo as últimas taxas conhecidas com a data delas.
 
 **Seções:** Visão geral · Ganhos · Gastos · Bancos & Cartões (com página por banco) · Parcelas
 (de cartão e avulsas) · Carteira · Caixinhas · Linha do tempo. **Extras:** busca global (Ctrl+K),

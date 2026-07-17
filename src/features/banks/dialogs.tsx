@@ -7,6 +7,9 @@ import { Segmented } from '@/design/components/Segmented'
 import { ColorPicker } from '@/design/components/ColorPicker'
 import { toast } from '@/design/components/toast'
 import { useDataStore, useZentData } from '@/store/dataStore'
+import { reconcileBankBalance } from '@/store/ledgerActions'
+import { bankBalances } from '@/engine/ledger'
+import { formatBRL } from '@/engine/money'
 import { currentYm, formatYmLong, addMonths } from '@/engine/dates'
 import { newId } from '@/lib/id'
 import type { Bank, Card, Purchase } from '@/data/schema'
@@ -23,8 +26,13 @@ export function BankDialog({
   onClose(): void
 }): ReactNode {
   const mutate = useDataStore((s) => s.mutate)
+  const data = useZentData()
   const editing = state !== 'closed' && state !== 'new' ? state : null
   const open = state !== 'closed'
+
+  // Saldo EXIBIDO é o derivado (v7), nunca o openingBalance cru: é ele que o
+  // usuário vê na tela e é contra ele que a conciliação calcula a diferença.
+  const currentBalance = editing ? (bankBalances(data).get(editing.id) ?? 0) : 0
 
   const [name, setName] = useState('')
   const [color, setColor] = useState('#5b8fc0')
@@ -36,11 +44,12 @@ export function BankDialog({
     setOpenedFor(target)
     setName(editing?.name ?? '')
     setColor(editing?.color ?? '#5b8fc0')
-    setBalance(editing?.balance ?? 0)
+    setBalance(currentBalance)
   }
   if (!open && openedFor !== 'closed') setOpenedFor('closed')
 
   const valid = name.trim() !== ''
+  const delta = editing ? (balance ?? 0) - currentBalance : 0
 
   function save(): void {
     if (!valid) return
@@ -51,12 +60,26 @@ export function BankDialog({
         if (b) {
           b.name = clean
           b.color = color
-          b.balance = balance ?? 0
         }
       } else {
-        d.banks.push({ id: newId(), name: clean, color, balance: balance ?? 0 })
+        // Banco novo: o saldo digitado é o PONTO DE PARTIDA. Não há histórico
+        // para conciliar contra — o app está conhecendo esta conta agora.
+        d.banks.push({ id: newId(), name: clean, color, openingBalance: balance ?? 0 })
       }
     })
+    // Saldo editado num banco existente vira ajuste de conciliação (§1.5), não
+    // uma sobrescrita: o histórico continua fechando com o saldo.
+    if (editing) {
+      const applied = reconcileBankBalance(editing.id, balance ?? 0)
+      if (applied !== 0) {
+        toast.success(
+          'Saldo conciliado',
+          `${clean}: ajuste de ${applied > 0 ? '+' : '−'}${formatBRL(Math.abs(applied))} registrado no histórico da conta.`,
+        )
+        onClose()
+        return
+      }
+    }
     toast.success(editing ? 'Banco atualizado' : `Banco "${clean}" adicionado`)
     onClose()
   }
@@ -90,9 +113,26 @@ export function BankDialog({
         <Field label="Cor da marca">
           <ColorPicker value={color} onChange={setColor} />
         </Field>
-        <Field label="Saldo em conta">
+        <Field
+          label="Saldo em conta"
+          hint={
+            editing
+              ? 'Digite o saldo que o app do banco mostra. A diferença entra no histórico como ajuste de conciliação.'
+              : 'Ponto de partida da conta. Daqui em diante o saldo acompanha os movimentos.'
+          }
+        >
           <MoneyInput value={balance} onChange={setBalance} allowNegative aria-label="Saldo em conta" />
         </Field>
+        {editing && delta !== 0 && (
+          <p className="text-[12.5px] text-ink-soft bg-surface-2 border border-line rounded-[10px] px-3 py-2.5">
+            Vai registrar{' '}
+            <strong className="text-ink tnum">
+              Ajuste de conciliação: {delta > 0 ? '+' : '−'}
+              {formatBRL(Math.abs(delta))}
+            </strong>{' '}
+            — o saldo de hoje é {formatBRL(currentBalance)}.
+          </p>
+        )}
       </div>
     </Modal>
   )

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { IPC, type ZentBridge } from './ipc-api'
+import { IPC, type FetchedRatesDTO, type ZentBridge } from './ipc-api'
 
 const bridge: ZentBridge = {
   loadData: () => ipcRenderer.invoke(IPC.loadData) as Promise<string | null>,
@@ -16,6 +16,7 @@ const bridge: ZentBridge = {
   getVersion: () => ipcRenderer.invoke(IPC.getVersion) as Promise<string>,
   setTitleBarTheme: (color, symbolColor) =>
     ipcRenderer.invoke(IPC.setTitleBarTheme, color, symbolColor) as Promise<void>,
+  fetchRates: () => ipcRenderer.invoke(IPC.fetchRates) as Promise<FetchedRatesDTO | null>,
 }
 
 contextBridge.exposeInMainWorld('zent', bridge)

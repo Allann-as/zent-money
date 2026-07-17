@@ -6,13 +6,44 @@ import {
   expensesByCategory,
   expensesOfBank,
   incomeByMonth,
+  monthPace,
   salaryForYm,
+  savingsRatio,
   sumByMonth,
 } from '@/engine/aggregations'
 
 function expense(date: string, categoryId: string, amount: number, essential = true): Expense {
   return { id: `e-${date}-${amount}`, date, categoryId, description: '', amount, essential, origin: null }
 }
+
+/** R4 §3 — revisão de consistência: pares de números exibidos lado a lado. */
+describe('coerência dos números exibidos (R4 §3)', () => {
+  it('a projeção do mês é exatamente média/dia × dias do mês — o usuário pode multiplicar', () => {
+    // 700,00 em 7 dias corridos de julho (31 dias)
+    const expenses = Array.from({ length: 7 }, (_, i) => ({
+      date: `2026-07-0${i + 1}`,
+      amount: 100_00,
+    }))
+    const pace = monthPace(expenses, '2026-07', '2026-07-07')
+    expect(pace.avgPerDay).toBe(100_00)
+    expect(pace.projected).toBe(pace.avgPerDay * pace.daysInMonth)
+    expect(pace.projected).toBe(3_100_00)
+  })
+
+  it('a coerência vale mesmo quando a média não é redonda', () => {
+    const pace = monthPace([{ date: '2026-07-01', amount: 33_33 }], '2026-07', '2026-07-03')
+    expect(pace.avgPerDay).toBe(1_111) // 3333/3 = 1111 centavos
+    expect(pace.projected).toBe(pace.avgPerDay * 31)
+  })
+
+  it('savingsRatio devolve null sem renda — a fração não existe, e 0 diria outra coisa', () => {
+    expect(savingsRatio(0, 0)).toBeNull()
+    expect(savingsRatio(0, 100_00)).toBeNull()
+    expect(savingsRatio(2_000_00, 0)).toBe(1)
+    expect(savingsRatio(2_000_00, 500_00)).toBe(0.75)
+    expect(savingsRatio(1_000_00, 1_500_00)).toBe(-0.5)
+  })
+})
 
 describe('agregações mensais (passada única)', () => {
   it('sumByMonth agrupa por mês', () => {
@@ -76,9 +107,9 @@ describe('salário com histórico de vigências', () => {
 
   it('incomeByMonth soma salário vigente + extras do mês', () => {
     const extras: ExtraIncome[] = [
-      { id: 'x1', date: '2026-07-02', description: 'Presente da vó', amount: 150_00 },
-      { id: 'x2', date: '2026-07-20', description: 'Freela', amount: 400_00 },
-      { id: 'x3', date: '2026-06-01', description: 'Outro mês', amount: 999_00 },
+      { id: 'x1', date: '2026-07-02', description: 'Presente da vó', amount: 150_00, receivedIn: null },
+      { id: 'x2', date: '2026-07-20', description: 'Freela', amount: 400_00, receivedIn: null },
+      { id: 'x3', date: '2026-06-01', description: 'Outro mês', amount: 999_00, receivedIn: null },
     ]
     const map = incomeByMonth(history, extras, ['2026-06', '2026-07'])
     expect(map.get('2026-07')).toBe(3_200_00 + 550_00)
