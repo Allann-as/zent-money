@@ -1,5 +1,49 @@
 # AUDITORIA.md — Zent Money
 
+## M2 — segurança (roadmap v2.0) — 18/07/2026
+
+### §a — privacidade por máscara (substitui o blur)
+
+- O blur de CSS deixava o valor real no DOM; agora a máscara é decidida no React
+  (`design/money.tsx`, `useBRL`). Sweep de 18 arquivos: `formatBRL(x)` → `brl(x)`.
+  Gráficos escondem rótulos de valor e tooltip sob privacidade. `MoneyInput`
+  intocado.
+- **E2E (teste 16) prova "nada real no DOM"**: com privacidade ligada, o HTML da
+  Visão geral não casa `/R\$\s*\d/` (nem texto, nem aria-label); ao desligar, os
+  valores voltam.
+
+### §b — PIN de bloqueio + primeira execução
+
+- Só o hash `scrypt` + salt no disco (`electron/pin.ts`); verificação em tempo
+  constante e throttling progressivo (5 erros → 1s,2s,4s… teto 30s) no MAIN. O
+  renderer nunca vê o hash. O PIN nunca é gravado/logado/testado em claro (o PIN de
+  teste `1234` é descartável e isolado, jamais o do usuário).
+- Boot gate: com PIN, o app nasce bloqueado; sem PIN, primeira execução
+  (definir → confirmar). Auto-bloqueio ao abrir (padrão) + inatividade opcional
+  (5/15/30 min). Alterar PIN e "esqueci o PIN" (fricção: digitar RESET) no perfil.
+- Tela de bloqueio em nível de design M3 (fundo em camadas, logo com halo, bolinhas,
+  shake, teclado clicável + físico).
+- Seam de teste `ZENT_NO_LOCK=1` (perf/screenshots); o E2E **não** o usa — exercita
+  o fluxo real de primeira execução/alterar PIN.
+
+### Criptografia opcional do arquivo
+
+- Proposta apresentada (AES-256-GCM via scrypt do PIN); **decisão do usuário:
+  arquivada** — reabrir só a pedido. Detalhes em `DECISOES.md`.
+
+### Estado da suíte (M2)
+
+- **173 unit + typecheck estrito + lint limpos.**
+- **29 E2E verdes** (os 26 da R4 + toggle + realocação + o novo **21. alterar PIN**;
+  o teste **16** agora prova a máscara "nada no DOM"), **zero erros de console**. O
+  `beforeAll` passou a exercitar a **primeira execução real** (definir/confirmar PIN).
+- **Smoke verde** (janela em ~1,2s). **Perf 50k** (quente, com o bypass de bloqueio):
+  boot **351ms**; seções 38–284ms; navegar 12 meses **105ms/clique** — dentro do
+  envelope da R4. A máscara e o PIN não custam FPS (o formatador é O(1); o gate é
+  uma checagem no boot).
+
+---
+
 ## M1 — integridade pendente e Orçamento 2.0 (roadmap v2.0) — 18/07/2026
 
 Primeiro milestone do roadmap até o v2.0.0. Schema **v8**.

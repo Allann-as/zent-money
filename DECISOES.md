@@ -2,6 +2,56 @@
 
 Registro das decisões tomadas onde a especificação deixou eixos livres.
 
+## M2 — segurança (roadmap v2.0)
+
+### Privacidade por máscara (§a)
+
+- **Máscara substituiu o blur.** O blur de CSS escondia de quem olha, mas o número
+  real seguia no DOM (texto e aria-label) — bastava inspecionar. Agora a máscara é
+  decidida no React (`design/money.tsx`): sob privacidade os valores viram
+  `R$ ••••••` e **o valor real nunca é renderizado**. "Ausente" vale mais que
+  "borrado". Um E2E assere que o HTML não casa `/R\$\s*\d/` com privacidade ligada.
+- **Um formatador ciente da privacidade (`useBRL`)**, não 152 `if` espalhados: as
+  telas trocaram `formatBRL(x)` por `brl(x)`; `MoneyInput` ficou de fora de
+  propósito (ali o usuário vê o que digita). Gráficos escondem rótulos de valor e
+  tooltip sob privacidade — o traço fica, o número some.
+
+### PIN de bloqueio (§b)
+
+- **PIN é barreira VISUAL, não criptografia — e o app diz isso.** Só o hash
+  `scrypt` + salt vão ao disco (`pin.json`); o arquivo de dados segue em texto.
+  Assumir o contrário seria mentir sobre a proteção. A criptografia de verdade é a
+  proposta abaixo, decidida à parte.
+- **Hash, verificação e throttling vivem no MAIN**, não no renderer: o renderer
+  nunca vê o hash e não tem como burlar o atraso por dentro do próprio processo.
+  Comparação em tempo constante (`timingSafeEqual`).
+- **Throttling em memória** (1s, 2s, 4s… teto 30s após 5 erros), zerado ao
+  reiniciar. Persistir um `lockedUntil` poderia trancar o dono legítimo por engano;
+  para uma barreira visual, reiniciar-zera é aceitável, e a proteção real dos dados
+  é a criptografia (à parte).
+- **Com PIN, todo boot começa BLOQUEADO** (o `securityStore` não é persistido):
+  persistir "desbloqueado" derrotaria o PIN. Auto-bloqueio ao abrir é o padrão;
+  por inatividade (5/15/30 min) é opt-in (uiStore). Minimizar/perder foco **não**
+  re-bloqueia (decisão do usuário — evita atrito no alt-tab).
+- **Primeira execução obriga a definir o PIN** (sem "pular"): boas-vindas →
+  definir → confirmar. **"Esqueci o PIN" reseta só o PIN, com fricção (digitar
+  RESET)** e sem tocar os dados — coerente com "o PIN não cifra nada".
+- **A tela de bloqueio é peça de design final (padrão M3), não placeholder** — é o
+  primeiro contato com o app: fundo em camadas (glows + arcos cortados pela borda),
+  logo com halo, bolinhas que preenchem, shake no erro, teclado clicável + físico.
+- **Seam de teste `ZENT_NO_LOCK=1`**: perf e screenshots dirigem a UI sem o atrito
+  do PIN. O **E2E de segurança NÃO usa o bypass** — ele define/confirma/desbloqueia
+  o PIN de verdade (PIN de teste `1234`, descartável e isolado; nunca o do usuário).
+
+### Criptografia opcional do arquivo — DECISÃO: arquivada por ora
+
+- Proposta (AES-256-GCM, chave via scrypt do PIN) apresentada com prós/contras no
+  fecho do M2. **Decisão do usuário: arquivar** — o PIN como barreira visual atende
+  agora; o custo (PIN esquecido = dados irrecuperáveis, backup forçado, "esqueci"
+  deixaria de só resetar, I/O e migrações mais complexas, risco de trancar o próprio
+  acesso) não se justifica neste momento. **Não fica pendente sem dono: reabrir só a
+  pedido explícito** (não propor de novo por conta própria). Ver [[reprovados]] de escopo.
+
 ## M1 — integridade pendente e Orçamento 2.0 (roadmap v2.0)
 
 ### Fonte única das mutações (§a)
