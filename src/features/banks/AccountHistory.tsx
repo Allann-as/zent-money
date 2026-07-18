@@ -40,7 +40,7 @@ function undoIntent(m: Movement): { title: string; confirm: string | null; run()
   switch (m.kind) {
     case 'salary':
       return {
-        title: 'Desfazer este crédito',
+        title: 'Desfazer crédito de salário',
         confirm: null,
         run: () => {
           undoSalaryCredit(m.sourceId)

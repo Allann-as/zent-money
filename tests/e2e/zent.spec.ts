@@ -125,7 +125,8 @@ test('6. gastos: lançamento, reclassificação, filtro e alerta de limite', asy
   await expect(page.getByText(/em Mercado · \d+% do total/)).toBeVisible()
   await page.getByLabel('Filtrar por categoria').selectOption({ label: 'Todas as categorias' })
 
-  // alerta de limite: define teto de 100 em Lazer e estoura com um gasto de 90
+  // orçamento: define teto de 100 em Lazer e estoura com um gasto de 90.
+  // M1 §c: o estouro agora é um AVISO PRÉ-SALVAR (não um toast pós-fato).
   await page.getByRole('button', { name: 'Categorias' }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Editar categoria Lazer' }).click()
   await page.getByRole('dialog').getByRole('textbox', { name: 'Limite mensal da categoria' }).fill('100')
@@ -134,8 +135,38 @@ test('6. gastos: lançamento, reclassificação, filtro e alerta de limite', asy
   dialog = page.getByRole('dialog')
   await dialog.getByLabel('Categoria').selectOption({ label: 'Lazer' })
   await dialog.getByRole('textbox', { name: 'Valor do gasto' }).fill('90')
-  await dialog.getByRole('button', { name: 'Adicionar' }).click()
-  await expect(page.getByText('Limite de Lazer estourado')).toBeVisible()
+  await expect(dialog.getByText(/ultrapassa o orçamento de/)).toBeVisible()
+  await dialog.getByRole('button', { name: 'Lançar mesmo assim' }).click()
+  await expect(page.getByText('Gasto registrado')).toBeVisible()
+})
+
+/** M1 §b — o "Resumo por categoria" alterna entre barras e rosca (pref persistida). */
+test('6b. gastos: toggle rosca/barras no Resumo por categoria', async () => {
+  await page.getByRole('radio', { name: 'Rosca' }).click()
+  await expect(page.getByText('Total do mês')).toBeVisible() // centro da rosca
+  await page.getByRole('radio', { name: 'Barras' }).click()
+})
+
+/** M1 §c — realocar orçamento de uma categoria para outra, com prévia e desfazer. */
+test('6c. orçamento: realocar entre categorias e desfazer', async () => {
+  // Mercado ganha um teto folgado para ceder sem estourar depois
+  await page.getByRole('button', { name: 'Categorias' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Editar categoria Mercado' }).click()
+  await page.getByRole('dialog').getByRole('textbox', { name: 'Limite mensal da categoria' }).fill('10.000,00')
+  await page.getByRole('dialog').getByRole('button', { name: 'Salvar' }).click()
+
+  // abre a realocação pelo painel de orçamento (Gastos)
+  await page.getByRole('button', { name: 'Realocar', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Realocar orçamento' })
+  await dialog.getByLabel('Categoria de origem').selectOption({ label: 'Mercado' })
+  await dialog.getByLabel('Categoria de destino').selectOption({ label: 'Lazer' })
+  await dialog.getByRole('textbox', { name: 'Valor a realocar' }).fill('50')
+  await dialog.getByRole('button', { name: 'Realocar' }).click()
+  await expect(page.getByText('Orçamento realocado')).toBeVisible()
+
+  // desfazer devolve o orçamento (nada de dinheiro se moveu)
+  await page.getByRole('button', { name: 'Desfazer realocação de Mercado para Lazer' }).click()
+  await expect(page.getByText('Realocação desfeita')).toBeVisible()
 })
 
 test('7. gastos: lançamento recorrente cria template gerenciável', async () => {

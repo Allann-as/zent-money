@@ -1,5 +1,56 @@
 # AUDITORIA.md — Zent Money
 
+## M1 — integridade pendente e Orçamento 2.0 (roadmap v2.0) — 18/07/2026
+
+Primeiro milestone do roadmap até o v2.0.0. Schema **v8**.
+
+### §a — invariante criar→excluir neutro, provada por sabotagem
+
+- As mutações de todo lançamento foram concentradas em `src/store/mutations.ts`
+  (fonte única); a UI e os testes chamam as MESMAS funções `add*`/`remove*`.
+- `tests/unit/mutations.test.ts` (15 testes): round-trip por tipo (gasto com/sem
+  origem, extra, transferência, salário, pagamento de fatura, ajuste, aporte,
+  parcela de cartão/avulsa) devolvendo TODOS os números ao estado anterior +
+  invariante "evento de ledger não vaza para renda/gasto" + meta-teste de
+  sabotagem.
+- **Prova de que o teste tem dentes** (lição do smoke da R3): sabotei
+  `removeInvoicePayment` (sem devolver o valor à fatura), rodei e vi o round-trip do
+  pagamento **falhar** (`invoices: 50000` ≠ `80000` esperado); revertido em seguida,
+  volta ao verde. Registrado em `DECISOES.md`.
+
+### §b — toggle rosca/barras no Resumo por categoria
+
+- Dois botões-ícone ao lado do título (barras = padrão), preferência persistida no
+  `uiStore`. A rosca reusa o `Donut` único (cores das categorias, total no centro,
+  hover com valor e %).
+
+### §c — Orçamento 2.0
+
+- Schema **v8** (`budgetReallocations`), migração v7→v8 invisível (nasce vazia;
+  coberta por `migrations.test.ts` no caminho v1→v8).
+- `engine/budget.ts` (11 testes): limite efetivo = base + recebido − cedido, só no
+  mês (virada volta ao base); validações (origem com limite, efetivo nunca negativo,
+  sem auto-transferência); destino sem limite pode receber.
+- Round-trip realocar→desfazer neutro **sem tocar o ledger** (saldos intactos).
+- UI: `BudgetPanel` único (Visão geral + Gastos) com disponível/âmbar/vermelho sobre
+  o limite efetivo, indicador base→efetivo, lista do mês com desfazer; modal de
+  realocação com prévia; aviso pré-salvar de estouro no diálogo do gasto.
+
+### Estado da suíte (M1)
+
+- **173 unit verdes** (147 da R4 + 12 orçamento + 14 mutações), **typecheck estrito e
+  lint limpos**.
+- **28 E2E verdes** (os 26 da R4 + 2 novos: toggle rosca/barras e realocar→desfazer),
+  **zero erros de console**. O único E2E afetado foi o do estouro de limite (teste 6),
+  ajustado ao novo aviso pré-salvar.
+- **Smoke verde**: janela em ~539ms (dados isolados, sem rede).
+- **Perf 50k** (quente): boot até a Visão geral **427ms**; seções 42–273ms; navegar
+  12 meses **96ms/clique**. Dentro do envelope da R4 (o painel de orçamento reusa o
+  `byCategory` já memoizado e `monthBudgets` é uma passada pelas realocações). As
+  camadas de fundo novas são do M3 — aqui não há custo de FPS a medir ainda.
+
+---
+
 ## LACUNA DE MODELO CONTÁBIL (Release 4, §1) — causa-raiz — 16/07/2026
 
 ### Sintoma

@@ -2,6 +2,64 @@
 
 Registro das decisões tomadas onde a especificação deixou eixos livres.
 
+## M1 — integridade pendente e Orçamento 2.0 (roadmap v2.0)
+
+### Fonte única das mutações (§a)
+
+- **`src/store/mutations.ts` passou a ser o único lugar que cria/exclui um
+  lançamento** (gasto, extra, transferência, salário, pagamento de fatura, ajuste,
+  aporte, parcela, realocação). Antes o "criar" morava num diálogo e o "excluir"
+  numa página distante — nada garantia que um fosse o inverso EXATO do outro. Com o
+  par `add*`/`remove*` num lugar só, a invariante **criar→excluir neutro** vale no
+  produto, porque a UI e o teste chamam a MESMA função (não uma reencenação).
+- **O teste da invariante foi provado por sabotagem antes de ser confiado**: quebrei
+  de propósito `removeInvoicePayment` (não devolver o valor à fatura) e vi o
+  round-trip do pagamento **falhar em vermelho** (`invoices: 500 ≠ 800`), depois
+  reverti. É a lição do smoke test da R3 aplicada: um teste só vale depois de
+  vê-lo pegar o bug que afirma pegar. Um meta-teste permanente encoda essa prova.
+- **O marcador `lastSalaryCreditYm` fica ao desfazer um crédito de salário** — a
+  única assimetria consciente do "neutro". Ele não é um "número do app" (nenhuma
+  agregação depende dele), só governa a materialização futura; recuá-lo faria o
+  próximo boot recriar o crédito desfeito (ver [[ledger-hibrido]]).
+- **`addToInvoice` do gasto NÃO entra na invariante**: somar um gasto à fatura é
+  uma edição pontual do snapshot manual da fatura (R3 §3.4), não parte do registro
+  persistido do gasto — criar→excluir do gasto é neutro sobre o gasto; o bump da
+  fatura é do usuário, revertido editando a fatura.
+- **Desfazer no histórico da conta cobre agora transferência, fatura e ajuste**
+  (antes só salário) — as ações de exclusão novas ganharam uma casa real na UI,
+  em vez de só existirem para o teste. As que movem dinheiro pedem confirmação.
+
+### Orçamento 2.0 (§c)
+
+- **Realocação é conceito de ORÇAMENTO, não movimento de dinheiro**: `efetivo =
+  base + recebido − cedido`, e **jamais toca o ledger** (provado no round-trip
+  realocar→desfazer, que deixa todo saldo intacto). Guardá-la como movimento de
+  conta misturaria "planejei gastar" com "gastei".
+- **Vale só no mês; a virada volta ao base sozinha.** Só entram na conta as
+  realocações daquele `ym` — não há estado a "resetar" na virada, o que elimina uma
+  classe inteira de bugs de reset. Testado (mesmo realoc, mês seguinte = base).
+- **A origem precisa ter limite; o destino não.** Não se cede o que não se tem
+  (categoria sem limite efetivo não pode ceder). Já o **destino pode ser qualquer
+  categoria, mesmo sem limite base** (decisão do usuário) — ela ganha um efetivo só
+  no mês. Mistura consciente de "sem orçamento" com "orçamento temporário", aceita
+  para dar flexibilidade a quem quer abrir uma verba pontual.
+- **O efetivo nunca fica negativo**: a validação barra ceder mais do que a origem
+  tem, considerando as realocações já feitas no mês.
+- **Aviso de estouro é inline, não um modal aninhado.** Todos os modais do app
+  compartilham `z-50` e um trap de foco no window; empilhar dois brigaria pelo
+  foco/Esc. Então o aviso pré-salvar vive DENTRO do diálogo do gasto (banner +
+  rodapé adaptável); "Realocar orçamento" fecha o gasto e abre a realocação com o
+  destino já escolhido, sem perder nada que importe.
+- **O painel de orçamento é um componente só (`BudgetPanel`)**, usado em Visão
+  geral E em Gastos (decisão do usuário: descoberta nos dois lugares) — uma fonte,
+  sem dois `reduce` de status livres para divergir.
+
+### Toggle rosca/barras no Resumo por categoria (§b)
+
+- **Reusa o único `Donut` do app** (cores das categorias, total no centro, hover
+  com valor e %); a preferência persiste no `uiStore` (`zent-ui`, `localStorage`),
+  como tema/sidebar/privacidade — resposta instantânea, sem IPC.
+
 ## Release 4 — coerência contábil, taxas ao vivo e revisão fina
 
 ### Ledger híbrido (§1)
