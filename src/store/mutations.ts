@@ -1,5 +1,6 @@
 import type {
   Adjustment,
+  BudgetReallocation,
   Contribution,
   Expense,
   ExtraIncome,
@@ -100,6 +101,14 @@ export function addSalaryCredit(d: ZentData, c: SalaryCredit): void {
 }
 export function removeSalaryCredit(d: ZentData, id: string): void {
   d.salaryCredits = dropById(d.salaryCredits, id)
+}
+
+// ── Realocação de orçamento (não é dinheiro; não toca o ledger) ───────────────
+export function addBudgetReallocation(d: ZentData, r: BudgetReallocation): void {
+  d.budgetReallocations.push(r)
+}
+export function removeBudgetReallocation(d: ZentData, id: string): void {
+  d.budgetReallocations = dropById(d.budgetReallocations, id)
 }
 
 // ── Pagamento de fatura ──────────────────────────────────────────────────────

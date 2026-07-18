@@ -21,7 +21,7 @@ import { standaloneMonthlyCommitment, totalInvoices, totalMonthlyCommitment } fr
 /** Base v7 mínima com dois bancos e um cartão. */
 function baseData(over: Partial<ZentData> = {}): ZentData {
   return {
-    version: 7,
+    version: 8,
     profile: { name: 'Allan' },
     rates: {
       selic: 14.25,
@@ -36,6 +36,7 @@ function baseData(over: Partial<ZentData> = {}): ZentData {
     salaryConfig: { bankId: null, payDay: 5, autoCredit: true },
     extraIncomes: [],
     categories: [{ id: 'c1', name: 'Mercado', color: '#2fd680', monthlyLimit: null }],
+    budgetReallocations: [],
     expenses: [],
     banks: [
       { id: 'b1', name: 'Nubank', color: '#820AD1', openingBalance: 0 },

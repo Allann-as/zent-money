@@ -10,7 +10,7 @@ import { z } from 'zod'
  *   (`openingBalance`) e os MOVIMENTOS; o saldo sai da soma (ver engine/ledger.ts).
  */
 
-export const DATA_VERSION = 7
+export const DATA_VERSION = 8
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'data ISO YYYY-MM-DD')
 const ym = z.string().regex(/^\d{4}-\d{2}$/, 'mês YYYY-MM')
@@ -105,8 +105,27 @@ export const categorySchema = z.object({
   id: z.string(),
   name: z.string(),
   color: hexColor,
-  /** Limite mensal de orçamento; null = sem limite. */
+  /** Limite mensal BASE de orçamento; null = sem limite. O limite EFETIVO do mês
+   * pode diferir por realocações (v8 — ver `budgetReallocations` e engine/budget). */
   monthlyLimit: cents.positive().nullable(),
+})
+
+/**
+ * Realocação de orçamento entre categorias (v8 — M1 §c). Move parte do limite de
+ * uma categoria para outra **só naquele mês** (`ym`): o limite EFETIVO do mês é
+ * `base + recebido − cedido`, e a virada do mês volta ao base porque nenhuma
+ * realocação de outro mês entra na conta. É um conceito de ORÇAMENTO, não um
+ * movimento de dinheiro — jamais toca o ledger nem o saldo de conta alguma.
+ */
+export const budgetReallocationSchema = z.object({
+  id: z.string(),
+  /** Mês em que a realocação vale. */
+  ym,
+  /** Categoria que cede orçamento. */
+  fromCategoryId: z.string(),
+  /** Categoria que recebe orçamento. */
+  toCategoryId: z.string(),
+  amount: cents.positive(),
 })
 
 /**
@@ -284,6 +303,8 @@ export const zentDataSchema = z.object({
   salaryConfig: salaryConfigSchema,
   extraIncomes: z.array(extraIncomeSchema),
   categories: z.array(categorySchema),
+  /** Realocações de orçamento entre categorias, por mês (v8). */
+  budgetReallocations: z.array(budgetReallocationSchema),
   expenses: z.array(expenseSchema),
   banks: z.array(bankSchema),
   cards: z.array(cardSchema),
@@ -321,6 +342,7 @@ export type InvoicePayment = z.infer<typeof invoicePaymentSchema>
 export type RateOverrides = z.infer<typeof rateOverridesSchema>
 export type ExtraIncome = z.infer<typeof extraIncomeSchema>
 export type Category = z.infer<typeof categorySchema>
+export type BudgetReallocation = z.infer<typeof budgetReallocationSchema>
 export type Expense = z.infer<typeof expenseSchema>
 export type ExpenseOrigin = z.infer<typeof expenseOriginSchema>
 export type Bank = z.infer<typeof bankSchema>

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ZentData } from '@/data/schema'
 import {
   addAdjustment,
+  addBudgetReallocation,
   addContribution,
   addExpense,
   addExtraIncome,
@@ -10,6 +11,7 @@ import {
   addSalaryCredit,
   addTransfer,
   removeAdjustment,
+  removeBudgetReallocation,
   removeContribution,
   removeExpense,
   removeExtraIncome,
@@ -20,6 +22,7 @@ import {
 } from '@/store/mutations'
 import { bankBalances, totalInAccounts } from '@/engine/ledger'
 import { expensesByCategory, incomeByMonth } from '@/engine/aggregations'
+import { effectiveLimit } from '@/engine/budget'
 import { standaloneMonthlyCommitment, totalInvoices, totalMonthlyCommitment } from '@/engine/cards'
 
 /**
@@ -40,7 +43,7 @@ const MONTH = '2026-07'
 /** Base v7 com dois bancos, um cartão e uma aplicação — o palco dos lançamentos. */
 function baseData(over: Partial<ZentData> = {}): ZentData {
   return {
-    version: 7,
+    version: 8,
     profile: { name: 'Allan' },
     rates: {
       selic: 14.25,
@@ -55,6 +58,7 @@ function baseData(over: Partial<ZentData> = {}): ZentData {
     salaryConfig: { bankId: 'b1', payDay: 5, autoCredit: true },
     extraIncomes: [],
     categories: [{ id: 'c1', name: 'Mercado', color: '#2fd680', monthlyLimit: null }],
+    budgetReallocations: [],
     expenses: [],
     banks: [
       { id: 'b1', name: 'Nubank', color: '#820AD1', openingBalance: 1_000_00 },
@@ -248,6 +252,30 @@ describe('eventos internos de reversão não aparecem como ganho/gasto (M1 §a)'
     // …mas renda e gastos do mês continuam intocados
     expect(incomeByMonth(d.salaryHistory, d.extraIncomes, [MONTH]).get(MONTH) ?? 0).toBe(income0)
     expect([...expensesByCategory(d.expenses, MONTH).values()].reduce((a, b) => a + b, 0)).toBe(spent0)
+  })
+})
+
+describe('realocação de orçamento: criar→desfazer neutro e sem tocar o ledger (M1 §c)', () => {
+  it('realocar muda o limite efetivo mas nenhum número de dinheiro; desfazer volta ao base', () => {
+    const d = baseData({
+      categories: [
+        { id: 'c1', name: 'Mercado', color: '#2fd680', monthlyLimit: 200_00 },
+        { id: 'c2', name: 'Lazer', color: '#57b6f2', monthlyLimit: 100_00 },
+      ],
+    })
+    const beforeNums = appNumbers(d)
+
+    addBudgetReallocation(d, { id: ID, ym: MONTH, fromCategoryId: 'c1', toCategoryId: 'c2', amount: 50_00 })
+    // o orçamento efetivo se moveu…
+    expect(effectiveLimit(d.categories[0]!, d.budgetReallocations, MONTH)).toBe(150_00)
+    expect(effectiveLimit(d.categories[1]!, d.budgetReallocations, MONTH)).toBe(150_00)
+    // …mas NENHUM número de dinheiro mudou: realocação não é movimento de conta
+    expect(appNumbers(d)).toEqual(beforeNums)
+
+    removeBudgetReallocation(d, ID)
+    expect(effectiveLimit(d.categories[0]!, d.budgetReallocations, MONTH)).toBe(200_00)
+    expect(d.budgetReallocations).toHaveLength(0)
+    expect(appNumbers(d)).toEqual(beforeNums)
   })
 })
 

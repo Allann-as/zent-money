@@ -37,6 +37,9 @@ const BOX_EMOJI_TO_ICON: Record<string, string> = {
 }
 
 const MIGRATIONS: Record<number, (data: RawData) => RawData> = {
+  // v7 → v8: realocação de orçamento entre categorias (M1 §c). Nasce vazia — quem
+  // nunca realocar tem o limite EFETIVO idêntico ao base, e o app segue idêntico.
+  7: (data) => ({ ...data, version: 8, budgetReallocations: [] }),
   // v6 → v7: ledger híbrido (R4 §1). O saldo digitado de cada banco vira o PONTO
   // DE PARTIDA (`openingBalance`) e o saldo exibido passa a ser derivado dele mais
   // os movimentos. Como todos os arrays de movimento nascem vazios, o saldo

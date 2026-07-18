@@ -4,6 +4,8 @@ import { PageHeader } from '@/features/common/PageHeader'
 import { MonthNav } from '@/features/common/MonthNav'
 import { RecurringModal } from '@/features/common/RecurringModal'
 import { Card, CardTitle } from '@/design/components/Card'
+import { BudgetPanel } from '@/features/budget/BudgetPanel'
+import { ReallocateBudgetModal } from '@/features/budget/ReallocateBudgetModal'
 import { Donut, type DonutSlice } from '@/design/charts/Donut'
 import { Button } from '@/design/components/Button'
 import { Select } from '@/design/components/Select'
@@ -36,6 +38,8 @@ export function ExpensesPage(): ReactNode {
   const [recurringOpen, setRecurringOpen] = useState(false)
   const [filter, setFilter] = useState<string>('all')
   const [originFilter, setOriginFilter] = useState<string>('all')
+  /** Categoria a receber orçamento quando o aviso de estouro pede realocação. */
+  const [reallocateTo, setReallocateTo] = useState<string | null>(null)
 
   // Ação rápida vinda da paleta de comandos (Ctrl+K)
   const pendingAction = useUiStore((s) => s.pendingAction)
@@ -313,6 +317,11 @@ export function ExpensesPage(): ReactNode {
         </Card>
       </div>
 
+      {/* Orçamento do mês (M1 §c): disponível/âmbar/vermelho + realocação */}
+      <Card className="p-5 mb-4">
+        <BudgetPanel spentByCategory={byCategory} ym={ym} />
+      </Card>
+
       {/* Lista de lançamentos */}
       <Card>
         <div className="flex items-center gap-3 px-5 pt-4 pb-3">
@@ -444,7 +453,16 @@ export function ExpensesPage(): ReactNode {
       </Card>
 
       <CategoryDialog state={categoryDialog} onClose={() => setCategoryDialog('closed')} />
-      <ExpenseDialog state={expenseDialog} onClose={() => setExpenseDialog('closed')} />
+      <ExpenseDialog
+        state={expenseDialog}
+        onClose={() => setExpenseDialog('closed')}
+        onReallocate={(categoryId) => setReallocateTo(categoryId)}
+      />
+      <ReallocateBudgetModal
+        open={reallocateTo !== null}
+        onClose={() => setReallocateTo(null)}
+        {...(reallocateTo !== null ? { defaultToCategoryId: reallocateTo } : {})}
+      />
       <RecurringModal kind="expense" open={recurringOpen} onClose={() => setRecurringOpen(false)} />
       <ManageCategoriesModal
         open={manageOpen}

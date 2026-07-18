@@ -34,11 +34,13 @@ function v1Data(): Record<string, unknown> {
   }
 }
 
-describe('migração de dados v1 → v7', () => {
+describe('migração de dados v1 → v8', () => {
   it('migra um arquivo v1 completo em cadeia e passa na validação do schema atual', () => {
     const migrated = migrate(v1Data())
     const parsed = zentDataSchema.parse(migrated)
-    expect(parsed.version).toBe(7)
+    expect(parsed.version).toBe(8)
+    // v7→v8: realocações de orçamento nascem vazias (o efetivo = base para quem não realoca)
+    expect(parsed.budgetReallocations).toEqual([])
     // v6→v7: o saldo digitado vira o PONTO DE PARTIDA do ledger e os arrays de
     // movimento nascem vazios — o saldo derivado é idêntico ao de antes
     expect(parsed.banks[0]?.openingBalance).toBe(0)

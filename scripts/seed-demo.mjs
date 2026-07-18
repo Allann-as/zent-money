@@ -66,9 +66,9 @@ for (let m = -17; m <= 0; m++) {
 }
 
 const data = {
-  // v7: o demo já nasce com o ledger da R4 ligado — é o produto que ele mostra.
+  // v8: o demo já nasce com o ledger da R4 ligado — é o produto que ele mostra.
   // A migração tem os testes dela (unit + ensaio contra o arquivo real).
-  version: 7,
+  version: 8,
   profile: { name: 'Allan' },
   rates: {
     selic: 14.25,
@@ -93,6 +93,7 @@ const data = {
     { id: 'ex-4', date: day(-4, 7), description: 'Freela — logo', amount: 25000, receivedIn: null },
   ],
   categories,
+  budgetReallocations: [],
   expenses,
   // `openingBalance` = ponto de partida; o saldo exibido é derivado dele mais os
   // movimentos abaixo (ver engine/ledger.ts).

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { PageHeader } from '@/features/common/PageHeader'
 import { MonthNav } from '@/features/common/MonthNav'
+import { BudgetPanel } from '@/features/budget/BudgetPanel'
 import { Card, CardTitle } from '@/design/components/Card'
 import { StatCard } from '@/design/components/StatCard'
 import { AnimatedMoney } from '@/design/AnimatedMoney'
@@ -231,17 +232,6 @@ export function OverviewPage(): ReactNode {
         .map((r) => ({ id: r.category.id, label: r.category.name, value: r.value, color: r.category.color })),
     [byCategory, categoriesById],
   )
-  const budget = useMemo(
-    () =>
-      data.categories
-        .filter((c) => c.monthlyLimit !== null && c.monthlyLimit > 0)
-        .map((c) => ({
-          category: c,
-          limit: c.monthlyLimit ?? 0,
-          spent: byCategory.get(c.id) ?? 0,
-        })),
-    [data.categories, byCategory],
-  )
   const split = useMemo(() => essentialSplit(monthExpenses, ym), [monthExpenses, ym])
 
   // ── Entradas × Saídas 12m (janela termina no mês ativo) ───────────
@@ -443,52 +433,9 @@ export function OverviewPage(): ReactNode {
           )}
         </Card>
 
-        {/* Orçamento do mês */}
+        {/* Orçamento do mês (M1 §c): disponível/âmbar/vermelho + realocação */}
         <Card className="p-5 col-span-2">
-          <CardTitle className="mb-4">Orçamento do mês</CardTitle>
-          {budget.length === 0 ? (
-            <EmptyState
-              icon={Target}
-              title="Nenhum limite definido"
-              description="Defina limites mensais nas suas categorias (Gastos → Categorias) para acompanhar o orçamento aqui."
-              className="py-6"
-            />
-          ) : (
-            <ul className="flex flex-col gap-3.5">
-              {budget.map(({ category, limit, spent }) => {
-                const ratio = limit > 0 ? spent / limit : 0
-                // disciplina de cor: acento neutro; âmbar/vermelho só ao se
-                // aproximar/cruzar o teto (alerta real)
-                const barColor = ratio < 0.9 ? colors.primary : ratio < 1 ? colors.warn : colors.neg
-                return (
-                  <li key={category.id}>
-                    <div className="flex items-center gap-2 text-[13px] mb-1">
-                      <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: category.color }} />
-                      <span className="font-medium text-ink truncate">{category.name}</span>
-                      <span className="ml-auto tnum text-ink-soft">
-                        <strong
-                          className={cn('font-semibold', ratio >= 1 ? 'text-neg' : 'text-ink')}
-                        >
-                          {formatBRL(spent)}
-                        </strong>{' '}
-                        / {formatBRL(limit)}
-                      </span>
-                    </div>
-                    <div
-                      className="h-2 rounded-full bg-surface-2 overflow-hidden"
-                      role="img"
-                      aria-label={`${category.name}: ${formatPercent(ratio, 0)} do limite`}
-                    >
-                      <div
-                        className="h-full rounded-full transition-[width] duration-300"
-                        style={{ width: `${Math.min(1, ratio) * 100}%`, background: barColor }}
-                      />
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
+          <BudgetPanel spentByCategory={byCategory} ym={ym} />
         </Card>
       </div>
 

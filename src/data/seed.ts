@@ -45,6 +45,7 @@ export function createSeedData(): ZentData {
     salaryConfig: { bankId: null, payDay: 5, autoCredit: true },
     extraIncomes: [],
     categories: [],
+    budgetReallocations: [],
     expenses: [],
     banks: [
       { id: newId(), name: 'Nubank', color: BANK_BRAND_COLORS['nubank'] ?? '#820AD1', openingBalance: 0 },
