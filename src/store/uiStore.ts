@@ -14,6 +14,9 @@ export type ViewId =
 
 export type Theme = 'dark' | 'light'
 
+/** Como o "Resumo por categoria" (Gastos) é desenhado (M1 §b, preferência persistida). */
+export type CategoryChartMode = 'bars' | 'donut'
+
 /** Ação rápida disparada pela paleta de comandos, consumida pela seção alvo. */
 export type PendingAction = 'new-expense' | 'new-income' | 'new-asset' | 'new-box' | null
 
@@ -35,6 +38,8 @@ interface UiState {
   searchOpen: boolean
   /** Modo privacidade: borra todos os valores monetários (persistido). */
   privacy: boolean
+  /** Preferência de visualização do "Resumo por categoria" (Gastos). */
+  categoryChartMode: CategoryChartMode
   pendingAction: PendingAction
   setTheme(theme: Theme): void
   toggleTheme(): void
@@ -43,6 +48,7 @@ interface UiState {
   setYm(ym: Ym): void
   setSearchOpen(open: boolean): void
   togglePrivacy(): void
+  setCategoryChartMode(mode: CategoryChartMode): void
   setPendingAction(action: PendingAction): void
 }
 
@@ -66,8 +72,10 @@ export const useUiStore = create<UiState>()(
       closeBankDetail: () => set({ bankDetailId: null }),
       searchOpen: false,
       privacy: false,
+      categoryChartMode: 'bars',
       pendingAction: null,
       setSearchOpen: (searchOpen) => set({ searchOpen }),
+      setCategoryChartMode: (categoryChartMode) => set({ categoryChartMode }),
       togglePrivacy: () => {
         const next = !get().privacy
         applyPrivacy(next)
@@ -91,6 +99,7 @@ export const useUiStore = create<UiState>()(
         theme: s.theme,
         sidebarCollapsed: s.sidebarCollapsed,
         privacy: s.privacy,
+        categoryChartMode: s.categoryChartMode,
       }),
       onRehydrateStorage: () => (state) => {
         applyTheme(state?.theme ?? 'dark')

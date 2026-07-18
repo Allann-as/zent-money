@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Pencil, Plus, ReceiptText, Repeat, Scale, Settings2, Tags, Trash2 } from 'lucide-react'
+import { BarChart3, Pencil, PieChart, Plus, ReceiptText, Repeat, Scale, Settings2, Tags, Trash2 } from 'lucide-react'
 import { PageHeader } from '@/features/common/PageHeader'
 import { MonthNav } from '@/features/common/MonthNav'
 import { RecurringModal } from '@/features/common/RecurringModal'
 import { Card, CardTitle } from '@/design/components/Card'
+import { Donut, type DonutSlice } from '@/design/charts/Donut'
 import { Button } from '@/design/components/Button'
 import { Select } from '@/design/components/Select'
 import { Modal } from '@/design/components/Modal'
@@ -26,6 +27,8 @@ export function ExpensesPage(): ReactNode {
   const data = useZentData()
   const mutate = useDataStore((s) => s.mutate)
   const ym = useUiStore((s) => s.activeYm)
+  const chartMode = useUiStore((s) => s.categoryChartMode)
+  const setChartMode = useUiStore((s) => s.setCategoryChartMode)
 
   const [categoryDialog, setCategoryDialog] = useState<CategoryDialogState>('closed')
   const [expenseDialog, setExpenseDialog] = useState<ExpenseDialogState>('closed')
@@ -89,7 +92,14 @@ export function ExpensesPage(): ReactNode {
       .filter((r): r is { category: Category; total: number } => r.category !== undefined)
       .sort((a, b) => b.total - a.total)
     const max = rows[0]?.total ?? 0
-    return { rows, max }
+    // Fatias da rosca: a MESMA fonte das barras, cor da categoria (M1 §b).
+    const slices: DonutSlice[] = rows.map((r) => ({
+      id: r.category.id,
+      label: r.category.name,
+      value: r.total,
+      color: r.category.color,
+    }))
+    return { rows, max, slices }
   }, [byCategory, categoriesById])
 
   async function removeExpense(e: Expense): Promise<void> {
@@ -148,11 +158,44 @@ export function ExpensesPage(): ReactNode {
       <div className="grid grid-cols-5 gap-4 mb-4">
         {/* Resumo por categoria */}
         <Card className="col-span-3 p-5">
-          <div className="flex items-baseline justify-between mb-4">
+          <div className="flex items-center justify-between mb-4">
             <CardTitle>Resumo por categoria</CardTitle>
-            <span className="text-[13px] text-ink-soft tnum">
-              Total: <strong className="text-ink font-semibold">{formatBRL(monthTotal)}</strong>
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-[13px] text-ink-soft tnum">
+                Total: <strong className="text-ink font-semibold">{formatBRL(monthTotal)}</strong>
+              </span>
+              {/* Toggle barras/rosca (M1 §b) — preferência persistida no uiStore */}
+              <div
+                className="inline-flex rounded-control border border-line p-0.5"
+                role="radiogroup"
+                aria-label="Visualização do resumo por categoria"
+              >
+                {(
+                  [
+                    { mode: 'bars', Icon: BarChart3, label: 'Barras' },
+                    { mode: 'donut', Icon: PieChart, label: 'Rosca' },
+                  ] as const
+                ).map(({ mode, Icon, label }) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    role="radio"
+                    aria-checked={chartMode === mode}
+                    aria-label={label}
+                    title={label}
+                    onClick={() => setChartMode(mode)}
+                    className={cn(
+                      'h-7 w-7 rounded-[7px] inline-flex items-center justify-center transition-colors cursor-pointer',
+                      chartMode === mode
+                        ? 'bg-primary-soft text-primary'
+                        : 'text-ink-faint hover:text-ink hover:bg-surface-2',
+                    )}
+                  >
+                    <Icon size={14} />
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
           {summary.rows.length === 0 ? (
             <EmptyState
@@ -161,6 +204,14 @@ export function ExpensesPage(): ReactNode {
               description="Registre o primeiro gasto para ver o resumo por categoria."
               className="py-6"
             />
+          ) : chartMode === 'donut' ? (
+            <div className="py-2">
+              <Donut
+                slices={summary.slices}
+                centerTitle="Total do mês"
+                centerValue={formatBRL(monthTotal)}
+              />
+            </div>
           ) : (
             <ul className="flex flex-col gap-3">
               {summary.rows.map(({ category, total }) => {
