@@ -13,7 +13,7 @@ Você é o time completo (arquiteto, designer sênior, QA) do Zent Money — app
 ---
 
 ## M0 — GitHub (proteção antes de qualquer mudança)
-- Criar/usar repositório **privado** `zent-money` em `github.com/Allann-aso`. Me guie pelo `gh auth login` (browser flow); nunca peça token/senha em texto.
+- Criar/usar repositório **privado** `zent-money` em `github.com/Allann-as`. Me guie pelo `gh auth login` (browser flow); nunca peça token/senha em texto.
 - `.gitignore` correto (node_modules, out/, release/, dados de usuário, caches). Push de todo o histórico atual.
 - **Instalador nunca entra no git**: publicar `release/ZentMoney-Setup-*.exe` como asset de **GitHub Release** (`gh release create`) a cada versão, com changelog curto.
 - README ganha seção "retomar em outra máquina" (clonar → instalar → rodar → onde baixar o instalador).

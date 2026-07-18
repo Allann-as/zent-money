@@ -5,3 +5,9 @@ test-results/
 playwright-report/
 screenshots/
 *.log
+# caches
+.eslintcache
+*.tmp
+# dados de usuário nunca entram no git (vivem em %APPDATA%/zent-money/)
+zent-data.json
+zent-data.json.tmp

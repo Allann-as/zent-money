@@ -20,6 +20,34 @@ privacidade.
 - **Node.js 20–24** (fixado em `engines`; desenvolvido com Node 24) e npm
 - Windows (o instalador é gerado para Windows x64)
 
+## Retomar em outra máquina
+
+O código vive no GitHub privado **[Allann-as/zent-money](https://github.com/Allann-as/zent-money)**.
+O instalador **não** entra no git — cada versão é publicada como asset de uma
+[GitHub Release](https://github.com/Allann-as/zent-money/releases).
+
+```powershell
+# 1. clonar (fora de pasta sincronizada, se possível — ver aviso do OneDrive abaixo)
+gh repo clone Allann-as/zent-money
+cd zent-money
+
+# 2. recriar as junctions de build (se estiver dentro do OneDrive) e instalar
+New-Item -ItemType Junction node_modules -Target "$env:LOCALAPPDATA\ZentMoneyBuild\node_modules"
+New-Item -ItemType Junction out          -Target "$env:LOCALAPPDATA\ZentMoneyBuild\out"
+New-Item -ItemType Junction release      -Target "$env:LOCALAPPDATA\ZentMoneyBuild\release"
+npm install
+
+# 3. rodar em desenvolvimento, ou gerar o instalador
+npm run dev
+npm run dist        # instalador em release/
+
+# 4. só usar o app? baixe o .exe da Release mais recente:
+gh release download --repo Allann-as/zent-money --pattern "*.exe"
+```
+
+Os seus **dados** ficam em `%APPDATA%/zent-money/` (não no repositório) — para levá-los
+junto, use Exportar/Importar no menu de perfil.
+
 ## ⚠️ Projeto dentro do OneDrive
 
 Esta pasta é sincronizada pelo OneDrive. Para evitar corrupção de builds (ver AUDITORIA.md),
