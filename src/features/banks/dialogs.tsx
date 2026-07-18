@@ -7,6 +7,7 @@ import { Segmented } from '@/design/components/Segmented'
 import { ColorPicker } from '@/design/components/ColorPicker'
 import { toast } from '@/design/components/toast'
 import { useDataStore, useZentData } from '@/store/dataStore'
+import { addPurchase } from '@/store/mutations'
 import { reconcileBankBalance } from '@/store/ledgerActions'
 import { bankBalances } from '@/engine/ledger'
 import { formatBRL } from '@/engine/money'
@@ -306,7 +307,7 @@ export function PurchaseDialog({
           p.startYm = startYm
         }
       } else if (state.mode === 'new') {
-        d.purchases.push({
+        addPurchase(d, {
           id: newId(),
           cardId: nextCardId,
           creditor: nextCreditor,

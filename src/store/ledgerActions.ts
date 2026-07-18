@@ -1,4 +1,14 @@
 import { useDataStore } from './dataStore'
+import {
+  addAdjustment,
+  addInvoicePayment,
+  addSalaryCredit,
+  addTransfer,
+  removeAdjustment,
+  removeInvoicePayment,
+  removeSalaryCredit,
+  removeTransfer,
+} from './mutations'
 import { bankBalances, materializeSalaryCredits, salaryCreditDate } from '@/engine/ledger'
 import { salaryForYm } from '@/engine/aggregations'
 import { todayIso } from '@/engine/dates'
@@ -30,23 +40,27 @@ export function reconcileBankBalance(bankId: string, targetBalance: number): num
   const delta = targetBalance - current
   if (delta === 0) return 0
   useDataStore.getState().mutate((d) => {
-    d.adjustments.push({
-      id: newId(),
-      date: todayIso(),
-      bankId,
-      amount: delta,
-      note: 'Ajuste de conciliação',
-    })
+    addAdjustment(d, { id: newId(), date: todayIso(), bankId, amount: delta, note: 'Ajuste de conciliação' })
   })
   return delta
+}
+
+/** Desfaz um ajuste de conciliação (§1.5): apaga o evento, o saldo volta ao anterior. */
+export function deleteAdjustment(adjustmentId: string): void {
+  useDataStore.getState().mutate((d) => removeAdjustment(d, adjustmentId))
 }
 
 /** Transferência entre contas (§1.4): um registro, dois movimentos derivados. */
 export function createTransfer(fromBankId: string, toBankId: string, amount: number, date: string): void {
   if (fromBankId === toBankId || amount <= 0) return
   useDataStore.getState().mutate((d) => {
-    d.transfers.push({ id: newId(), date, fromBankId, toBankId, amount })
+    addTransfer(d, { id: newId(), date, fromBankId, toBankId, amount })
   })
+}
+
+/** Desfaz uma transferência (§1.4): as duas pontas voltam ao saldo anterior. */
+export function deleteTransfer(transferId: string): void {
+  useDataStore.getState().mutate((d) => removeTransfer(d, transferId))
 }
 
 /**
@@ -61,9 +75,17 @@ export function payInvoice(cardId: string, bankId: string, amount: number, date:
   useDataStore.getState().mutate((d) => {
     const card = d.cards.find((c) => c.id === cardId)
     if (!card) return
-    d.invoicePayments.push({ id: newId(), date, cardId, bankId, amount })
-    card.invoice = Math.max(0, card.invoice - amount)
+    addInvoicePayment(d, { id: newId(), date, cardId, bankId, amount })
   })
+}
+
+/**
+ * Desfaz um pagamento de fatura (§1.7): devolve o dinheiro à conta e o valor à
+ * fatura. Ver `removeInvoicePayment` sobre o caso de borda do pagamento com
+ * excedente (fora dele, criar→excluir é neutro).
+ */
+export function deleteInvoicePayment(paymentId: string): void {
+  useDataStore.getState().mutate((d) => removeInvoicePayment(d, paymentId))
 }
 
 /**
@@ -84,12 +106,9 @@ export function creditSalaryFor(ym: Ym): boolean {
   const amount = salaryForYm(data.salaryHistory, ym)
   if (amount <= 0) return false
   useDataStore.getState().mutate((d) => {
-    d.salaryCredits.push({ id: newId(), ym, date: salaryCreditDate(ym, payDay), bankId, amount })
-    // O marcador acompanha o mês creditado: é ele que impede o boot de recriar
-    // um crédito que o usuário desfez (ver materializeSalaryCredits).
-    if (d.meta.lastSalaryCreditYm === null || d.meta.lastSalaryCreditYm < ym) {
-      d.meta.lastSalaryCreditYm = ym
-    }
+    // addSalaryCredit também avança o marcador — é ele que impede o boot de
+    // recriar um crédito que o usuário desfez (ver materializeSalaryCredits).
+    addSalaryCredit(d, { id: newId(), ym, date: salaryCreditDate(ym, payDay), bankId, amount })
   })
   return true
 }
@@ -100,9 +119,7 @@ export function creditSalaryFor(ym: Ym): boolean {
  * desfazer.
  */
 export function undoSalaryCredit(creditId: string): void {
-  useDataStore.getState().mutate((d) => {
-    d.salaryCredits = d.salaryCredits.filter((c) => c.id !== creditId)
-  })
+  useDataStore.getState().mutate((d) => removeSalaryCredit(d, creditId))
 }
 
 /**

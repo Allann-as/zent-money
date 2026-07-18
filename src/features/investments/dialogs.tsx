@@ -8,6 +8,7 @@ import { BankSelect } from '@/design/components/BankSelect'
 import { toast } from '@/design/components/toast'
 import { confirmDialog } from '@/design/components/confirm'
 import { useDataStore, useZentData } from '@/store/dataStore'
+import { addContribution } from '@/store/mutations'
 import { formatDateBR, todayIso } from '@/engine/dates'
 import { formatBRL } from '@/engine/money'
 import { ASSET_CLASS_LABELS, type AssetClass } from '@/engine/rates'
@@ -276,7 +277,7 @@ export function ContributionDialog({
   function save(): void {
     if (!valid || amount === null || !investment) return
     mutate((d) => {
-      d.contributions.push({ id: newId(), investmentId: investment.id, date, amount })
+      addContribution(d, { id: newId(), investmentId: investment.id, date, amount })
     })
     toast.success('Aporte registrado', `${formatBRL(amount)} em ${investment.name}`)
     onClose()

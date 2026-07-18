@@ -14,6 +14,7 @@ import { EmptyState } from '@/design/components/EmptyState'
 import { toast } from '@/design/components/toast'
 import { confirmDialog } from '@/design/components/confirm'
 import { useDataStore, useZentData } from '@/store/dataStore'
+import { addExtraIncome, removeExtraIncome } from '@/store/mutations'
 import { useUiStore } from '@/store/uiStore'
 import { creditSalaryFor, runSalaryMaterialization } from '@/store/ledgerActions'
 import { pendingSalaryCredits } from '@/engine/ledger'
@@ -115,9 +116,7 @@ export function IncomePage(): ReactNode {
       danger: true,
     })
     if (!ok) return
-    mutate((d) => {
-      d.extraIncomes = d.extraIncomes.filter((e) => e.id !== extra.id)
-    })
+    mutate((d) => removeExtraIncome(d, extra.id))
     toast.success('Ganho extra excluído')
   }
 
@@ -400,7 +399,7 @@ function ExtraDialog({
             endYm: null,
           })
         }
-        d.extraIncomes.push({
+        addExtraIncome(d, {
           id: newId(),
           date,
           description: cleanDesc,

@@ -23,6 +23,7 @@ import { EmptyState } from '@/design/components/EmptyState'
 import { toast } from '@/design/components/toast'
 import { confirmDialog } from '@/design/components/confirm'
 import { useDataStore, useZentData } from '@/store/dataStore'
+import { removePurchase as removePurchaseRecipe } from '@/store/mutations'
 import { useUiStore } from '@/store/uiStore'
 import { availableLimit, monthlyCommitment, payoffYm, remainingAmount, remainingInstallments, totalInvoices } from '@/engine/cards'
 import { bankBalances } from '@/engine/ledger'
@@ -470,9 +471,7 @@ function CardBlock({
       danger: true,
     })
     if (!ok) return
-    mutate((d) => {
-      d.purchases = d.purchases.filter((x) => x.id !== p.id)
-    })
+    mutate((d) => removePurchaseRecipe(d, p.id))
     toast.success('Compra excluída')
   }
 

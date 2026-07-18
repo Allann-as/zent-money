@@ -13,11 +13,72 @@ import type { LucideIcon } from 'lucide-react'
 import { Card, CardTitle } from '@/design/components/Card'
 import { EmptyState } from '@/design/components/EmptyState'
 import { toast } from '@/design/components/toast'
-import { undoSalaryCredit } from '@/store/ledgerActions'
+import { confirmDialog } from '@/design/components/confirm'
+import {
+  deleteAdjustment,
+  deleteInvoicePayment,
+  deleteTransfer,
+  undoSalaryCredit,
+} from '@/store/ledgerActions'
 import { formatBRL } from '@/engine/money'
 import { formatDateShort } from '@/engine/dates'
 import type { Movement, MovementKind } from '@/engine/ledger'
 import { cn } from '@/lib/cn'
+
+/**
+ * Desfazer um movimento a partir do histórico (M1 §a). Cada tipo reversível cai
+ * na sua ação de exclusão — a mesma fonte única (`store/mutations`) que o teste
+ * de propriedade criar→excluir exercita. `opening` (ponto de partida da conta),
+ * `extra` e `expense` não são desfeitos aqui: pertencem às suas seções (Ganhos e
+ * Gastos), onde já têm exclusão própria.
+ *
+ * Retorna a intenção de desfazer (rótulo + ação), ou `null` quando o movimento
+ * não é desfeito por aqui. As ações que movem dinheiro entre contas pedem
+ * confirmação; o crédito de salário, como já era, é imediato.
+ */
+function undoIntent(m: Movement): { title: string; confirm: string | null; run(): void } | null {
+  switch (m.kind) {
+    case 'salary':
+      return {
+        title: 'Desfazer este crédito',
+        confirm: null,
+        run: () => {
+          undoSalaryCredit(m.sourceId)
+          toast.success('Crédito desfeito', 'O salário deste mês saiu da conta.')
+        },
+      }
+    case 'transfer-in':
+    case 'transfer-out':
+      return {
+        title: 'Desfazer esta transferência',
+        confirm: 'Desfazer esta transferência? As duas contas voltam ao saldo anterior.',
+        run: () => {
+          deleteTransfer(m.sourceId)
+          toast.success('Transferência desfeita', 'As duas contas voltaram ao saldo anterior.')
+        },
+      }
+    case 'invoice':
+      return {
+        title: 'Desfazer este pagamento de fatura',
+        confirm: 'Desfazer este pagamento? O dinheiro volta à conta e o valor volta à fatura.',
+        run: () => {
+          deleteInvoicePayment(m.sourceId)
+          toast.success('Pagamento desfeito', 'O valor voltou à conta e à fatura do cartão.')
+        },
+      }
+    case 'adjustment':
+      return {
+        title: 'Desfazer este ajuste',
+        confirm: 'Desfazer este ajuste de conciliação? O saldo volta ao valor anterior.',
+        run: () => {
+          deleteAdjustment(m.sourceId)
+          toast.success('Ajuste desfeito', 'O saldo voltou ao valor anterior à conciliação.')
+        },
+      }
+    default:
+      return null
+  }
+}
 
 const ICONS: Record<MovementKind, LucideIcon> = {
   opening: Flag,
@@ -77,6 +138,7 @@ export function AccountHistory({
           {rows.map(({ movement: m, running }) => {
             const Icon = ICONS[m.kind]
             const incoming = m.amount >= 0
+            const undo = undoIntent(m)
             return (
               <li
                 key={m.id}
@@ -106,14 +168,24 @@ export function AccountHistory({
                     m.description
                   )}
                 </span>
-                {m.kind === 'salary' && (
+                {undo && (
                   <button
                     type="button"
-                    aria-label={`Desfazer crédito de salário de ${formatDateShort(m.date)}`}
-                    title="Desfazer este crédito"
+                    aria-label={`${undo.title} de ${formatDateShort(m.date)}`}
+                    title={undo.title}
                     onClick={() => {
-                      undoSalaryCredit(m.sourceId)
-                      toast.success('Crédito desfeito', 'O salário deste mês saiu da conta.')
+                      if (undo.confirm === null) {
+                        undo.run()
+                        return
+                      }
+                      void confirmDialog({
+                        title: undo.title,
+                        message: undo.confirm,
+                        confirmLabel: 'Desfazer',
+                        danger: true,
+                      }).then((ok) => {
+                        if (ok) undo.run()
+                      })
                     }}
                     className="h-7 w-7 rounded-[8px] inline-flex items-center justify-center text-ink-faint hover:text-ink hover:bg-surface-3 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
                   >

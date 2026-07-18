@@ -30,6 +30,7 @@ import { Donut } from '@/design/charts/Donut'
 import { Sparkline } from '@/design/charts/Sparkline'
 import { useChartColors } from '@/design/charts/useChartColors'
 import { useDataStore, useZentData } from '@/store/dataStore'
+import { removeContribution as removeContributionRecipe } from '@/store/mutations'
 import { useUiStore } from '@/store/uiStore'
 import {
   combineSeries,
@@ -537,9 +538,7 @@ function InvestmentCard({
       danger: true,
     })
     if (!ok) return
-    mutate((d) => {
-      d.contributions = d.contributions.filter((x) => x.id !== c.id)
-    })
+    mutate((d) => removeContributionRecipe(d, c.id))
     toast.success('Aporte excluído')
   }
 

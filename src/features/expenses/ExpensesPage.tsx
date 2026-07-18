@@ -11,6 +11,7 @@ import { EmptyState } from '@/design/components/EmptyState'
 import { toast } from '@/design/components/toast'
 import { confirmDialog } from '@/design/components/confirm'
 import { useDataStore, useZentData } from '@/store/dataStore'
+import { removeExpense as removeExpenseRecipe } from '@/store/mutations'
 import { useUiStore } from '@/store/uiStore'
 import { essentialSplit, expensesByCategory, groupByMonth } from '@/engine/aggregations'
 import { formatBRL, formatPercent } from '@/engine/money'
@@ -102,9 +103,7 @@ export function ExpensesPage(): ReactNode {
       danger: true,
     })
     if (!ok) return
-    mutate((d) => {
-      d.expenses = d.expenses.filter((x) => x.id !== e.id)
-    })
+    mutate((d) => removeExpenseRecipe(d, e.id))
     toast.success('Gasto excluído')
   }
 

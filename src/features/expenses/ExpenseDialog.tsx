@@ -8,6 +8,7 @@ import { useDataStore, useZentData } from '@/store/dataStore'
 import { formatBRL } from '@/engine/money'
 import { todayIso, ymOfDate } from '@/engine/dates'
 import { newId } from '@/lib/id'
+import { addExpense } from '@/store/mutations'
 import { cn } from '@/lib/cn'
 import type { Expense, ExpenseOrigin } from '@/data/schema'
 
@@ -125,7 +126,7 @@ export function ExpenseDialog({
             endYm: null,
           })
         }
-        d.expenses.push({
+        addExpense(d, {
           id: newId(),
           date,
           categoryId,
