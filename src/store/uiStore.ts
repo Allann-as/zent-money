@@ -40,6 +40,11 @@ interface UiState {
   privacy: boolean
   /** Preferência de visualização do "Resumo por categoria" (Gastos). */
   categoryChartMode: CategoryChartMode
+  /**
+   * Auto-bloqueio por inatividade (M2 §b): minutos sem interação até re-bloquear.
+   * null = só bloqueia ao abrir o app (padrão). Só tem efeito com PIN definido.
+   */
+  lockInactivityMinutes: number | null
   pendingAction: PendingAction
   setTheme(theme: Theme): void
   toggleTheme(): void
@@ -49,6 +54,7 @@ interface UiState {
   setSearchOpen(open: boolean): void
   togglePrivacy(): void
   setCategoryChartMode(mode: CategoryChartMode): void
+  setLockInactivityMinutes(minutes: number | null): void
   setPendingAction(action: PendingAction): void
 }
 
@@ -73,9 +79,11 @@ export const useUiStore = create<UiState>()(
       searchOpen: false,
       privacy: false,
       categoryChartMode: 'bars',
+      lockInactivityMinutes: null,
       pendingAction: null,
       setSearchOpen: (searchOpen) => set({ searchOpen }),
       setCategoryChartMode: (categoryChartMode) => set({ categoryChartMode }),
+      setLockInactivityMinutes: (lockInactivityMinutes) => set({ lockInactivityMinutes }),
       togglePrivacy: () => {
         const next = !get().privacy
         applyPrivacy(next)
@@ -100,6 +108,7 @@ export const useUiStore = create<UiState>()(
         sidebarCollapsed: s.sidebarCollapsed,
         privacy: s.privacy,
         categoryChartMode: s.categoryChartMode,
+        lockInactivityMinutes: s.lockInactivityMinutes,
       }),
       onRehydrateStorage: () => (state) => {
         applyTheme(state?.theme ?? 'dark')

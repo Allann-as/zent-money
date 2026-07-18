@@ -2,9 +2,12 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { loadZentData } from '@/data/persistence'
 import { useDataStore } from '@/store/dataStore'
+import { useUiStore } from '@/store/uiStore'
+import { useSecurityStore } from '@/store/securityStore'
 import { Toaster, toast } from '@/design/components/toast'
 import { ConfirmHost } from '@/design/components/confirm'
 import { AppShell } from './AppShell'
+import { LockScreen } from '@/features/security/LockScreen'
 import { ZentLogo } from '@/design/ZentLogo'
 import { currentYm, diffDays, todayIso } from '@/engine/dates'
 import { materializeRecurrences } from '@/engine/recurring'
@@ -16,6 +19,10 @@ type BootState = { status: 'loading' } | { status: 'ready' } | { status: 'error'
 
 export function App(): ReactNode {
   const [boot, setBoot] = useState<BootState>({ status: 'loading' })
+  const hasPin = useSecurityStore((s) => s.hasPin)
+  const locked = useSecurityStore((s) => s.locked)
+  const bypassed = useSecurityStore((s) => s.bypassed)
+  const lockInactivityMinutes = useUiStore((s) => s.lockInactivityMinutes)
 
   useEffect(() => {
     let cancelled = false
@@ -63,6 +70,10 @@ export function App(): ReactNode {
           )
         }
 
+        // Descobre se há PIN antes de revelar a UI: com PIN, o app nasce
+        // BLOQUEADO (auto-bloqueio ao abrir); sem PIN, cai na primeira execução.
+        await useSecurityStore.getState().init()
+        if (cancelled) return
         setBoot({ status: 'ready' })
 
         // Taxas oficiais (R4 §2): no boot e a cada 24h, em silêncio. Não é
@@ -117,6 +128,29 @@ export function App(): ReactNode {
     }
   }, [])
 
+  /**
+   * Auto-bloqueio por inatividade (M2 §b): re-bloqueia após X min sem interação.
+   * Só vale com PIN, app aberto e a preferência ligada. Qualquer atividade
+   * (mouse/teclado/toque) rearma o timer — barato e sem custo enquanto ocioso.
+   */
+  useEffect(() => {
+    if (boot.status !== 'ready' || hasPin !== true || locked) return
+    if (lockInactivityMinutes === null || lockInactivityMinutes <= 0) return
+    const ms = lockInactivityMinutes * 60 * 1000
+    let timer: ReturnType<typeof setTimeout>
+    const arm = (): void => {
+      clearTimeout(timer)
+      timer = setTimeout(() => useSecurityStore.getState().lock(), ms)
+    }
+    const events = ['mousemove', 'mousedown', 'keydown', 'wheel', 'touchstart'] as const
+    for (const e of events) window.addEventListener(e, arm, { passive: true })
+    arm()
+    return () => {
+      clearTimeout(timer)
+      for (const e of events) window.removeEventListener(e, arm)
+    }
+  }, [boot.status, hasPin, locked, lockInactivityMinutes])
+
   if (boot.status === 'loading') {
     return (
       <div className="h-full flex flex-col items-center justify-center gap-4 bg-bg">
@@ -144,9 +178,22 @@ export function App(): ReactNode {
     )
   }
 
+  // Portão de segurança (M2 §b): sem PIN → primeira execução; com PIN e
+  // bloqueado → tela de bloqueio; do contrário, o app.
+  const gate: ReactNode =
+    bypassed ? (
+      <AppShell />
+    ) : hasPin === false ? (
+      <LockScreen mode="setup" />
+    ) : locked ? (
+      <LockScreen mode="unlock" />
+    ) : (
+      <AppShell />
+    )
+
   return (
     <>
-      <AppShell />
+      {gate}
       <Toaster />
       <ConfirmHost />
     </>

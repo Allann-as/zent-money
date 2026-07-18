@@ -1,18 +1,21 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, Download, Moon, Pencil, RefreshCw, Sun, Upload, AlertTriangle, X } from 'lucide-react'
+import { Check, Download, KeyRound, Lock, Moon, Pencil, RefreshCw, Sun, Upload, AlertTriangle, X } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { useUiStore } from '@/store/uiStore'
 import { useDataStore, useZentData } from '@/store/dataStore'
 import { clearRateOverride, refreshRates, setRatesAutoUpdate } from '@/store/ratesActions'
 import { Button } from '@/design/components/Button'
 import { Input } from '@/design/components/Input'
+import { Select } from '@/design/components/Select'
 import { Switch } from '@/design/components/Switch'
 import { toast } from '@/design/components/toast'
 import { confirmDialog } from '@/design/components/confirm'
 import { flushSave, parseImportedData } from '@/data/persistence'
 import { diffDays, formatDateBR, todayIso } from '@/engine/dates'
 import { ZentLogo } from '@/design/ZentLogo'
+import { ChangePinModal } from '@/features/security/ChangePinModal'
+import { ResetPinModal } from '@/features/security/ResetPinModal'
 
 /** Parse de percentual pt-BR: "14,25" → 14.25. */
 function parsePercent(s: string): number | null {
@@ -86,7 +89,11 @@ export function ProfileMenu({
   const replaceAll = useDataStore((s) => s.replaceAll)
   const theme = useUiStore((s) => s.theme)
   const setTheme = useUiStore((s) => s.setTheme)
+  const lockInactivityMinutes = useUiStore((s) => s.lockInactivityMinutes)
+  const setLockInactivityMinutes = useUiStore((s) => s.setLockInactivityMinutes)
 
+  const [changePinOpen, setChangePinOpen] = useState(false)
+  const [resetPinOpen, setResetPinOpen] = useState(false)
   const [editingName, setEditingName] = useState(false)
   const [nameDraft, setNameDraft] = useState(data.profile.name)
   const [selic, setSelic] = useState(fmtPercent(data.rates.selic))
@@ -424,6 +431,40 @@ export function ProfileMenu({
             </p>
           </div>
 
+          {/* Segurança (M2 §b) */}
+          <div className="px-4 py-3 border-b border-line">
+            <span className="text-[13px] font-medium text-ink flex items-center gap-2 mb-2">
+              <Lock size={14} className="text-ink-soft" /> Segurança
+            </span>
+            <label className="flex items-center justify-between gap-2 mb-2.5">
+              <span className="text-[12px] text-ink-soft min-w-0">Bloquear por inatividade</span>
+              <Select
+                value={lockInactivityMinutes === null ? 'off' : String(lockInactivityMinutes)}
+                onChange={(e) =>
+                  setLockInactivityMinutes(e.target.value === 'off' ? null : Number(e.target.value))
+                }
+                className="h-8 w-36 text-[12.5px] shrink-0"
+                aria-label="Bloquear por inatividade"
+              >
+                <option value="off">Só ao abrir</option>
+                <option value="5">Após 5 min</option>
+                <option value="15">Após 15 min</option>
+                <option value="30">Após 30 min</option>
+              </Select>
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <Button size="sm" variant="outline" onClick={() => setChangePinOpen(true)}>
+                <KeyRound size={13.5} /> Alterar PIN
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setResetPinOpen(true)}>
+                Esqueci o PIN
+              </Button>
+            </div>
+            <p className="text-[11px] text-ink-faint mt-2 leading-snug">
+              O PIN protege de olhares casuais; ele não criptografa o arquivo de dados.
+            </p>
+          </div>
+
           {/* Sobre */}
           <div className="px-4 py-3 flex items-center gap-3">
             <ZentLogo size={28} />
@@ -442,6 +483,8 @@ export function ProfileMenu({
           </div>
         </div>
       </div>
+      <ChangePinModal open={changePinOpen} onClose={() => setChangePinOpen(false)} />
+      <ResetPinModal open={resetPinOpen} onClose={() => setResetPinOpen(false)} />
     </div>,
     document.body,
   )

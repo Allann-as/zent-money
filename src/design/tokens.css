@@ -367,7 +367,17 @@ body,
   40% { opacity: 0.55; }
   100% { opacity: 0; }
 }
+/* Erro no PIN (M2 §b): treme na horizontal, só transform (GPU-friendly). */
+@keyframes zent-shake {
+  0%, 100% { transform: translateX(0); }
+  15% { transform: translateX(-8px); }
+  30% { transform: translateX(7px); }
+  45% { transform: translateX(-5px); }
+  60% { transform: translateX(4px); }
+  75% { transform: translateX(-2px); }
+}
 
+.anim-shake { animation: zent-shake 380ms ease-in-out both; }
 .anim-fade-in { animation: zent-fade-in 180ms ease-out both; }
 .anim-pop-in { animation: zent-pop-in 200ms var(--ease-out-quint) both; }
 .anim-toast-in { animation: zent-toast-in 220ms var(--ease-out-quint) both; }

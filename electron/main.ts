@@ -3,6 +3,7 @@ import path from 'node:path'
 import fs from 'node:fs'
 import { IPC } from './ipc-api'
 import { listLogos, loadData, saveData, watchLogos } from './storage'
+import { changePin, hasPin, resetPin, setPin, verifyPin } from './pin'
 import { fetchRates, type FetchLike } from '../src/engine/rates-source'
 
 // Diretório de dados alternativo (usado pelo E2E para não tocar dados reais)
@@ -148,6 +149,13 @@ function registerIpc(): void {
       // plataforma sem overlay — nada a fazer
     }
   })
+
+  // ── PIN de bloqueio (M2 §b): hash/verify/throttle vivem no main ──
+  ipcMain.handle(IPC.hasPin, () => hasPin())
+  ipcMain.handle(IPC.setPin, (_e, pin: string) => setPin(pin))
+  ipcMain.handle(IPC.verifyPin, (_e, pin: string) => verifyPin(pin))
+  ipcMain.handle(IPC.changePin, (_e, current: string, next: string) => changePin(current, next))
+  ipcMain.handle(IPC.resetPin, () => resetPin())
 
   watchLogos(() => {
     mainWindow?.webContents.send(IPC.logosChanged, listLogos())

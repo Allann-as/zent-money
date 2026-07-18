@@ -1,7 +1,9 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { IPC, type FetchedRatesDTO, type ZentBridge } from './ipc-api'
+import { IPC, type FetchedRatesDTO, type PinVerifyDTO, type ZentBridge } from './ipc-api'
 
 const bridge: ZentBridge = {
+  // Seam de teste: lido do ambiente no load do preload (contexto privilegiado).
+  lockDisabled: process.env['ZENT_NO_LOCK'] === '1',
   loadData: () => ipcRenderer.invoke(IPC.loadData) as Promise<string | null>,
   saveData: (json) => ipcRenderer.invoke(IPC.saveData, json) as Promise<void>,
   exportData: (json, suggestedName) =>
@@ -17,6 +19,11 @@ const bridge: ZentBridge = {
   setTitleBarTheme: (color, symbolColor) =>
     ipcRenderer.invoke(IPC.setTitleBarTheme, color, symbolColor) as Promise<void>,
   fetchRates: () => ipcRenderer.invoke(IPC.fetchRates) as Promise<FetchedRatesDTO | null>,
+  hasPin: () => ipcRenderer.invoke(IPC.hasPin) as Promise<boolean>,
+  setPin: (pin) => ipcRenderer.invoke(IPC.setPin, pin) as Promise<void>,
+  verifyPin: (pin) => ipcRenderer.invoke(IPC.verifyPin, pin) as Promise<PinVerifyDTO>,
+  changePin: (current, next) => ipcRenderer.invoke(IPC.changePin, current, next) as Promise<boolean>,
+  resetPin: () => ipcRenderer.invoke(IPC.resetPin) as Promise<void>,
 }
 
 contextBridge.exposeInMainWorld('zent', bridge)

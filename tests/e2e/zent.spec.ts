@@ -33,8 +33,22 @@ test.beforeAll(async () => {
     if (msg.type() === 'error') consoleErrors.push(msg.text())
   })
   page.on('pageerror', (err) => consoleErrors.push(`pageerror: ${String(err)}`))
+
+  // Primeira execução (M2 §b): o app nasce pedindo para DEFINIR um PIN. O E2E
+  // NÃO usa o bypass (ZENT_NO_LOCK) — exercita o fluxo real. PIN de teste "1234",
+  // descartável e isolado (nunca o PIN do usuário; some com o userData temporário).
+  await page.getByRole('heading', { name: 'Bem-vindo ao Zent Money' }).waitFor({ timeout: 20_000 })
+  await enterPin('1234') // definir
+  await page.getByRole('heading', { name: 'Confirme seu PIN' }).waitFor({ timeout: 5_000 })
+  await enterPin('1234') // confirmar
   await page.waitForSelector('aside', { timeout: 20_000 })
 })
+
+/** Digita um PIN no teclado do PinPad (cliques nos botões) e confirma. */
+async function enterPin(pin: string): Promise<void> {
+  for (const d of pin) await page.getByRole('button', { name: d, exact: true }).click()
+  await page.getByRole('button', { name: 'Confirmar PIN' }).click()
+}
 
 test.afterAll(async () => {
   await app?.close()
@@ -520,6 +534,37 @@ test('20. campos monetários aceitam digitação natural (2000 · 1.234,56 · 12
   // "1234.56" (US) persistiu como 123456 centavos e é exibido em pt-BR
   await expect(page.getByText('Digitação US', { exact: true })).toBeVisible()
   await expect(page.getByText('/ R$ 1.234,56')).toBeVisible()
+})
+
+/**
+ * M2 §b — PIN. A primeira execução já foi exercitada no beforeAll (o app só
+ * revelou a sidebar após definir o PIN). Aqui: alterar o PIN pelo perfil, com o
+ * PIN atual errado sendo recusado (verifyPin + feedback), depois o caminho certo.
+ */
+test('21. segurança: alterar PIN recusa o atual errado e aceita o certo', async () => {
+  await page.getByText('Olá, Allan').click()
+  await page.getByRole('button', { name: 'Alterar PIN' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Alterar PIN' })
+  await expect(dialog).toBeVisible()
+
+  // PIN atual ERRADO → recusado, sem avançar
+  await dialog.getByRole('button', { name: '0', exact: true }).click()
+  await dialog.getByRole('button', { name: '0', exact: true }).click()
+  await dialog.getByRole('button', { name: '0', exact: true }).click()
+  await dialog.getByRole('button', { name: '0', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Confirmar PIN' }).click()
+  await expect(dialog.getByText('PIN atual incorreto.')).toBeVisible()
+
+  // PIN atual CERTO (1234) → novo (5678) → confirma
+  const digits = async (pin: string): Promise<void> => {
+    for (const d of pin) await dialog.getByRole('button', { name: d, exact: true }).click()
+    await dialog.getByRole('button', { name: 'Confirmar PIN' }).click()
+  }
+  await digits('1234') // atual
+  await digits('5678') // novo
+  await digits('5678') // confirma
+  await expect(page.getByText('PIN alterado')).toBeVisible()
+  await page.keyboard.press('Escape') // fecha o menu de perfil
 })
 
 /**

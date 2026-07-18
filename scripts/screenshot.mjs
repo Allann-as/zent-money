@@ -15,7 +15,7 @@ fs.mkdirSync(outDir, { recursive: true })
 
 // O shell do VS Code herda ELECTRON_RUN_AS_NODE=1, que faria o Electron
 // rodar como Node puro — removemos antes de lançar o app.
-const env = { ...process.env }
+const env = { ...process.env, ZENT_NO_LOCK: '1' }
 delete env.ELECTRON_RUN_AS_NODE
 
 const app = await electron.launch({ args: ['out/main/main.js'], env })

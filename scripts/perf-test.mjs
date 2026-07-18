@@ -90,7 +90,8 @@ fs.writeFileSync(path.join(userData, 'zent-data.json'), JSON.stringify(data))
 console.log(`Dataset: ${expenses.length} lançamentos, ${contributions.length} aportes → ${userData}`)
 
 // ── medição ─────────────────────────────────────────────────────────
-const env = { ...process.env, ZENT_USER_DATA: userData }
+// ZENT_NO_LOCK: mede o app sem o atrito da tela de PIN (não é teste de segurança).
+const env = { ...process.env, ZENT_USER_DATA: userData, ZENT_NO_LOCK: '1' }
 delete env.ELECTRON_RUN_AS_NODE
 
 const app = await electron.launch({ args: ['out/main/main.js'], env })
