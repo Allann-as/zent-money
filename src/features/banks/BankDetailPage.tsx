@@ -25,7 +25,8 @@ import { availableLimit, monthlyCommitment } from '@/engine/cards'
 import { combineSeries, investmentSeries } from '@/engine/investments'
 import { expensesOfBank, groupByMonth } from '@/engine/aggregations'
 import { bankBalances, bankMovements } from '@/engine/ledger'
-import { formatBRL, formatPercent } from '@/engine/money'
+import { formatPercent } from '@/engine/money'
+import { useBRL } from '@/design/money'
 import { currentYm, formatYmLong, formatYmTiny } from '@/engine/dates'
 import type { Bank } from '@/data/schema'
 import { BankLogo } from './BankLogo'
@@ -46,6 +47,7 @@ export function BankDetailPage({ bank }: { bank: Bank }): ReactNode {
   const setView = useUiStore((s) => s.setView)
   const ym = useUiStore((s) => s.activeYm)
   const colors = useChartColors()
+  const brl = useBRL()
 
   const [transferOpen, setTransferOpen] = useState(false)
   const [payInvoiceOpen, setPayInvoiceOpen] = useState(false)
@@ -94,12 +96,12 @@ export function BankDetailPage({ bank }: { bank: Bank }): ReactNode {
           value: balance,
           tip: (
             <span>
-              {formatYmLong(m)}: <strong>{formatBRL(balance)}</strong>
+              {formatYmLong(m)}: <strong>{brl(balance)}</strong>
             </span>
           ),
         }
       }),
-    [investedSeries],
+    [investedSeries, brl],
   )
 
   // Gastos do MÊS ATIVO pagos por este banco (conta ou cartões dele) — §3.4
@@ -141,33 +143,33 @@ export function BankDetailPage({ bank }: { bank: Bank }): ReactNode {
   const balloon: BalloonSegment[] = useMemo(() => {
     const segs: BalloonSegment[] = [
       `Em ${bank.name} você tem `,
-      { value: formatBRL(balance), tone: balance >= 0 ? 'pos' : 'neg' },
+      { value: brl(balance), tone: balance >= 0 ? 'pos' : 'neg' },
       ' em conta',
     ]
     if (invested > 0) {
-      segs.push(' e ', { value: formatBRL(invested), tone: 'primary', goTo: 'investments' }, ' investidos')
+      segs.push(' e ', { value: brl(invested), tone: 'primary', goTo: 'investments' }, ' investidos')
     }
     if (cards.length > 0) {
       segs.push(
         `. ${cards.length === 1 ? 'O cartão soma ' : `Os ${cards.length} cartões somam `}`,
-        { value: formatBRL(stats.invoices), tone: stats.invoices > 0 ? 'neg' : 'ink' },
+        { value: brl(stats.invoices), tone: stats.invoices > 0 ? 'neg' : 'ink' },
         ' de fatura aberta e ',
-        { value: `${formatBRL(stats.committed)}/mês`, tone: stats.committed > 0 ? 'warn' : 'ink', goTo: 'installments' },
+        { value: `${brl(stats.committed)}/mês`, tone: stats.committed > 0 ? 'warn' : 'ink', goTo: 'installments' },
         ' em parcelas, com ',
-        { value: formatBRL(stats.available), tone: 'pos' },
+        { value: brl(stats.available), tone: 'pos' },
         ' de limite livre',
       )
     }
     if (spentByBank > 0) {
       segs.push(
         `. Neste mês, `,
-        { value: formatBRL(spentByBank), tone: 'neg', goTo: 'expenses' },
+        { value: brl(spentByBank), tone: 'neg', goTo: 'expenses' },
         ' em gastos saíram daqui',
       )
     }
     segs.push('.')
     return segs
-  }, [bank, balance, invested, cards.length, stats, spentByBank])
+  }, [bank, balance, invested, cards.length, stats, spentByBank, brl])
 
   return (
     <>
@@ -194,7 +196,7 @@ export function BankDetailPage({ bank }: { bank: Bank }): ReactNode {
                   if (applied === 0) return
                   toast.success(
                     'Saldo conciliado',
-                    `Ajuste de ${applied > 0 ? '+' : '−'}${formatBRL(Math.abs(applied))} registrado no histórico.`,
+                    `Ajuste de ${applied > 0 ? '+' : '−'}${brl(Math.abs(applied))} registrado no histórico.`,
                   )
                 }}
                 className="font-semibold text-ink"
@@ -228,7 +230,7 @@ export function BankDetailPage({ bank }: { bank: Bank }): ReactNode {
           value={<AnimatedMoney cents={stats.available} />}
           label="Limite disponível"
           tone="pos"
-          detail={stats.limitTotal > 0 ? `de ${formatBRL(stats.limitTotal)} no total` : 'sem cartões'}
+          detail={stats.limitTotal > 0 ? `de ${brl(stats.limitTotal)} no total` : 'sem cartões'}
         />
       </div>
 
@@ -262,7 +264,7 @@ export function BankDetailPage({ bank }: { bank: Bank }): ReactNode {
           <div className="flex items-baseline justify-between">
             <CardTitle>Gastos de {formatYmLong(ym)} por aqui</CardTitle>
             <span className="text-[13px] text-ink-soft tnum">
-              <strong className="text-ink font-semibold">{formatBRL(spentByBank)}</strong>
+              <strong className="text-ink font-semibold">{brl(spentByBank)}</strong>
             </span>
           </div>
           <div className="mt-4">
@@ -273,7 +275,7 @@ export function BankDetailPage({ bank }: { bank: Bank }): ReactNode {
                   values: [r.total],
                   tip: (
                     <span>
-                      {r.name}: <strong>{formatBRL(r.total)}</strong>
+                      {r.name}: <strong>{brl(r.total)}</strong>
                     </span>
                   ),
                 }))}
@@ -311,7 +313,7 @@ export function BankDetailPage({ bank }: { bank: Bank }): ReactNode {
                   values: [used],
                   tip: (
                     <span>
-                      {c.name}: <strong>{formatBRL(used)}</strong> de {formatBRL(c.limit)} (
+                      {c.name}: <strong>{brl(used)}</strong> de {brl(c.limit)} (
                       {formatPercent(pct, 0)})
                     </span>
                   ),
@@ -361,19 +363,19 @@ export function BankDetailPage({ bank }: { bank: Bank }): ReactNode {
                     />
                     <p className="text-[13.5px] font-semibold text-ink flex-1 truncate">{c.name}</p>
                     <span className="text-[12px] text-ink-soft tnum">
-                      fatura {formatBRL(c.invoice)}
+                      fatura {brl(c.invoice)}
                     </span>
                   </div>
                   <div className="grid grid-cols-4 gap-3 mt-3 text-[12px]">
                     <span className="text-ink-faint">
-                      Limite <strong className="block text-ink tnum text-[13px]">{formatBRL(c.limit)}</strong>
+                      Limite <strong className="block text-ink tnum text-[13px]">{brl(c.limit)}</strong>
                     </span>
                     <span className="text-ink-faint">
-                      Usado <strong className="block text-ink tnum text-[13px]">{formatBRL(used)}</strong>
+                      Usado <strong className="block text-ink tnum text-[13px]">{brl(used)}</strong>
                     </span>
                     <span className="text-ink-faint">
                       Disponível{' '}
-                      <strong className="block text-pos tnum text-[13px]">{formatBRL(available)}</strong>
+                      <strong className="block text-pos tnum text-[13px]">{brl(available)}</strong>
                     </span>
                     <span className="text-ink-faint">
                       Parcelas{' '}
@@ -394,10 +396,10 @@ export function BankDetailPage({ bank }: { bank: Bank }): ReactNode {
                     <p className="text-[11.5px] text-ink-faint mt-2.5 leading-snug tnum">
                       Gastos de {formatYmLong(ym)} lançados neste cartão:{' '}
                       <strong className="text-ink-soft font-semibold">
-                        {formatBRL(monthSpendByCard.get(c.id) ?? 0)}
+                        {brl(monthSpendByCard.get(c.id) ?? 0)}
                       </strong>{' '}
                       · fatura que você digitou:{' '}
-                      <strong className="text-ink-soft font-semibold">{formatBRL(c.invoice)}</strong>. A
+                      <strong className="text-ink-soft font-semibold">{brl(c.invoice)}</strong>. A
                       fatura não soma seus lançamentos — ela já os inclui.
                     </p>
                   )}

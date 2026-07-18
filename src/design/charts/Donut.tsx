@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { useChartColors } from './useChartColors'
-import { formatBRL, formatPercent } from '@/engine/money'
+import { formatPercent } from '@/engine/money'
+import { useBRL } from '@/design/money'
 import { cn } from '@/lib/cn'
 
 export interface DonutSlice {
@@ -28,6 +29,7 @@ export function Donut({
   centerValue?: string
 }): ReactNode {
   const colors = useChartColors()
+  const brl = useBRL()
   const [hover, setHover] = useState<string | null>(null)
 
   const total = slices.reduce((a, s) => a + s.value, 0)
@@ -81,7 +83,7 @@ export function Donut({
             {hovered ? hovered.label : centerTitle}
           </span>
           <span className="font-display text-[15px] font-bold text-ink tnum leading-tight mt-0.5">
-            {hovered ? formatBRL(hovered.value) : centerValue}
+            {hovered ? brl(hovered.value) : centerValue}
           </span>
           {hovered && total > 0 && (
             <span className="text-[11px] text-ink-soft tnum">
@@ -106,7 +108,7 @@ export function Donut({
             >
               <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: s.color }} />
               <span className="text-ink truncate">{s.label}</span>
-              <span className="ml-auto text-ink font-semibold tnum shrink-0">{formatBRL(s.value)}</span>
+              <span className="ml-auto text-ink font-semibold tnum shrink-0">{brl(s.value)}</span>
               <span className="text-ink-faint tnum w-11 text-right shrink-0">
                 {total > 0 ? formatPercent(s.value / total, 0) : '—'}
               </span>

@@ -7,7 +7,7 @@ import { toast } from '@/design/components/toast'
 import { useZentData } from '@/store/dataStore'
 import { createTransfer, payInvoice } from '@/store/ledgerActions'
 import { bankBalances } from '@/engine/ledger'
-import { formatBRL } from '@/engine/money'
+import { useBRL } from '@/design/money'
 import { todayIso } from '@/engine/dates'
 
 /**
@@ -25,6 +25,7 @@ export function TransferDialog({
 }): ReactNode {
   const data = useZentData()
   const balances = useMemo(() => bankBalances(data), [data])
+  const brl = useBRL()
 
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
@@ -54,7 +55,7 @@ export function TransferDialog({
     createTransfer(from, to, amount, date)
     toast.success(
       'Transferência registrada',
-      `${formatBRL(amount)} de ${fromBank?.name ?? '—'} para ${toBank?.name ?? '—'}.`,
+      `${brl(amount)} de ${fromBank?.name ?? '—'} para ${toBank?.name ?? '—'}.`,
     )
     onClose()
   }
@@ -77,7 +78,7 @@ export function TransferDialog({
     >
       <div className="flex flex-col gap-4">
         <div className="grid grid-cols-2 gap-3">
-          <Field label="De" hint={`Saldo: ${formatBRL(fromBalance)}`}>
+          <Field label="De" hint={`Saldo: ${brl(fromBalance)}`}>
             <Select value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Conta de origem">
               {data.banks.map((b) => (
                 <option key={b.id} value={b.id}>
@@ -108,9 +109,9 @@ export function TransferDialog({
         </div>
         {valid && amount !== null && (
           <p className="text-[12.5px] text-ink-soft bg-surface-2 border border-line rounded-[10px] px-3 py-2.5 tnum">
-            {fromBank?.name} fica com <strong className="text-ink">{formatBRL(fromBalance - amount)}</strong>{' '}
+            {fromBank?.name} fica com <strong className="text-ink">{brl(fromBalance - amount)}</strong>{' '}
             e {toBank?.name} com{' '}
-            <strong className="text-ink">{formatBRL((balances.get(to) ?? 0) + amount)}</strong>.
+            <strong className="text-ink">{brl((balances.get(to) ?? 0) + amount)}</strong>.
           </p>
         )}
       </div>
@@ -139,6 +140,7 @@ export function PayInvoiceDialog({
     () => (bankId === undefined ? data.cards : data.cards.filter((c) => c.bankId === bankId)),
     [data.cards, bankId],
   )
+  const brl = useBRL()
 
   const [cardId, setCardId] = useState('')
   const [payFrom, setPayFrom] = useState('')
@@ -168,7 +170,7 @@ export function PayInvoiceDialog({
     payInvoice(cardId, payFrom, amount, date)
     toast.success(
       'Fatura paga',
-      `${formatBRL(amount)} saíram de ${data.banks.find((b) => b.id === payFrom)?.name ?? 'sua conta'} e a fatura do ${card.name} foi abatida.`,
+      `${brl(amount)} saíram de ${data.banks.find((b) => b.id === payFrom)?.name ?? 'sua conta'} e a fatura do ${card.name} foi abatida.`,
     )
     onClose()
   }
@@ -196,7 +198,7 @@ export function PayInvoiceDialog({
       ) : (
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Cartão" hint={`Fatura: ${formatBRL(card?.invoice ?? 0)}`}>
+            <Field label="Cartão" hint={`Fatura: ${brl(card?.invoice ?? 0)}`}>
               <Select
                 value={cardId}
                 onChange={(e) => {
@@ -213,7 +215,7 @@ export function PayInvoiceDialog({
                 ))}
               </Select>
             </Field>
-            <Field label="Pagar com" hint={`Saldo: ${formatBRL(balances.get(payFrom) ?? 0)}`}>
+            <Field label="Pagar com" hint={`Saldo: ${brl(balances.get(payFrom) ?? 0)}`}>
               <Select value={payFrom} onChange={(e) => setPayFrom(e.target.value)} aria-label="Conta que paga a fatura">
                 {data.banks.map((b) => (
                   <option key={b.id} value={b.id}>
@@ -233,7 +235,7 @@ export function PayInvoiceDialog({
           </div>
           {overpaying && card && (
             <p className="text-[12.5px] text-warn bg-warn-soft border border-warn/25 rounded-[10px] px-3 py-2.5">
-              O valor é maior que a fatura de {formatBRL(card.invoice)}. A conta será debitada no valor
+              O valor é maior que a fatura de {brl(card.invoice)}. A conta será debitada no valor
               cheio e a fatura ficará zerada — o excedente não vira crédito no cartão.
             </p>
           )}

@@ -17,7 +17,8 @@ import { useDataStore, useZentData } from '@/store/dataStore'
 import { removeExpense as removeExpenseRecipe } from '@/store/mutations'
 import { useUiStore } from '@/store/uiStore'
 import { essentialSplit, expensesByCategory, groupByMonth } from '@/engine/aggregations'
-import { formatBRL, formatPercent } from '@/engine/money'
+import { formatPercent } from '@/engine/money'
+import { useBRL } from '@/design/money'
 import { formatDateShort, formatYmLong } from '@/engine/dates'
 import { cn } from '@/lib/cn'
 import type { Category, Expense } from '@/data/schema'
@@ -31,6 +32,7 @@ export function ExpensesPage(): ReactNode {
   const ym = useUiStore((s) => s.activeYm)
   const chartMode = useUiStore((s) => s.categoryChartMode)
   const setChartMode = useUiStore((s) => s.setCategoryChartMode)
+  const brl = useBRL()
 
   const [categoryDialog, setCategoryDialog] = useState<CategoryDialogState>('closed')
   const [expenseDialog, setExpenseDialog] = useState<ExpenseDialogState>('closed')
@@ -110,7 +112,7 @@ export function ExpensesPage(): ReactNode {
     const cat = categoriesById.get(e.categoryId)
     const ok = await confirmDialog({
       title: 'Excluir gasto',
-      message: `Excluir ${formatBRL(e.amount)} em "${cat?.name ?? 'categoria'}"${
+      message: `Excluir ${brl(e.amount)} em "${cat?.name ?? 'categoria'}"${
         e.description ? ` (${e.description})` : ''
       }? Essa ação não pode ser desfeita.`,
       confirmLabel: 'Excluir',
@@ -166,7 +168,7 @@ export function ExpensesPage(): ReactNode {
             <CardTitle>Resumo por categoria</CardTitle>
             <div className="flex items-center gap-3">
               <span className="text-[13px] text-ink-soft tnum">
-                Total: <strong className="text-ink font-semibold">{formatBRL(monthTotal)}</strong>
+                Total: <strong className="text-ink font-semibold">{brl(monthTotal)}</strong>
               </span>
               {/* Toggle barras/rosca (M1 §b) — preferência persistida no uiStore */}
               <div
@@ -213,7 +215,7 @@ export function ExpensesPage(): ReactNode {
               <Donut
                 slices={summary.slices}
                 centerTitle="Total do mês"
-                centerValue={formatBRL(monthTotal)}
+                centerValue={brl(monthTotal)}
               />
             </div>
           ) : (
@@ -241,7 +243,7 @@ export function ExpensesPage(): ReactNode {
                         >
                           {category.name}
                         </span>
-                        <span className="ml-auto tnum text-ink font-semibold">{formatBRL(total)}</span>
+                        <span className="ml-auto tnum text-ink font-semibold">{brl(total)}</span>
                         <span className="tnum text-ink-faint w-12 text-right">
                           {formatPercent(pct, 0)}
                         </span>
@@ -293,18 +295,18 @@ export function ExpensesPage(): ReactNode {
                 <span className="text-ink-soft">
                   <span className="inline-block h-2 w-2 rounded-full bg-pos mr-1.5" />
                   Necessário{' '}
-                  <strong className="text-ink tnum font-semibold">{formatBRL(split.essential)}</strong>
+                  <strong className="text-ink tnum font-semibold">{brl(split.essential)}</strong>
                 </span>
                 <span className="text-ink-soft">
                   <span className="inline-block h-2 w-2 rounded-full bg-warn mr-1.5" />
                   Supérfluo{' '}
-                  <strong className="text-ink tnum font-semibold">{formatBRL(split.superfluous)}</strong>
+                  <strong className="text-ink tnum font-semibold">{brl(split.superfluous)}</strong>
                 </span>
               </div>
               <p className="text-[13px] text-ink-soft mt-4 pt-3 border-t border-line leading-relaxed">
                 {split.superfluous > 0 ? (
                   <>
-                    <strong className="text-warn tnum">{formatBRL(split.superfluous)}</strong> supérfluos —{' '}
+                    <strong className="text-warn tnum">{brl(split.superfluous)}</strong> supérfluos —{' '}
                     <strong className="text-warn tnum">{formatPercent(split.superfluousRatio, 0)}</strong>{' '}
                     do mês; é aqui que dá pra poupar.
                   </>
@@ -329,7 +331,7 @@ export function ExpensesPage(): ReactNode {
           <div className="ml-auto flex items-center gap-2.5">
             {filterCategory && (
               <span className="text-[12.5px] text-ink-soft tnum">
-                <strong className="text-ink font-semibold">{formatBRL(filteredTotal)}</strong> em{' '}
+                <strong className="text-ink font-semibold">{brl(filteredTotal)}</strong> em{' '}
                 {filterCategory.name} ·{' '}
                 {formatPercent(monthTotal > 0 ? filteredTotal / monthTotal : 0, 0)} do total
               </span>
@@ -425,7 +427,7 @@ export function ExpensesPage(): ReactNode {
                     {e.essential ? 'Necessário' : 'Supérfluo'}
                   </button>
                   <span className="text-[13.5px] font-semibold text-ink tnum w-24 text-right">
-                    {formatBRL(e.amount)}
+                    {brl(e.amount)}
                   </span>
                   <span className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
@@ -493,6 +495,7 @@ function ManageCategoriesModal({
 }): ReactNode {
   const data = useZentData()
   const mutate = useDataStore((s) => s.mutate)
+  const brl = useBRL()
 
   async function remove(c: Category): Promise<void> {
     const count = data.expenses.filter((e) => e.categoryId === c.id).length
@@ -537,7 +540,7 @@ function ManageCategoriesModal({
               <span className="h-3 w-3 rounded-full shrink-0" style={{ background: c.color }} />
               <span className="flex-1 text-[13.5px] text-ink truncate">{c.name}</span>
               <span className="text-[12px] text-ink-faint tnum">
-                {c.monthlyLimit !== null ? `limite ${formatBRL(c.monthlyLimit)}` : 'sem limite'}
+                {c.monthlyLimit !== null ? `limite ${brl(c.monthlyLimit)}` : 'sem limite'}
               </span>
               <button
                 type="button"

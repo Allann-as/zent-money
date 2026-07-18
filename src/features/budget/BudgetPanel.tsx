@@ -7,7 +7,8 @@ import { toast } from '@/design/components/toast'
 import { useDataStore, useZentData } from '@/store/dataStore'
 import { removeBudgetReallocation } from '@/store/mutations'
 import { monthBudgets, type CategoryBudget } from '@/engine/budget'
-import { formatBRL, formatPercent } from '@/engine/money'
+import { formatPercent } from '@/engine/money'
+import { useBRL } from '@/design/money'
 import { formatYmLong, type Ym } from '@/engine/dates'
 import { cn } from '@/lib/cn'
 import type { Category } from '@/data/schema'
@@ -40,6 +41,7 @@ export function BudgetPanel({
 }): ReactNode {
   const data = useZentData()
   const mutate = useDataStore((s) => s.mutate)
+  const brl = useBRL()
   const [reallocateOpen, setReallocateOpen] = useState(false)
 
   const budgets = useMemo(
@@ -114,22 +116,22 @@ export function BudgetPanel({
                       side="top"
                       label={
                         <span className="tnum">
-                          Base {formatBRL(budget.base ?? 0)}
-                          {budget.received > 0 ? ` · recebeu ${formatBRL(budget.received)}` : ''}
-                          {budget.ceded > 0 ? ` · cedeu ${formatBRL(budget.ceded)}` : ''}
+                          Base {brl(budget.base ?? 0)}
+                          {budget.received > 0 ? ` · recebeu ${brl(budget.received)}` : ''}
+                          {budget.ceded > 0 ? ` · cedeu ${brl(budget.ceded)}` : ''}
                         </span>
                       }
                     >
                       <span className="text-[11px] text-primary tnum bg-primary-soft rounded-full px-1.5 py-0.5 cursor-help">
-                        {formatBRL(budget.base ?? 0)} → {formatBRL(limit)}
+                        {brl(budget.base ?? 0)} → {brl(limit)}
                       </span>
                     </Tooltip>
                   )}
                   <span className="ml-auto tnum text-ink-soft">
                     <strong className={cn('font-semibold', status === 'over' ? 'text-neg' : 'text-ink')}>
-                      {formatBRL(spent)}
+                      {brl(spent)}
                     </strong>{' '}
-                    / {formatBRL(limit)}
+                    / {brl(limit)}
                   </span>
                 </div>
                 <div
@@ -149,10 +151,10 @@ export function BudgetPanel({
                   )}
                 >
                   {status === 'over'
-                    ? `Limite atingido — ${formatBRL(spent - limit)} acima do planejado`
+                    ? `Limite atingido — ${brl(spent - limit)} acima do planejado`
                     : status === 'near'
-                      ? `Restam ${formatBRL(available)}`
-                      : `Disponível: ${formatBRL(available)} de ${formatBRL(limit)}`}
+                      ? `Restam ${brl(available)}`
+                      : `Disponível: ${brl(available)} de ${brl(limit)}`}
                 </p>
               </li>
             )
@@ -172,7 +174,7 @@ export function BudgetPanel({
                   <span className="truncate">{fromName}</span>
                   <ArrowRight size={12} className="text-ink-faint shrink-0" />
                   <span className="truncate">{toName}</span>
-                  <span className="ml-auto tnum text-ink font-medium shrink-0">{formatBRL(r.amount)}</span>
+                  <span className="ml-auto tnum text-ink font-medium shrink-0">{brl(r.amount)}</span>
                   <button
                     type="button"
                     aria-label={`Desfazer realocação de ${fromName} para ${toName}`}

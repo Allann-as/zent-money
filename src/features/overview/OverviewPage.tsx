@@ -39,7 +39,8 @@ import { combineSeries, investmentSeries, investmentSnapshot } from '@/engine/in
 import { standaloneMonthlyCommitment, totalInvoices, totalMonthlyCommitment } from '@/engine/cards'
 import { accountBalanceSeries, isLedgerLinked, totalInAccounts } from '@/engine/ledger'
 import { Tooltip } from '@/design/components/Tooltip'
-import { formatBRL, formatPercent } from '@/engine/money'
+import { formatPercent } from '@/engine/money'
+import { useBRL } from '@/design/money'
 import {
   addMonths,
   currentYm,
@@ -87,6 +88,7 @@ export function OverviewPage(): ReactNode {
   const data = useZentData()
   const ym = useUiStore((s) => s.activeYm)
   const colors = useChartColors()
+  const brl = useBRL()
 
   // ── Patrimônio (hero + série 12m) ──────────────────────────────────
   const wealth = useMemo(() => {
@@ -302,14 +304,14 @@ export function OverviewPage(): ReactNode {
                 }
               >
                 <span className="text-ink-soft cursor-help">
-                  em conta <strong className="text-ink font-semibold">{formatBRL(wealth.inAccounts)}</strong>
+                  em conta <strong className="text-ink font-semibold">{brl(wealth.inAccounts)}</strong>
                 </span>
               </Tooltip>
               <span className="text-ink-soft">
-                investido <strong className="text-ink font-semibold">{formatBRL(wealth.invested)}</strong>
+                investido <strong className="text-ink font-semibold">{brl(wealth.invested)}</strong>
               </span>
               <span className="text-ink-soft">
-                rende/mês <strong className="text-pos font-semibold">{formatBRL(wealth.perMonth)}</strong>
+                rende/mês <strong className="text-pos font-semibold">{brl(wealth.perMonth)}</strong>
               </span>
             </div>
           </div>
@@ -350,15 +352,15 @@ export function OverviewPage(): ReactNode {
             <span className="flex flex-col gap-1 py-0.5">
               <span className="flex justify-between gap-6">
                 <span className="text-ink-soft">Faturas abertas</span>
-                <span className="tnum">{formatBRL(month.invoices)}</span>
+                <span className="tnum">{brl(month.invoices)}</span>
               </span>
               <span className="flex justify-between gap-6">
                 <span className="text-ink-soft">Parcelas de cartão</span>
-                <span className="tnum">{formatBRL(month.cardCommit)}</span>
+                <span className="tnum">{brl(month.cardCommit)}</span>
               </span>
               <span className="flex justify-between gap-6">
                 <span className="text-ink-soft">Parcelas avulsas</span>
-                <span className="tnum">{formatBRL(month.standaloneCommit)}</span>
+                <span className="tnum">{brl(month.standaloneCommit)}</span>
               </span>
             </span>
           }
@@ -387,14 +389,14 @@ export function OverviewPage(): ReactNode {
               ]
             : [
                 'O mês acumula ',
-                { value: formatBRL(month.income), tone: 'pos', goTo: 'income' },
+                { value: brl(month.income), tone: 'pos', goTo: 'income' },
                 ' recebidos e ',
-                { value: formatBRL(month.spent), tone: 'neg', goTo: 'expenses' },
+                { value: brl(month.spent), tone: 'neg', goTo: 'expenses' },
                 ' gastos, com ',
-                { value: formatBRL(month.commitments), tone: 'warn', goTo: 'installments' },
+                { value: brl(month.commitments), tone: 'warn', goTo: 'installments' },
                 ' comprometidos entre faturas e parcelas. ',
                 month.net >= 0 ? 'Sobra de ' : 'Falta de ',
-                { value: formatBRL(Math.abs(month.net)), tone: month.net >= 0 ? 'pos' : 'neg' },
+                { value: brl(Math.abs(month.net)), tone: month.net >= 0 ? 'pos' : 'neg' },
                 // mesma fração do card da Sobra, do mesmo memo (§3)
                 month.savingsRatio !== null ? ` (${formatPercent(month.savingsRatio, 0)} da renda).` : '.',
               ]
@@ -420,12 +422,12 @@ export function OverviewPage(): ReactNode {
               <Donut
                 slices={donutSlices}
                 centerTitle="Gasto no mês"
-                centerValue={formatBRL(month.spent)}
+                centerValue={brl(month.spent)}
                 size={175}
               />
               {split.total > 0 && split.superfluous > 0 && (
                 <p className="text-[12.5px] text-ink-soft mt-4 pt-3 border-t border-line tnum">
-                  <strong className="text-warn">{formatBRL(split.superfluous)}</strong> supérfluos —{' '}
+                  <strong className="text-warn">{brl(split.superfluous)}</strong> supérfluos —{' '}
                   {formatPercent(split.superfluousRatio, 0)} do mês
                 </p>
               )}
@@ -468,8 +470,8 @@ export function OverviewPage(): ReactNode {
               </div>
               <p className="text-[12.5px] text-ink-soft mt-3 pt-3 border-t border-line leading-relaxed tnum">
                 {pace.closed
-                  ? `Mês fechado em ${formatBRL(pace.spentSoFar)}. `
-                  : `No ritmo atual (${pace.daysElapsed} de ${pace.daysInMonth} dias), o mês fecha em ${formatBRL(pace.projected)}. `}
+                  ? `Mês fechado em ${brl(pace.spentSoFar)}. `
+                  : `No ritmo atual (${pace.daysElapsed} de ${pace.daysInMonth} dias), o mês fecha em ${brl(pace.projected)}. `}
                 {month.prevSpent > 0 && (
                   <span
                     className={cn(
@@ -479,7 +481,7 @@ export function OverviewPage(): ReactNode {
                         : 'text-neg',
                     )}
                   >
-                    {formatBRL(Math.abs((pace.closed ? pace.spentSoFar : pace.projected) - month.prevSpent))}{' '}
+                    {brl(Math.abs((pace.closed ? pace.spentSoFar : pace.projected) - month.prevSpent))}{' '}
                     {(pace.closed ? pace.spentSoFar : pace.projected) <= month.prevSpent ? 'abaixo' : 'acima'}{' '}
                     do mês passado.
                   </span>
@@ -547,7 +549,7 @@ export function OverviewPage(): ReactNode {
               return (
                 <div
                   key={day}
-                  title={spent > 0 ? `Dia ${day}: ${formatBRL(spent)}` : `Dia ${day}: sem gastos`}
+                  title={spent > 0 ? `Dia ${day}: ${brl(spent)}` : `Dia ${day}: sem gastos`}
                   className="relative h-8 rounded-[6px] bg-surface-2 overflow-hidden"
                 >
                   <div
@@ -587,7 +589,7 @@ export function OverviewPage(): ReactNode {
                   <>
                     <span className="text-ink-soft first-letter:uppercase">{formatYmShort(m)}</span>
                     <br />
-                    <strong className="text-ink tnum">{formatBRL(wealth.values[i] ?? 0)}</strong>
+                    <strong className="text-ink tnum">{brl(wealth.values[i] ?? 0)}</strong>
                   </>
                 ),
               }))}
@@ -625,13 +627,13 @@ export function OverviewPage(): ReactNode {
                 <>
                   <span className="text-ink-soft first-letter:uppercase">{formatYmShort(f.ym)}</span>
                   <br />
-                  <strong className="text-ink tnum">entrou {formatBRL(f.income)}</strong>
+                  <strong className="text-ink tnum">entrou {brl(f.income)}</strong>
                   <br />
-                  <strong className="text-ink tnum">saiu {formatBRL(f.expenses)}</strong>
+                  <strong className="text-ink tnum">saiu {brl(f.expenses)}</strong>
                   <br />
                   <span className={f.income - f.expenses >= 0 ? 'text-pos' : 'text-neg'}>
                     {f.income - f.expenses >= 0 ? 'sobrou' : 'faltou'}{' '}
-                    <span className="tnum">{formatBRL(Math.abs(f.income - f.expenses))}</span>
+                    <span className="tnum">{brl(Math.abs(f.income - f.expenses))}</span>
                   </span>
                 </>
               ),

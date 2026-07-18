@@ -8,7 +8,7 @@ import { useDataStore, useZentData } from '@/store/dataStore'
 import { addBudgetReallocation } from '@/store/mutations'
 import { useUiStore } from '@/store/uiStore'
 import { effectiveLimit, monthBudgets, validateReallocation } from '@/engine/budget'
-import { formatBRL } from '@/engine/money'
+import { useBRL } from '@/design/money'
 import { formatYmLong } from '@/engine/dates'
 import { newId } from '@/lib/id'
 
@@ -34,6 +34,7 @@ export function ReallocateBudgetModal({
   const data = useZentData()
   const mutate = useDataStore((s) => s.mutate)
   const ym = useUiStore((s) => s.activeYm)
+  const brl = useBRL()
 
   const budgets = useMemo(
     () => monthBudgets(data.categories, data.budgetReallocations, ym),
@@ -86,7 +87,7 @@ export function ReallocateBudgetModal({
     )
     toast.success(
       'Orçamento realocado',
-      `${formatBRL(amount)} de ${fromCat?.name ?? '—'} para ${toCat?.name ?? '—'} em ${formatYmLong(ym)}.`,
+      `${brl(amount)} de ${fromCat?.name ?? '—'} para ${toCat?.name ?? '—'} em ${formatYmLong(ym)}.`,
     )
     onClose()
   }
@@ -122,7 +123,7 @@ export function ReallocateBudgetModal({
           <div className="grid grid-cols-2 gap-3">
             <Field
               label="Ceder de"
-              {...(fromEff !== null ? { hint: `Disponível: ${formatBRL(fromEff)}` } : {})}
+              {...(fromEff !== null ? { hint: `Disponível: ${brl(fromEff)}` } : {})}
             >
               <Select value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Categoria de origem">
                 {canGive.map((c) => (
@@ -154,11 +155,11 @@ export function ReallocateBudgetModal({
           )}
           {valid && amount !== null && fromEff !== null && (
             <p className="text-[12.5px] text-ink-soft bg-surface-2 border border-line rounded-[10px] px-3 py-2.5 tnum leading-relaxed">
-              {fromCat?.name}: <strong className="text-ink">{formatBRL(fromEff)}</strong> →{' '}
-              <strong className="text-ink">{formatBRL(fromEff - amount)}</strong>
+              {fromCat?.name}: <strong className="text-ink">{brl(fromEff)}</strong> →{' '}
+              <strong className="text-ink">{brl(fromEff - amount)}</strong>
               {' · '}
-              {toCat?.name}: <strong className="text-ink">{formatBRL(toEff ?? 0)}</strong> →{' '}
-              <strong className="text-ink">{formatBRL((toEff ?? 0) + amount)}</strong>
+              {toCat?.name}: <strong className="text-ink">{brl(toEff ?? 0)}</strong> →{' '}
+              <strong className="text-ink">{brl((toEff ?? 0) + amount)}</strong>
             </p>
           )}
         </div>

@@ -20,7 +20,7 @@ import {
   deleteTransfer,
   undoSalaryCredit,
 } from '@/store/ledgerActions'
-import { formatBRL } from '@/engine/money'
+import { useBRL } from '@/design/money'
 import { formatDateShort } from '@/engine/dates'
 import type { Movement, MovementKind } from '@/engine/ledger'
 import { cn } from '@/lib/cn'
@@ -107,6 +107,7 @@ export function AccountHistory({
   /** Saldo derivado da conta — deve bater com o corrido da linha mais recente. */
   balance: number
 }): ReactNode {
+  const brl = useBRL()
   // Movimentos chegam do mais recente para o mais antigo; o corrido é somado do
   // mais antigo para o mais novo e reexibido na ordem original.
   const rows = useMemo(() => {
@@ -161,7 +162,7 @@ export function AccountHistory({
                       {m.description}:{' '}
                       <span className="tnum">
                         {m.amount >= 0 ? '+' : '−'}
-                        {formatBRL(Math.abs(m.amount))}
+                        {brl(Math.abs(m.amount))}
                       </span>
                     </>
                   ) : (
@@ -199,10 +200,10 @@ export function AccountHistory({
                   )}
                 >
                   {m.kind === 'opening' ? '' : incoming ? '+' : '−'}
-                  {formatBRL(Math.abs(m.amount))}
+                  {brl(Math.abs(m.amount))}
                 </span>
                 <span className="text-[12px] text-ink-faint tnum w-28 text-right shrink-0 hidden xl:block">
-                  {formatBRL(running)}
+                  {brl(running)}
                 </span>
               </li>
             )
@@ -213,7 +214,7 @@ export function AccountHistory({
         <div className="px-5 py-3 border-t border-line flex items-baseline justify-between">
           <span className="text-[12.5px] text-ink-soft">Saldo atual da conta</span>
           <span className={cn('text-[14px] font-semibold tnum', balance < 0 ? 'text-neg' : 'text-ink')}>
-            {formatBRL(balance)}
+            {brl(balance)}
           </span>
         </div>
       )}

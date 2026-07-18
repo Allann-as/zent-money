@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { useChartColors } from './useChartColors'
 import { ChartTip, niceMax, type TipState } from './ChartTip'
 import { formatBRLCompact } from '@/engine/money'
+import { usePrivacy } from '@/design/money'
 
 export interface BarGroup {
   label: string
@@ -30,6 +31,7 @@ export function Bars({
   colorFor?(group: BarGroup, value: number): string
 }): ReactNode {
   const theme = useChartColors()
+  const privacy = usePrivacy()
   const [tip, setTip] = useState<TipState | null>(null)
   const [hover, setHover] = useState<number | null>(null)
 
@@ -61,6 +63,7 @@ export function Bars({
   const palette = seriesColors ?? [theme.primary, theme.neg]
 
   function showTip(e: React.MouseEvent<SVGElement>, gi: number): void {
+    if (privacy) return // sem tooltip de valor no modo privacidade (M2 §a)
     const g = data[gi]
     if (!g) return
     const rect = e.currentTarget.ownerSVGElement?.getBoundingClientRect()
@@ -114,7 +117,7 @@ export function Bars({
               fill={theme.inkFaint}
               className="tnum"
             >
-              {formatValue(maxPos * g)}
+              {privacy ? '' : formatValue(maxPos * g)}
             </text>
           </g>
         ))}
@@ -138,7 +141,7 @@ export function Bars({
                 fill={theme.inkFaint}
                 className="tnum"
               >
-                {formatValue(-maxNeg * g)}
+                {privacy ? '' : formatValue(-maxNeg * g)}
               </text>
             </g>
           ))}

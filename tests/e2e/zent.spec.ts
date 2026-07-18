@@ -376,11 +376,21 @@ test('15. visão geral consolidada + navegação de mês + balões', async () =>
   await expect(page.getByText('Resumo de crédito e contas')).toBeVisible()
 })
 
-test('16. modo privacidade borra os valores e persiste no atributo', async () => {
+test('16. modo privacidade MASCARA os valores — nada real no DOM (M2 §a)', async () => {
+  await goTo('Visão geral') // página cheia de valores (hero, cards, gráficos)
   await page.getByRole('button', { name: 'Ocultar valores (modo privacidade)' }).click()
   await expect(page.locator('html')).toHaveAttribute('data-privacy', 'on')
+
+  // a máscara aparece…
+  await expect(page.getByText('R$ ••••••').first()).toBeVisible()
+  // …e NENHUM valor real (R$ seguido de dígito) sobra no HTML — nem em texto,
+  // nem em aria-label/title. É a diferença de um blur (que deixa o número no DOM).
+  const html = await page.content()
+  expect(html).not.toMatch(/R\$\s*\d/)
+
   await page.getByRole('button', { name: 'Mostrar valores' }).click()
   await expect(page.locator('html')).toHaveAttribute('data-privacy', 'off')
+  await expect(page.getByText(/R\$\s*\d/).first()).toBeVisible() // valores voltam
 })
 
 test('17. paleta de comandos: ação rápida abre o formulário da seção', async () => {

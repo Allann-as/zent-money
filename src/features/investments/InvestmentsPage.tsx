@@ -39,7 +39,8 @@ import {
   type MonthlySeries,
 } from '@/engine/investments'
 import { ASSET_CLASS_LABELS, assetClass, rateLabel, type AssetClass } from '@/engine/rates'
-import { formatBRL, formatPercent } from '@/engine/money'
+import { formatPercent } from '@/engine/money'
+import { useBRL } from '@/design/money'
 import { currentYm, diffMonths, formatDateBR, formatYmShort, formatYmTiny, ymOfDate } from '@/engine/dates'
 import { cn } from '@/lib/cn'
 import type { Contribution, Investment } from '@/data/schema'
@@ -61,6 +62,7 @@ export function InvestmentsPage(): ReactNode {
   const data = useZentData()
   const mutate = useDataStore((s) => s.mutate)
   const colors = useChartColors()
+  const brl = useBRL()
 
   const [bankFilter, setBankFilter] = useState<string>('all')
   const [classFilter, setClassFilter] = useState<AssetClass | 'all'>('all')
@@ -185,15 +187,15 @@ export function InvestmentsPage(): ReactNode {
     }
     const segs: BalloonSegment[] = [
       'A carteira soma ',
-      { value: formatBRL(consolidated.balance), tone: 'primary' },
+      { value: brl(consolidated.balance), tone: 'primary' },
       ' — ',
-      { value: formatBRL(consolidated.invested), tone: 'ink' },
+      { value: brl(consolidated.invested), tone: 'ink' },
       ' aportados e ',
-      { value: `+${formatBRL(consolidated.totalYield)}`, tone: consolidated.totalYield >= 0 ? 'pos' : 'neg' },
+      { value: `+${brl(consolidated.totalYield)}`, tone: consolidated.totalYield >= 0 ? 'pos' : 'neg' },
       ` de rendimento acumulado (${formatPercent(consolidated.ratio, 1)})`,
     ]
     if (consolidated.perMonth > 0) {
-      segs.push(', rendendo cerca de ', { value: `${formatBRL(consolidated.perMonth)}/mês`, tone: 'pos' })
+      segs.push(', rendendo cerca de ', { value: `${brl(consolidated.perMonth)}/mês`, tone: 'pos' })
     }
     const top = topAssets[0]
     if (top) {
@@ -201,7 +203,7 @@ export function InvestmentsPage(): ReactNode {
     }
     segs.push('.')
     return segs
-  }, [hasAnyActivity, consolidated, topAssets])
+  }, [hasAnyActivity, consolidated, topAssets, brl])
 
   async function removeInvestment(inv: Investment): Promise<void> {
     const count = data.contributions.filter((c) => c.investmentId === inv.id).length
@@ -351,12 +353,12 @@ export function InvestmentsPage(): ReactNode {
                 <>
                   <span className="text-ink-soft first-letter:uppercase">{formatYmShort(ym)}</span>
                   <br />
-                  <strong className="text-ink tnum">{formatBRL(combined.balances[i] ?? 0)}</strong>
+                  <strong className="text-ink tnum">{brl(combined.balances[i] ?? 0)}</strong>
                   {(combined.contributions[i] ?? 0) > 0 && (
                     <>
                       <br />
                       <span className="text-ink-faint tnum">
-                        aportes: {formatBRL(combined.contributions[i] ?? 0)}
+                        aportes: {brl(combined.contributions[i] ?? 0)}
                       </span>
                     </>
                   )}
@@ -376,7 +378,7 @@ export function InvestmentsPage(): ReactNode {
                 color: banksById.get(x.inv.bankId)?.color ?? colors.primary,
               }))}
             centerTitle="Carteira"
-            centerValue={formatBRL(consolidated.balance)}
+            centerValue={brl(consolidated.balance)}
           />
         ) : (
           <Bars
@@ -388,7 +390,7 @@ export function InvestmentsPage(): ReactNode {
                   <span className="text-ink-soft first-letter:uppercase">{formatYmShort(ym)}</span>
                   <br />
                   <strong className="text-ink tnum">
-                    {formatBRL(combined.yields[i] ?? 0)} de juros
+                    {brl(combined.yields[i] ?? 0)} de juros
                   </strong>
                   <br />
                   <span className="text-ink-faint tnum">
@@ -413,11 +415,11 @@ export function InvestmentsPage(): ReactNode {
         <div className="grid grid-cols-3 gap-4 mb-4">
           <Card className="p-5">
             <CardTitle className="mb-3">Composição por classe</CardTitle>
-            <Donut slices={byClass} size={120} thickness={22} centerTitle="Total" centerValue={formatBRL(consolidated.balance)} />
+            <Donut slices={byClass} size={120} thickness={22} centerTitle="Total" centerValue={brl(consolidated.balance)} />
           </Card>
           <Card className="p-5">
             <CardTitle className="mb-3">Composição por banco</CardTitle>
-            <Donut slices={byBank} size={120} thickness={22} centerTitle="Total" centerValue={formatBRL(consolidated.balance)} />
+            <Donut slices={byBank} size={120} thickness={22} centerTitle="Total" centerValue={brl(consolidated.balance)} />
           </Card>
           <Card className="p-5">
             <CardTitle className="mb-3 flex items-center gap-2">
@@ -436,7 +438,7 @@ export function InvestmentsPage(): ReactNode {
                       />
                       <span className="font-medium text-ink truncate">{x.inv.name}</span>
                       <span className="ml-auto tnum text-ink font-semibold shrink-0">
-                        {formatBRL(x.snapshot.balance)}
+                        {brl(x.snapshot.balance)}
                       </span>
                     </div>
                     <div className="h-1.5 rounded-full bg-surface-2 overflow-hidden">
@@ -525,6 +527,7 @@ function InvestmentCard({
   onUpdateValue(): void
 }): ReactNode {
   const mutate = useDataStore((s) => s.mutate)
+  const brl = useBRL()
   const [showHistory, setShowHistory] = useState(false)
 
   const sorted = [...contributions].sort((a, b) => b.date.localeCompare(a.date))
@@ -533,7 +536,7 @@ function InvestmentCard({
   async function removeContribution(c: Contribution): Promise<void> {
     const ok = await confirmDialog({
       title: 'Excluir aporte',
-      message: `Excluir o aporte de ${formatBRL(c.amount)} em ${formatDateBR(c.date)}? O saldo estimado será recalculado.`,
+      message: `Excluir o aporte de ${brl(c.amount)} em ${formatDateBR(c.date)}? O saldo estimado será recalculado.`,
       confirmLabel: 'Excluir',
       danger: true,
     })
@@ -578,10 +581,10 @@ function InvestmentCard({
             {manual ? 'Valor de mercado' : 'Saldo estimado'}
           </p>
           <p className="font-display text-[22px] font-bold text-ink tnum leading-tight">
-            {formatBRL(snapshot.balance)}
+            {brl(snapshot.balance)}
           </p>
           <p className="text-[12px] tnum mt-0.5">
-            <span className="text-ink-soft">aportado {formatBRL(snapshot.invested)}</span>
+            <span className="text-ink-soft">aportado {brl(snapshot.invested)}</span>
             {snapshot.invested > 0 && (
               <span
                 className={cn(
@@ -616,11 +619,11 @@ function InvestmentCard({
           </div>
           <div>
             <p className="text-[10.5px] text-ink-faint">Rende/mês</p>
-            <p className="text-[12.5px] font-semibold text-pos tnum">{formatBRL(snapshot.yieldPerMonth)}</p>
+            <p className="text-[12.5px] font-semibold text-pos tnum">{brl(snapshot.yieldPerMonth)}</p>
           </div>
           <div>
             <p className="text-[10.5px] text-ink-faint">Rende/ano</p>
-            <p className="text-[12.5px] font-semibold text-pos tnum">{formatBRL(snapshot.yieldPerYear)}</p>
+            <p className="text-[12.5px] font-semibold text-pos tnum">{brl(snapshot.yieldPerYear)}</p>
           </div>
         </div>
       ) : (
@@ -657,7 +660,7 @@ function InvestmentCard({
             >
               <span className="text-[12px] text-ink-faint tnum">{formatDateBR(c.date)}</span>
               <span className="ml-auto text-[12.5px] font-semibold text-ink tnum">
-                {formatBRL(c.amount)}
+                {brl(c.amount)}
               </span>
               <button
                 type="button"

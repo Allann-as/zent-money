@@ -19,7 +19,7 @@ import {
   remainingInstallments,
   totalMonthlyCommitment,
 } from '@/engine/cards'
-import { formatBRL } from '@/engine/money'
+import { useBRL } from '@/design/money'
 import { formatYmShort, ymCompare } from '@/engine/dates'
 import { cn } from '@/lib/cn'
 import type { Purchase } from '@/data/schema'
@@ -39,6 +39,7 @@ const STANDALONE_FILTER = 'standalone'
 export function InstallmentsPage(): ReactNode {
   const data = useZentData()
   const mutate = useDataStore((s) => s.mutate)
+  const brl = useBRL()
 
   const [bankFilter, setBankFilter] = useState('all')
   const [cardFilter, setCardFilter] = useState('all')
@@ -108,9 +109,9 @@ export function InstallmentsPage(): ReactNode {
         goTo: 'banks',
       },
       ' comprometendo ',
-      { value: `${formatBRL(stats.monthly)}/mês`, tone: 'warn' },
+      { value: `${brl(stats.monthly)}/mês`, tone: 'warn' },
       ' do seu crédito; ainda faltam ',
-      { value: formatBRL(stats.remaining), tone: 'neg' },
+      { value: brl(stats.remaining), tone: 'neg' },
       ' no total',
     ]
     if (stats.next) {
@@ -123,7 +124,7 @@ export function InstallmentsPage(): ReactNode {
     }
     segs.push('.')
     return segs
-  }, [stats])
+  }, [stats, brl])
 
   function payInstallment(p: Purchase, delta: 1 | -1): void {
     mutate((d) => {
@@ -138,7 +139,7 @@ export function InstallmentsPage(): ReactNode {
       } else {
         toast.success(
           `Parcela de "${p.name}" paga`,
-          `${formatBRL(p.installmentAmount)} devolvidos ao limite disponível.`,
+          `${brl(p.installmentAmount)} devolvidos ao limite disponível.`,
         )
       }
     }
@@ -307,12 +308,12 @@ export function InstallmentsPage(): ReactNode {
                         {p.paidInstallments}/{p.totalInstallments}
                       </span>
                       <span className="text-[11.5px] text-ink-faint tnum shrink-0">
-                        {formatBRL(p.installmentAmount)}/mês
+                        {brl(p.installmentAmount)}/mês
                         {remaining === 0 ? (
                           ' · quitada'
                         ) : (
                           <>
-                            {' '}· falta {formatBRL(remainingAmount(p))}
+                            {' '}· falta {brl(remainingAmount(p))}
                             {payoff ? ` · quita em ${formatYmShort(payoff)}` : ''}
                           </>
                         )}

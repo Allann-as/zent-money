@@ -15,7 +15,8 @@ import { useDataStore, useZentData } from '@/store/dataStore'
 import { useUiStore } from '@/store/uiStore'
 import { investmentSnapshot } from '@/engine/investments'
 import { sumByMonth } from '@/engine/aggregations'
-import { formatBRL, formatPercent } from '@/engine/money'
+import { formatPercent } from '@/engine/money'
+import { useBRL } from '@/design/money'
 import { addMonths, currentYm, formatYmShort, lastMonths } from '@/engine/dates'
 import { newId } from '@/lib/id'
 import { cn } from '@/lib/cn'
@@ -38,6 +39,7 @@ export function BoxesPage(): ReactNode {
   const data = useZentData()
   const mutate = useDataStore((s) => s.mutate)
   const colors = useChartColors()
+  const brl = useBRL()
   const [dialog, setDialog] = useState<'closed' | 'new' | Box>('closed')
 
   // Ação rápida vinda da paleta de comandos (Ctrl+K)
@@ -84,7 +86,7 @@ export function BoxesPage(): ReactNode {
   useEffect(() => {
     for (const c of computed) {
       if (c.current >= c.box.target && !c.box.celebrated) {
-        toast.success('Meta batida!', `"${c.box.name}" chegou a ${formatBRL(c.box.target)}.`)
+        toast.success('Meta batida!', `"${c.box.name}" chegou a ${brl(c.box.target)}.`)
         mutate((d) => {
           const b = d.boxes.find((x) => x.id === c.box.id)
           if (b) b.celebrated = true
@@ -97,7 +99,7 @@ export function BoxesPage(): ReactNode {
         })
       }
     }
-  }, [computed, mutate])
+  }, [computed, mutate, brl])
 
   async function removeBox(box: Box): Promise<void> {
     const ok = await confirmDialog({
@@ -208,9 +210,9 @@ export function BoxesPage(): ReactNode {
 
                 <p className="text-[13.5px] tnum mt-1">
                   <strong className={cn('font-bold', complete ? 'text-pos' : 'text-ink')}>
-                    {formatBRL(c.current)}
+                    {brl(c.current)}
                   </strong>
-                  <span className="text-ink-faint"> / {formatBRL(c.box.target)}</span>
+                  <span className="text-ink-faint"> / {brl(c.box.target)}</span>
                 </p>
 
                 <p className="text-[12px] text-ink-soft mt-2 min-h-[18px]">

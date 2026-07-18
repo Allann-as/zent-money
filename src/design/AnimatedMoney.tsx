@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { formatBRL } from '@/engine/money'
+import { MONEY_MASK, usePrivacy } from './money'
 
 /**
  * Count-up de valores monetários (§5): anima da última posição até o novo
@@ -36,6 +37,8 @@ export function useCountUp(target: number, duration = 550): number {
 
 /** Valor em BRL com count-up — usar nos números-herói e StatCards. */
 export function AnimatedMoney({ cents }: { cents: number }): ReactNode {
-  const value = useCountUp(cents)
-  return <>{formatBRL(value)}</>
+  const privacy = usePrivacy()
+  // Sob privacidade não anima nem calcula: só a máscara vai ao DOM.
+  const value = useCountUp(privacy ? 0 : cents)
+  return <>{privacy ? MONEY_MASK : formatBRL(value)}</>
 }

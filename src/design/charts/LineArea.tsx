@@ -2,6 +2,7 @@ import { useId, useRef, useState, type ReactNode } from 'react'
 import { useChartColors } from './useChartColors'
 import { ChartTip, niceMax, type TipState } from './ChartTip'
 import { formatBRLCompact } from '@/engine/money'
+import { usePrivacy } from '@/design/money'
 
 export interface LinePoint {
   label: string
@@ -26,6 +27,7 @@ export function LineArea({
   formatValue?(v: number): string
 }): ReactNode {
   const colors = useChartColors()
+  const privacy = usePrivacy()
   const stroke = color ?? colors.primary
   const gradId = useId()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -53,6 +55,7 @@ export function LineArea({
   const gridLines = [0.25, 0.5, 0.75, 1]
 
   function onMove(e: React.MouseEvent<SVGSVGElement>): void {
+    if (privacy) return // sem tooltip de valor no modo privacidade (M2 §a)
     const rect = e.currentTarget.getBoundingClientRect()
     const px = ((e.clientX - rect.left) / rect.width) * W
     const idx = Math.round((px - PAD_L) / (stepX || 1))
@@ -115,7 +118,7 @@ export function LineArea({
               fill={colors.inkFaint}
               className="tnum"
             >
-              {formatValue(max * g)}
+              {privacy ? '' : formatValue(max * g)}
             </text>
           </g>
         ))}

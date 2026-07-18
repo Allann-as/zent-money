@@ -10,7 +10,7 @@ import { confirmDialog } from '@/design/components/confirm'
 import { useDataStore, useZentData } from '@/store/dataStore'
 import { addContribution } from '@/store/mutations'
 import { formatDateBR, todayIso } from '@/engine/dates'
-import { formatBRL } from '@/engine/money'
+import { useBRL } from '@/design/money'
 import { ASSET_CLASS_LABELS, type AssetClass } from '@/engine/rates'
 import { newId } from '@/lib/id'
 import type { Investment, RateType } from '@/data/schema'
@@ -259,6 +259,7 @@ export function ContributionDialog({
   const mutate = useDataStore((s) => s.mutate)
   const open = state !== 'closed'
   const investment = open ? state.investment : null
+  const brl = useBRL()
 
   const [date, setDate] = useState(todayIso())
   const [amount, setAmount] = useState<number | null>(null)
@@ -279,7 +280,7 @@ export function ContributionDialog({
     mutate((d) => {
       addContribution(d, { id: newId(), investmentId: investment.id, date, amount })
     })
-    toast.success('Aporte registrado', `${formatBRL(amount)} em ${investment.name}`)
+    toast.success('Aporte registrado', `${brl(amount)} em ${investment.name}`)
     onClose()
   }
 
@@ -327,6 +328,7 @@ export function ValueUpdateDialog({
   const investmentId = open ? state.investment.id : null
   // lê a versão viva do store (histórico atualiza após salvar)
   const investment = data.investments.find((i) => i.id === investmentId) ?? null
+  const brl = useBRL()
 
   const [date, setDate] = useState(todayIso())
   const [value, setValue] = useState<number | null>(null)
@@ -349,7 +351,7 @@ export function ValueUpdateDialog({
       const inv = d.investments.find((x) => x.id === investment.id)
       if (inv) inv.valueUpdates.push({ id: newId(), date, value })
     })
-    toast.success('Valor atualizado', `${investment.name}: ${formatBRL(value)}`)
+    toast.success('Valor atualizado', `${investment.name}: ${brl(value)}`)
     setValue(null)
   }
 
@@ -357,7 +359,7 @@ export function ValueUpdateDialog({
     if (!investment) return
     const ok = await confirmDialog({
       title: 'Excluir atualização',
-      message: `Excluir a atualização de ${formatBRL(updValue)}? A série do ativo será recalculada.`,
+      message: `Excluir a atualização de ${brl(updValue)}? A série do ativo será recalculada.`,
       confirmLabel: 'Excluir',
       danger: true,
     })
@@ -402,7 +404,7 @@ export function ValueUpdateDialog({
                 <li key={u.id} className="group flex items-center gap-3 px-3 h-9">
                   <span className="text-[12px] text-ink-faint tnum">{formatDateBR(u.date)}</span>
                   <span className="ml-auto text-[12.5px] font-semibold text-ink tnum">
-                    {formatBRL(u.value)}
+                    {brl(u.value)}
                   </span>
                   <button
                     type="button"

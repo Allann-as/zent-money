@@ -5,7 +5,7 @@ import { Field, Input, MoneyInput } from '@/design/components/Input'
 import { Select } from '@/design/components/Select'
 import { toast } from '@/design/components/toast'
 import { useDataStore, useZentData } from '@/store/dataStore'
-import { formatBRL } from '@/engine/money'
+import { useBRL } from '@/design/money'
 import { todayIso, ymOfDate } from '@/engine/dates'
 import { effectiveLimit } from '@/engine/budget'
 import { newId } from '@/lib/id'
@@ -40,6 +40,7 @@ export function ExpenseDialog({
 }): ReactNode {
   const data = useZentData()
   const mutate = useDataStore((s) => s.mutate)
+  const brl = useBRL()
   const editing = state !== 'closed' && state !== 'new' ? state : null
   const open = state !== 'closed'
 
@@ -101,7 +102,7 @@ export function ExpenseDialog({
     if (spentAfter <= effLimit && spentAfter >= effLimit * 0.8 && spentBefore < effLimit * 0.8) {
       toast.warning(
         `${budgetCategory?.name ?? 'Categoria'} perto do limite`,
-        `${formatBRL(spentAfter)} de ${formatBRL(effLimit)} (${Math.round((spentAfter / effLimit) * 100)}% do orçamento do mês).`,
+        `${brl(spentAfter)} de ${brl(effLimit)} (${Math.round((spentAfter / effLimit) * 100)}% do orçamento do mês).`,
       )
     }
   }
@@ -158,10 +159,10 @@ export function ExpenseDialog({
     toast.success(
       editing ? 'Gasto atualizado' : repeatMonthly ? 'Gasto recorrente criado' : 'Gasto registrado',
       invoiceCardId !== null
-        ? `${formatBRL(amount)} — somados à fatura do cartão.`
+        ? `${brl(amount)} — somados à fatura do cartão.`
         : repeatMonthly && !editing
-          ? `${formatBRL(amount)} — será lançado todo mês automaticamente.`
-          : formatBRL(amount),
+          ? `${brl(amount)} — será lançado todo mês automaticamente.`
+          : brl(amount),
     )
     onClose()
   }
@@ -209,9 +210,9 @@ export function ExpenseDialog({
           <p className="text-[12.5px] text-neg bg-neg-soft border border-neg/25 rounded-[10px] px-3 py-2.5 leading-relaxed">
             Este gasto ultrapassa o orçamento de{' '}
             <strong>{budgetCategory?.name}</strong>: o mês fica em{' '}
-            <strong className="tnum">{formatBRL(spentAfter)}</strong> contra o limite de{' '}
-            <strong className="tnum">{formatBRL(effLimit)}</strong>{' '}
-            (<strong className="tnum">{formatBRL(spentAfter - effLimit)}</strong> acima).{' '}
+            <strong className="tnum">{brl(spentAfter)}</strong> contra o limite de{' '}
+            <strong className="tnum">{brl(effLimit)}</strong>{' '}
+            (<strong className="tnum">{brl(spentAfter - effLimit)}</strong> acima).{' '}
             {onReallocate ? 'Lance mesmo assim ou realoque orçamento de outra categoria.' : 'Lance mesmo assim se quiser.'}
           </p>
         )}

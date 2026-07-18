@@ -7,13 +7,15 @@ import { Bars } from '@/design/charts/Bars'
 import { useChartColors } from '@/design/charts/useChartColors'
 import { useZentData } from '@/store/dataStore'
 import { incomeByMonth, sumByMonth } from '@/engine/aggregations'
-import { formatBRL, formatPercent } from '@/engine/money'
+import { formatPercent } from '@/engine/money'
+import { useBRL } from '@/design/money'
 import { currentYm, formatYmShort, formatYmTiny, lastMonths, ymOfDate } from '@/engine/dates'
 import type { Category } from '@/data/schema'
 
 export function TimelinePage(): ReactNode {
   const data = useZentData()
   const colors = useChartColors()
+  const brl = useBRL()
 
   // Janela móvel FIXA: os últimos 12 meses até hoje — sem navegação.
   const window12 = useMemo(() => lastMonths(currentYm(), 12), [])
@@ -102,11 +104,11 @@ export function TimelinePage(): ReactNode {
                 <br />
                 <strong className="text-ink tnum">
                   {n.net >= 0 ? 'sobrou ' : 'faltou '}
-                  {formatBRL(Math.abs(n.net))}
+                  {brl(Math.abs(n.net))}
                 </strong>
                 <br />
                 <span className="text-ink-faint tnum">
-                  entrou {formatBRL(n.income)} · saiu {formatBRL(n.expenses)}
+                  entrou {brl(n.income)} · saiu {brl(n.expenses)}
                 </span>
               </>
             ),
@@ -129,7 +131,7 @@ export function TimelinePage(): ReactNode {
                   <div className="flex items-center gap-2 text-[13px] mb-1">
                     <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: category.color }} />
                     <span className="font-medium text-ink truncate">{category.name}</span>
-                    <span className="ml-auto tnum text-ink font-semibold">{formatBRL(total)}</span>
+                    <span className="ml-auto tnum text-ink font-semibold">{brl(total)}</span>
                     <span className="tnum text-ink-faint w-11 text-right">
                       {formatPercent(stats.totalExpenses > 0 ? total / stats.totalExpenses : 0, 0)}
                     </span>
@@ -156,7 +158,7 @@ export function TimelinePage(): ReactNode {
               <PiggyBank size={15} className="text-ink-soft" /> Aportado no período
             </CardTitle>
             <p className="font-display text-[26px] font-bold text-primary tnum">
-              {formatBRL(stats.invested)}
+              {brl(stats.invested)}
             </p>
             <p className="text-[12.5px] text-ink-soft mt-1">
               somando todos os aportes em aplicações nos últimos 12 meses
@@ -173,7 +175,7 @@ export function TimelinePage(): ReactNode {
                 <span className="text-ink-soft">Melhor mês de sobra</span>
                 <span className="text-ink font-semibold tnum shrink-0">
                   {stats.bestNet.net > 0
-                    ? `${formatYmShort(stats.bestNet.ym)} — ${formatBRL(stats.bestNet.net)}`
+                    ? `${formatYmShort(stats.bestNet.ym)} — ${brl(stats.bestNet.net)}`
                     : '—'}
                 </span>
               </li>
@@ -181,7 +183,7 @@ export function TimelinePage(): ReactNode {
                 <span className="text-ink-soft">Maior entrada mensal</span>
                 <span className="text-ink font-semibold tnum shrink-0">
                   {stats.bestIncome.income > 0
-                    ? `${formatYmShort(stats.bestIncome.ym)} — ${formatBRL(stats.bestIncome.income)}`
+                    ? `${formatYmShort(stats.bestIncome.ym)} — ${brl(stats.bestIncome.income)}`
                     : '—'}
                 </span>
               </li>
@@ -189,7 +191,7 @@ export function TimelinePage(): ReactNode {
                 <span className="text-ink-soft">Maior aporte mensal</span>
                 <span className="text-ink font-semibold tnum shrink-0">
                   {stats.bestContribution
-                    ? `${formatYmShort(stats.bestContribution.ym)} — ${formatBRL(stats.bestContribution.total)}`
+                    ? `${formatYmShort(stats.bestContribution.ym)} — ${brl(stats.bestContribution.total)}`
                     : '—'}
                 </span>
               </li>

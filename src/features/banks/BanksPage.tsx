@@ -28,7 +28,7 @@ import { useUiStore } from '@/store/uiStore'
 import { availableLimit, monthlyCommitment, payoffYm, remainingAmount, remainingInstallments, totalInvoices } from '@/engine/cards'
 import { bankBalances } from '@/engine/ledger'
 import { reconcileBankBalance } from '@/store/ledgerActions'
-import { formatBRL } from '@/engine/money'
+import { useBRL } from '@/design/money'
 import { formatYmShort } from '@/engine/dates'
 import { cn } from '@/lib/cn'
 import type { Bank, Card, Purchase } from '@/data/schema'
@@ -58,6 +58,7 @@ export function InlineMoney({
   label: string
   className?: string
 }): ReactNode {
+  const brl = useBRL()
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState<number | null>(value)
 
@@ -105,7 +106,7 @@ export function InlineMoney({
         className,
       )}
     >
-      <span className="tnum">{formatBRL(value)}</span>
+      <span className="tnum">{brl(value)}</span>
       <Pencil
         size={11.5}
         className="text-ink-faint opacity-0 group-hover/inline:opacity-100 transition-opacity"
@@ -117,6 +118,7 @@ export function InlineMoney({
 export function BanksPage(): ReactNode {
   const data = useZentData()
   const mutate = useDataStore((s) => s.mutate)
+  const brl = useBRL()
 
   // Rota filha: banco aberto no drill-down (R3 §3.3)
   const bankDetailId = useUiStore((s) => s.bankDetailId)
@@ -240,11 +242,11 @@ export function BanksPage(): ReactNode {
         className="mb-4"
         segments={[
           'Você tem ',
-          { value: formatBRL(totals.inAccounts), tone: totals.inAccounts >= 0 ? 'pos' : 'neg' },
+          { value: brl(totals.inAccounts), tone: totals.inAccounts >= 0 ? 'pos' : 'neg' },
           ` em conta entre ${data.banks.length} ${data.banks.length === 1 ? 'banco' : 'bancos'}, `,
-          { value: formatBRL(totals.invoices), tone: totals.invoices > 0 ? 'neg' : 'ink' },
+          { value: brl(totals.invoices), tone: totals.invoices > 0 ? 'neg' : 'ink' },
           ' de faturas abertas e ',
-          { value: `${formatBRL(totals.monthly)}/mês`, tone: totals.monthly > 0 ? 'warn' : 'ink', goTo: 'installments' },
+          { value: `${brl(totals.monthly)}/mês`, tone: totals.monthly > 0 ? 'warn' : 'ink', goTo: 'installments' },
           ' comprometidos em parcelas.',
         ]}
       />
@@ -318,6 +320,7 @@ function BankBlock({
   onNewPurchase(cardId: string): void
   onEditPurchase(purchase: Purchase): void
 }): ReactNode {
+  const brl = useBRL()
   return (
     <Panel className="overflow-hidden">
       {/* Cabeçalho do banco */}
@@ -362,7 +365,7 @@ function BankBlock({
                 if (applied === 0) return
                 toast.success(
                   'Saldo conciliado',
-                  `${bank.name}: ${formatBRL(v)} — ajuste de ${applied > 0 ? '+' : '−'}${formatBRL(Math.abs(applied))} registrado no histórico.`,
+                  `${bank.name}: ${brl(v)} — ajuste de ${applied > 0 ? '+' : '−'}${brl(Math.abs(applied))} registrado no histórico.`,
                 )
               }}
               className={cn('font-semibold', balance < 0 ? 'text-neg' : 'text-ink')}
@@ -428,6 +431,7 @@ function CardBlock({
   onEditPurchase(purchase: Purchase): void
 }): ReactNode {
   const mutate = useDataStore((s) => s.mutate)
+  const brl = useBRL()
   const [expanded, setExpanded] = useState(true)
 
   const available = availableLimit(card, purchases)
@@ -488,7 +492,7 @@ function CardBlock({
       } else {
         toast.success(
           `Parcela de "${p.name}" paga`,
-          `${formatBRL(p.installmentAmount)} devolvidos ao limite disponível.`,
+          `${brl(p.installmentAmount)} devolvidos ao limite disponível.`,
         )
       }
     }
@@ -534,7 +538,7 @@ function CardBlock({
         <div className="grid grid-cols-4 gap-4 mt-3">
           <div>
             <p className="text-[11.5px] text-ink-faint">Limite total</p>
-            <p className="text-[13.5px] font-semibold text-ink tnum">{formatBRL(card.limit)}</p>
+            <p className="text-[13.5px] font-semibold text-ink tnum">{brl(card.limit)}</p>
           </div>
           <div>
             <p className="text-[11.5px] text-ink-faint">Fatura atual</p>
@@ -546,14 +550,14 @@ function CardBlock({
                   const c = d.cards.find((x) => x.id === card.id)
                   if (c) c.invoice = v
                 })
-                toast.success('Fatura atualizada', formatBRL(v))
+                toast.success('Fatura atualizada', brl(v))
               }}
               className="text-[13.5px] font-semibold text-ink"
             />
           </div>
           <div>
             <p className="text-[11.5px] text-ink-faint">Comprometido em parcelas</p>
-            <p className="text-[13.5px] font-semibold text-warn tnum">{formatBRL(committed)}</p>
+            <p className="text-[13.5px] font-semibold text-warn tnum">{brl(committed)}</p>
           </div>
           <div>
             <p className="text-[11.5px] text-ink-faint">Disponível</p>
@@ -563,7 +567,7 @@ function CardBlock({
                 available < 0 ? 'text-neg' : 'text-pos',
               )}
             >
-              {formatBRL(available)}
+              {brl(available)}
             </p>
           </div>
         </div>
@@ -621,7 +625,7 @@ function CardBlock({
                         <div className="flex items-baseline gap-2">
                           <p className="text-[13px] font-medium text-ink truncate">{p.name}</p>
                           <span className="text-[11.5px] text-ink-faint tnum shrink-0">
-                            {formatBRL(p.installmentAmount)}/mês
+                            {brl(p.installmentAmount)}/mês
                           </span>
                         </div>
                         <div className="flex items-center gap-2.5 mt-1.5">
@@ -639,7 +643,7 @@ function CardBlock({
                               'quitada'
                             ) : (
                               <>
-                                falta {formatBRL(remainingAmount(p))}
+                                falta {brl(remainingAmount(p))}
                                 {payoff ? ` · quita em ${formatYmShort(payoff)}` : ''}
                               </>
                             )}

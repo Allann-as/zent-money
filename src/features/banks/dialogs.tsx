@@ -10,7 +10,7 @@ import { useDataStore, useZentData } from '@/store/dataStore'
 import { addPurchase } from '@/store/mutations'
 import { reconcileBankBalance } from '@/store/ledgerActions'
 import { bankBalances } from '@/engine/ledger'
-import { formatBRL } from '@/engine/money'
+import { useBRL } from '@/design/money'
 import { currentYm, formatYmLong, addMonths } from '@/engine/dates'
 import { newId } from '@/lib/id'
 import type { Bank, Card, Purchase } from '@/data/schema'
@@ -28,6 +28,7 @@ export function BankDialog({
 }): ReactNode {
   const mutate = useDataStore((s) => s.mutate)
   const data = useZentData()
+  const brl = useBRL()
   const editing = state !== 'closed' && state !== 'new' ? state : null
   const open = state !== 'closed'
 
@@ -75,7 +76,7 @@ export function BankDialog({
       if (applied !== 0) {
         toast.success(
           'Saldo conciliado',
-          `${clean}: ajuste de ${applied > 0 ? '+' : '−'}${formatBRL(Math.abs(applied))} registrado no histórico da conta.`,
+          `${clean}: ajuste de ${applied > 0 ? '+' : '−'}${brl(Math.abs(applied))} registrado no histórico da conta.`,
         )
         onClose()
         return
@@ -129,9 +130,9 @@ export function BankDialog({
             Vai registrar{' '}
             <strong className="text-ink tnum">
               Ajuste de conciliação: {delta > 0 ? '+' : '−'}
-              {formatBRL(Math.abs(delta))}
+              {brl(Math.abs(delta))}
             </strong>{' '}
-            — o saldo de hoje é {formatBRL(currentBalance)}.
+            — o saldo de hoje é {brl(currentBalance)}.
           </p>
         )}
       </div>

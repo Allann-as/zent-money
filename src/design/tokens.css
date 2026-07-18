@@ -281,11 +281,11 @@ textarea {
   color: var(--ink-soft);
 }
 
-/* ── Modo privacidade: borra QUALQUER valor numérico (todos usam .tnum) ── */
-:root[data-privacy='on'] .tnum {
-  filter: blur(6px);
-  transition: filter 150ms ease;
-}
+/* ── Modo privacidade (M2 §a): a MÁSCARA substituiu o blur ──
+ * Antes, `.tnum` era borrado por CSS — o valor real continuava no DOM, só
+ * escondido de quem olha. Agora os valores monetários são mascarados no React
+ * (ver design/money.tsx): sob privacidade renderizam `R$ ••••••` e o número real
+ * nunca chega ao DOM. Não há mais regra de blur aqui de propósito. */
 
 /* Foco visível consistente (acessibilidade) */
 :focus-visible {

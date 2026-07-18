@@ -19,7 +19,7 @@ import { useUiStore } from '@/store/uiStore'
 import { creditSalaryFor, runSalaryMaterialization } from '@/store/ledgerActions'
 import { pendingSalaryCredits } from '@/engine/ledger'
 import { groupByMonth, salaryForYm, sumByMonth } from '@/engine/aggregations'
-import { formatBRL } from '@/engine/money'
+import { useBRL } from '@/design/money'
 import { currentYm, formatDateShort, formatYmLong, todayIso, ymCompare, ymOfDate } from '@/engine/dates'
 import { newId } from '@/lib/id'
 import type { ExtraIncome } from '@/data/schema'
@@ -28,6 +28,7 @@ export function IncomePage(): ReactNode {
   const data = useZentData()
   const mutate = useDataStore((s) => s.mutate)
   const ym = useUiStore((s) => s.activeYm)
+  const brl = useBRL()
 
   const [salaryModal, setSalaryModal] = useState(false)
   const [salaryDraft, setSalaryDraft] = useState<number | null>(null)
@@ -111,7 +112,7 @@ export function IncomePage(): ReactNode {
   async function removeExtra(extra: ExtraIncome): Promise<void> {
     const ok = await confirmDialog({
       title: 'Excluir ganho extra',
-      message: `Excluir "${extra.description}" (${formatBRL(extra.amount)})? Essa ação não pode ser desfeita.`,
+      message: `Excluir "${extra.description}" (${brl(extra.amount)})? Essa ação não pode ser desfeita.`,
       confirmLabel: 'Excluir',
       danger: true,
     })
@@ -225,7 +226,7 @@ export function IncomePage(): ReactNode {
                 </span>
                 <span className="flex-1 text-[13.5px] text-ink truncate">{e.description}</span>
                 <span className="text-[13.5px] font-semibold text-pos tnum">
-                  +{formatBRL(e.amount)}
+                  +{brl(e.amount)}
                 </span>
                 <span className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
@@ -350,6 +351,7 @@ function ExtraDialog({
 }): ReactNode {
   const mutate = useDataStore((s) => s.mutate)
   const data = useZentData()
+  const brl = useBRL()
   const editing = state !== 'closed' && state !== 'new' ? state : null
   const open = state !== 'closed'
 
@@ -412,8 +414,8 @@ function ExtraDialog({
     toast.success(
       editing ? 'Ganho extra atualizado' : repeatMonthly ? 'Ganho recorrente criado' : 'Ganho extra registrado',
       repeatMonthly && !editing
-        ? `${formatBRL(amount)} — será lançado todo mês automaticamente.`
-        : formatBRL(amount),
+        ? `${brl(amount)} — será lançado todo mês automaticamente.`
+        : brl(amount),
     )
     onClose()
   }

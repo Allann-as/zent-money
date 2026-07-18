@@ -19,7 +19,7 @@ import {
 import { cn } from '@/lib/cn'
 import { useUiStore, type ViewId } from '@/store/uiStore'
 import { useZentData } from '@/store/dataStore'
-import { formatBRL } from '@/engine/money'
+import { useBRL } from '@/design/money'
 import { formatDateBR, ymOfDate } from '@/engine/dates'
 
 interface SearchResult {
@@ -65,6 +65,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose(): void
   const toggleTheme = useUiStore((s) => s.toggleTheme)
   const togglePrivacy = useUiStore((s) => s.togglePrivacy)
   const toggleSidebar = useUiStore((s) => s.toggleSidebar)
+  const brl = useBRL()
 
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState(0)
@@ -165,7 +166,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose(): void
           id: `pur-${p.id}`,
           icon: Layers,
           title: p.name,
-          subtitle: `Compra parcelada · ${formatBRL(p.installmentAmount)}/mês`,
+          subtitle: `Compra parcelada · ${brl(p.installmentAmount)}/mês`,
           view: 'installments',
         })
       }
@@ -187,7 +188,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose(): void
           id: `box-${b.id}`,
           icon: PiggyBank,
           title: b.name,
-          subtitle: `Caixinha · alvo ${formatBRL(b.target)}`,
+          subtitle: `Caixinha · alvo ${brl(b.target)}`,
           view: 'boxes',
         })
       }
@@ -206,7 +207,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose(): void
         id: `exp-${e.id}`,
         icon: ReceiptText,
         title: e.description || catById.get(e.categoryId)?.name || 'Gasto',
-        subtitle: `Gasto · ${formatDateBR(e.date)} · ${formatBRL(e.amount)}`,
+        subtitle: `Gasto · ${formatDateBR(e.date)} · ${brl(e.amount)}`,
         view: 'expenses',
         ym: ymOfDate(e.date),
       })
@@ -220,13 +221,13 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose(): void
         id: `inc-${e.id}`,
         icon: Gift,
         title: e.description,
-        subtitle: `Ganho extra · ${formatDateBR(e.date)} · ${formatBRL(e.amount)}`,
+        subtitle: `Ganho extra · ${formatDateBR(e.date)} · ${brl(e.amount)}`,
         view: 'income',
         ym: ymOfDate(e.date),
       })
     }
     return out.slice(0, 20)
-  }, [query, data, setPendingAction, toggleTheme, togglePrivacy, toggleSidebar])
+  }, [query, data, setPendingAction, toggleTheme, togglePrivacy, toggleSidebar, brl])
 
   useEffect(() => {
     setSelected(0)

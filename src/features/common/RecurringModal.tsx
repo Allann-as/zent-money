@@ -5,7 +5,7 @@ import { Button } from '@/design/components/Button'
 import { toast } from '@/design/components/toast'
 import { confirmDialog } from '@/design/components/confirm'
 import { useDataStore, useZentData } from '@/store/dataStore'
-import { formatBRL } from '@/engine/money'
+import { useBRL } from '@/design/money'
 import { currentYm, formatYmShort } from '@/engine/dates'
 
 /**
@@ -24,6 +24,7 @@ export function RecurringModal({
 }): ReactNode {
   const data = useZentData()
   const mutate = useDataStore((s) => s.mutate)
+  const brl = useBRL()
 
   const items =
     kind === 'expense'
@@ -89,7 +90,7 @@ export function RecurringModal({
               <div className="min-w-0 flex-1">
                 <p className="text-[13px] font-medium text-ink truncate">{t.title}</p>
                 <p className="text-[11.5px] text-ink-faint tnum">
-                  {formatBRL(t.amount)} · todo dia {t.dayOfMonth}
+                  {brl(t.amount)} · todo dia {t.dayOfMonth}
                   {t.endYm ? ` · ${ended(t.endYm) ? 'encerrada' : `até ${formatYmShort(t.endYm)}`}` : ''}
                 </p>
               </div>
