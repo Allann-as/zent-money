@@ -2,6 +2,56 @@
 
 Registro das decisões tomadas onde a especificação deixou eixos livres.
 
+## M4 — gamificação sóbria (roadmap v2.0)
+
+### Score e streak são DERIVADOS, não gravados
+
+- **Nada de snapshot de score/streak.** `scoreForMonth(data, ym)` e
+  `currentStreak(data, ym)` recomputam da base toda vez (determinístico). Gravar o
+  número seria estado redundante livre para divergir dos dados que o geram — o
+  mesmo defeito que a R4 caçou no saldo. Só persiste o que NÃO é derivável:
+  conquistas (evento com data) e o desafio. Ver [[ledger-hibrido]].
+- **Compromissos usam a obrigação ATUAL** (faturas + parcelas), como o card
+  "Compromissos" da Visão geral — o modelo não historiza fatura por mês. Renda e
+  gasto do score SÃO históricos. Decisão consciente: o score de meses passados
+  varia se as obrigações atuais mudarem, mas é determinístico dado o arquivo, e a
+  alternativa (historizar fatura) é um modelo que o app não tem.
+
+### As 4 definições da fórmula (aprovadas pelo usuário)
+
+- Sobra negativa → s1 = 0 (clamp). Mês sem renda → **sem score** (nunca inventa
+  denominador). Sem categoria com limite → peso de Categorias redistribuído
+  **proporcional** (40/30 → 57,14%/42,86%), não metade-metade. Arredondamento
+  **único no fim** (meio pra cima) — uma fonte para anel, detalhamento e Linha do
+  tempo (coerência da R4).
+
+### Conquistas: idempotente, retroativo silencioso, ao vivo debounced
+
+- **Retroativas em SILÊNCIO no 1º boot** (`meta.gamificationOnboarded`): a migração
+  nasce `false`, o boot desbloqueia o que já está satisfeito sem toast e liga o
+  flag. Depois, novos desbloqueios ganham um toast sóbrio.
+- **Avaliação ao vivo com DEBOUNCE (~1s) e toast COALESCIDO** (um só, mesmo com
+  várias medalhas). Sem isso, a subscription a cada mutação empilhava toasts que
+  cobriam botões e quebravam o E2E — o mesmo modo de falha do M3. Toast que cobre
+  interação é fragilidade real, não estética.
+- **Rótulos de conquista sem "R$ <dígito>"** ("Mil investidos", não "R$ 1 mil"): o
+  título vai ao toast, que fica no DOM, e o teste de privacidade (regex `/R\$\s*\d/`)
+  o pegaria como valor real vazado. Sobriedade e privacidade no mesmo cuidado.
+
+### `ScoreCache`: uma passada, não N (perf 50k)
+
+- O score aparece no anel (mês ativo), na Linha do tempo (12 meses) e na avaliação
+  de conquistas (todos os meses). Cada `scoreForMonth` re-varria os 50k gastos →
+  boot 1306ms. O `ScoreCache` (buildado uma vez por mudança de dados) colapsa isso
+  numa passada só; navegar meses vira lookup. Mesma disciplina do `groupByMonth`
+  memoizado (§10.4).
+
+### Desafio: um por vez, avaliado na virada
+
+- Um desafio ativo por vez; criar substitui. Avaliado só na **virada** do mês
+  (`challengeIsOver`): o resultado vai ao histórico com tom neutro (cumpriu ou não,
+  sem bronca). Cancelar mid-mês não registra resultado (desistência ≠ derrota).
+
 ## M3 — direção de arte final (roadmap v2.0)
 
 ### Fundo é `radial-gradient`, nunca `blur()` de área (§Fundo)

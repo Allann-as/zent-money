@@ -685,6 +685,35 @@ test('23b. persistência: reabrir volta à última seção, ainda bloqueado (M3)
   await expect(page.locator('aside button[aria-current="page"]')).toContainText('Caixinhas')
 })
 
+test('23c. gamificação: score no hero, detalhamento, desafio e estante (M4)', async () => {
+  await goTo('Visão geral')
+  // Card de saúde financeira presente (com salário e gastos, há score)
+  await expect(page.getByText('Saúde financeira')).toBeVisible()
+  await page.getByRole('button', { name: 'Ver detalhamento' }).click()
+  const detail = page.getByRole('dialog', { name: /^Saúde financeira —/ })
+  await expect(detail).toBeVisible()
+  await expect(detail.getByText('Poupança')).toBeVisible()
+  await expect(detail.getByText('Compromissos')).toBeVisible()
+  await detail.getByRole('button', { name: 'Fechar' }).click()
+
+  // Cria um desafio "gastar no máximo" e vê o widget refletir
+  await page.getByRole('button', { name: 'Propor um desafio' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Novo desafio do mês' })
+  await dialog.getByLabel('Categoria do desafio').selectOption({ index: 0 })
+  await dialog.getByRole('textbox', { name: 'Limite do desafio' }).fill('300')
+  await dialog.getByRole('button', { name: 'Criar desafio' }).click()
+  await expect(page.getByText('Desafio criado')).toBeVisible()
+  await expect(page.getByText(/Máx R\$\s+300,00 em/)).toBeVisible()
+
+  // Estante de conquistas no perfil
+  await page.getByText('Olá, Allan').click()
+  await page.getByRole('button', { name: /^Conquistas/ }).click()
+  const shelf = page.getByRole('dialog', { name: 'Conquistas' })
+  await expect(shelf).toBeVisible()
+  await expect(shelf.getByText(/desbloqueadas\.$/)).toBeVisible()
+  await shelf.getByRole('button', { name: 'Fechar' }).click()
+})
+
 test('24. zero erros de console/runtime em toda a sessão', () => {
   expect(consoleErrors, `Erros de console:\n${consoleErrors.join('\n')}`).toHaveLength(0)
 })

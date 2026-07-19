@@ -12,6 +12,7 @@ import { ZentLogo } from '@/design/ZentLogo'
 import { currentYm, diffDays, todayIso } from '@/engine/dates'
 import { materializeRecurrences } from '@/engine/recurring'
 import { runSalaryMaterialization } from '@/store/ledgerActions'
+import { runGamificationBoot, scheduleAchievementEval } from '@/store/gamificationActions'
 import { refreshRates } from '@/store/ratesActions'
 import { newId } from '@/lib/id'
 
@@ -76,6 +77,10 @@ export function App(): ReactNode {
         if (cancelled) return
         setBoot({ status: 'ready' })
 
+        // Gamificação (M4): avalia o desafio na virada e desbloqueia conquistas
+        // — retroativas EM SILÊNCIO no 1º boot, ao vivo daí em diante.
+        runGamificationBoot()
+
         // Taxas oficiais (R4 §2): no boot e a cada 24h, em silêncio. Não é
         // aguardado de propósito — a tela não espera a rede para abrir, e sem
         // internet o app é exatamente o mesmo app.
@@ -120,9 +125,16 @@ export function App(): ReactNode {
     const unsubscribe = window.zent.onLogosChanged((logos) => {
       useDataStore.getState().setLogos(logos)
     })
+
+    // Desbloqueio de conquistas AO VIVO (debounced): qualquer mutação agenda uma
+    // reavaliação ~1s depois; rajadas coalescem numa avaliação só (um toast).
+    // Idempotente e barato — navegar seções não muta os dados.
+    const unsubData = useDataStore.subscribe(scheduleAchievementEval)
+
     return () => {
       cancelled = true
       unsubscribe()
+      unsubData()
       if (ratesTimer !== undefined) clearInterval(ratesTimer)
       if (salaryTimer !== undefined) clearInterval(salaryTimer)
     }

@@ -37,6 +37,21 @@ const BOX_EMOJI_TO_ICON: Record<string, string> = {
 }
 
 const MIGRATIONS: Record<number, (data: RawData) => RawData> = {
+  // v8 → v9: gamificação sóbria (M4). Nasce vazia; `gamificationOnboarded: false`
+  // faz o 1º boot avaliar as conquistas retroativas EM SILÊNCIO (sem toasts).
+  // Score e streak são derivados — não há nada a migrar deles.
+  8: (data) => {
+    const meta =
+      typeof data['meta'] === 'object' && data['meta'] !== null
+        ? { ...(data['meta'] as RawData), gamificationOnboarded: false }
+        : { gamificationOnboarded: false }
+    return {
+      ...data,
+      version: 9,
+      gamification: { achievements: [], activeChallenge: null, challengeHistory: [] },
+      meta,
+    }
+  },
   // v7 → v8: realocação de orçamento entre categorias (M1 §c). Nasce vazia — quem
   // nunca realocar tem o limite EFETIVO idêntico ao base, e o app segue idêntico.
   7: (data) => ({ ...data, version: 8, budgetReallocations: [] }),

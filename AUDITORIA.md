@@ -1,5 +1,77 @@
 # AUDITORIA.md — Zent Money
 
+## M4 — gamificação sóbria (roadmap v2.0) — 18/07/2026
+
+Schema **v9**. Score e streak são DERIVADOS (determinísticos, nunca gravados);
+só conquistas e desafio persistem.
+
+### Score de saúde financeira 0–100 (fórmula aprovada)
+
+- `engine/score.ts`: **40%·Poupança + 30%·Categorias + 30%·Compromissos**, com os
+  cortes aprovados (poupança 30% = nota cheia; compromissos ≤10% = cheia, ≥50% =
+  zero). As **4 definições** fechadas com o usuário estão codificadas e testadas:
+  (1) sobra negativa → s1 clampa em 0; (2) mês com movimentação mas sem renda →
+  **sem score** (nunca inventa denominador); (3) sem categoria com limite → o peso
+  de Categorias redistribui **proporcionalmente** (40/30 → 57,14%/42,86%),
+  sinalizado no detalhamento; (4) arredondamento **único no fim** (meio pra cima),
+  o mesmo número no anel, no detalhamento e na Linha do tempo (uma fonte).
+- **Os exemplos batem no app**: o seed demo (renda 3.750 · sobra 61% · compromissos
+  1.728) rende **73** no anel — o Exemplo A que o usuário conferiu. Unit prova 73 e
+  44 (Exemplo B) e o Exemplo C ("sem score").
+- **Histórico re-derivado, não snapshot**: `scoreForMonth(data, ym)` recomputa da
+  base toda vez; a Linha do tempo usa a mesma fórmula para os 12 meses. O
+  detalhamento confirma isso em texto. Uma **ação concreta** (`scoreAction`) aponta
+  a categoria mais estourada e mede o ganho re-rodando a fórmula: "Reduza R$ X em
+  [cat] → +Y pts".
+
+### Streak, conquistas e desafio
+
+- **Streak** (`engine/streak.ts`, DERIVADO): meses consecutivos no azul (sobra ≥ 0
+  **com registro**); mês sem registro **pausa** (não conta/não quebra); vermelho
+  zera; marcos 3/6/12. Uma vigência de salário que só persiste não é "registro".
+  Virada de ano testada.
+- **Conquistas** (`engine/achievements.ts`, 13 medalhas): 1ª caixinha 100% · 1º
+  aporte · mil/5 mil/10 mil investidos · streak 3/6/12 · 1º mês score ≥80 · mês
+  todas no limite · 1ª parcela quitada · 1º backup · 3 desafios cumpridos.
+  **Idempotente** (reavaliar não redesbloqueia) e **retroativo EM SILÊNCIO no 1º
+  boot** (migração marca `gamificationOnboarded: false`; o boot avalia sem toasts e
+  liga o flag). Estante no perfil (cor = desbloqueada, silhueta+critério = bloqueada).
+- **Desafio** (`engine/challenge.ts`): um ativo por vez — "máx R$ X em [cat]" ou "Y%
+  menos que o mês passado". Avaliado na **virada** (mês passou → resultado ao
+  histórico, tom neutro). Widget na Visão geral (barra + dias restantes). 3
+  cumpridos = conquista.
+
+### INCIDENTE: regressão de perf da gamificação (50k) — causa-raiz
+
+- A avaliação de conquistas no boot varria os meses chamando `scoreForMonth` por
+  mês, e cada chamada re-varria os **50k gastos** (`sumByMonth`/`groupByMonth`).
+  Resultado: **boot 1306ms** (contra ~417ms). **Corrigido** com um `ScoreCache`
+  construído UMA vez por mudança de dados e reusado por todos os meses (boot e
+  navegação): **boot 539ms**, navegar 12 meses **128ms/clique** — de volta ao
+  envelope. Lição da R4/M3 reaplicada: número derivado que aparece em várias telas
+  precisa de uma passada memoizada, nunca N.
+
+### INCIDENTE: toasts de conquista quebravam o E2E — causa-raiz
+
+- A avaliação AO VIVO (subscription a cada mutação) desbloqueava conquistas em
+  rajada durante a jornada do E2E, e a **pilha de toasts** cobria botões (mesmo modo
+  do M3) — 6 falhas de "element not stable"/não encontrado. Além disso, o título
+  "R$ 1 mil investidos" continha `R$ <dígito>` e **vazava no teste de privacidade**
+  (o toast fica no DOM). **Corrigido**: avaliação ao vivo **debounced (~1s) +
+  coalescida** (um toast, mesmo com várias medalhas), e conquistas renomeadas sem
+  "R$ <dígito>" ("Mil investidos" etc.).
+
+### Estado da suíte (M4)
+
+- **201 unit** (173 + seam 5 + score 8 + streak 7 + gamificação 8) + typecheck
+  estrito + lint limpos. Migração v1→**v9** coberta.
+- **31 E2E verdes** (30 + o novo **23c** de gamificação: score no hero,
+  detalhamento, criar desafio e estante), **zero erros de console**.
+- **Smoke verde**. **Perf 50k**: boot **539ms** (quente); seções 41–333ms; navegar
+  12 meses **128ms/clique** — sem regressão de FPS após o `ScoreCache`.
+
+---
+
 ## M3 — direção de arte final (roadmap v2.0) — 18/07/2026
 
 ### Fundo em 4 camadas — `<Backdrop>` full-viewport, custo zero de FPS

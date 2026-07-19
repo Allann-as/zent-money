@@ -34,11 +34,14 @@ function v1Data(): Record<string, unknown> {
   }
 }
 
-describe('migração de dados v1 → v8', () => {
+describe('migração de dados v1 → v9', () => {
   it('migra um arquivo v1 completo em cadeia e passa na validação do schema atual', () => {
     const migrated = migrate(v1Data())
     const parsed = zentDataSchema.parse(migrated)
-    expect(parsed.version).toBe(8)
+    expect(parsed.version).toBe(9)
+    // v8→v9: gamificação nasce vazia e retroativa a avaliar (silenciosa) no 1º boot
+    expect(parsed.gamification).toEqual({ achievements: [], activeChallenge: null, challengeHistory: [] })
+    expect(parsed.meta.gamificationOnboarded).toBe(false)
     // v7→v8: realocações de orçamento nascem vazias (o efetivo = base para quem não realoca)
     expect(parsed.budgetReallocations).toEqual([])
     // v6→v7: o saldo digitado vira o PONTO DE PARTIDA do ledger e os arrays de

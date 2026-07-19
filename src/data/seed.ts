@@ -76,12 +76,14 @@ export function createSeedData(): ZentData {
     ],
     recurringExpenses: [],
     recurringIncomes: [],
+    gamification: { achievements: [], activeChallenge: null, challengeHistory: [] },
     meta: {
       createdAt: today,
       lastManualExport: null,
       categoriesOnboarded: false,
       lastRecurringYm: null,
       lastSalaryCreditYm: null,
+      gamificationOnboarded: false,
     },
   }
 }

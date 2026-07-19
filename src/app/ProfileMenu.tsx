@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, Download, KeyRound, Lock, Moon, Pencil, RefreshCw, Sun, Upload, AlertTriangle, X } from 'lucide-react'
+import { Award, Check, Download, KeyRound, Lock, Moon, Pencil, RefreshCw, Sun, Upload, AlertTriangle, X } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { useUiStore } from '@/store/uiStore'
 import { useDataStore, useZentData } from '@/store/dataStore'
@@ -16,6 +16,8 @@ import { diffDays, formatDateBR, todayIso } from '@/engine/dates'
 import { ZentLogo } from '@/design/ZentLogo'
 import { ChangePinModal } from '@/features/security/ChangePinModal'
 import { ResetPinModal } from '@/features/security/ResetPinModal'
+import { AchievementsModal } from '@/features/gamification/AchievementsModal'
+import { ACHIEVEMENTS } from '@/engine/achievements'
 
 /** Parse de percentual pt-BR: "14,25" → 14.25. */
 function parsePercent(s: string): number | null {
@@ -94,6 +96,7 @@ export function ProfileMenu({
 
   const [changePinOpen, setChangePinOpen] = useState(false)
   const [resetPinOpen, setResetPinOpen] = useState(false)
+  const [achievementsOpen, setAchievementsOpen] = useState(false)
   const [editingName, setEditingName] = useState(false)
   const [nameDraft, setNameDraft] = useState(data.profile.name)
   const [selic, setSelic] = useState(fmtPercent(data.rates.selic))
@@ -465,6 +468,22 @@ export function ProfileMenu({
             </p>
           </div>
 
+          {/* Conquistas (M4) */}
+          <div className="px-4 py-3 border-b border-line">
+            <button
+              type="button"
+              onClick={() => setAchievementsOpen(true)}
+              className="w-full flex items-center justify-between gap-2 cursor-pointer group"
+            >
+              <span className="text-[13px] font-medium text-ink flex items-center gap-2">
+                <Award size={14} className="text-ink-soft" /> Conquistas
+              </span>
+              <span className="text-[12px] text-ink-soft tnum group-hover:text-primary transition-colors">
+                {data.gamification.achievements.length}/{ACHIEVEMENTS.length} →
+              </span>
+            </button>
+          </div>
+
           {/* Sobre */}
           <div className="px-4 py-3 flex items-center gap-3">
             <ZentLogo size={28} />
@@ -485,6 +504,7 @@ export function ProfileMenu({
       </div>
       <ChangePinModal open={changePinOpen} onClose={() => setChangePinOpen(false)} />
       <ResetPinModal open={resetPinOpen} onClose={() => setResetPinOpen(false)} />
+      <AchievementsModal open={achievementsOpen} onClose={() => setAchievementsOpen(false)} />
     </div>,
     document.body,
   )

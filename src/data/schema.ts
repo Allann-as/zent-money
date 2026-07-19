@@ -10,7 +10,7 @@ import { z } from 'zod'
  *   (`openingBalance`) e os MOVIMENTOS; o saldo sai da soma (ver engine/ledger.ts).
  */
 
-export const DATA_VERSION = 8
+export const DATA_VERSION = 9
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'data ISO YYYY-MM-DD')
 const ym = z.string().regex(/^\d{4}-\d{2}$/, 'mês YYYY-MM')
@@ -293,6 +293,56 @@ export const ratesSchema = z.object({
   overrides: rateOverridesSchema,
 })
 
+/**
+ * Gamificação sóbria (v9 — M4). Persiste só o que NÃO é derivável:
+ * - **conquistas** desbloqueadas (evento com data; idempotente);
+ * - **desafio** ativo (um por vez) e o histórico dos avaliados.
+ * O **score** e o **streak** NÃO entram aqui: são re-derivados dos dados
+ * (determinístico), nunca snapshots gravados — ver engine/score.ts e streak.ts.
+ */
+export const achievementSchema = z.object({
+  /** Chave do catálogo de conquistas (ver engine/achievements.ts). */
+  id: z.string(),
+  /** Data do desbloqueio (ISO); retroativas no 1º boot recebem a data de hoje. */
+  unlockedAt: isoDate,
+})
+
+/**
+ * Desafio mensal criado pelo usuário (§ M4). Um ativo por vez.
+ * - **cap**: "máx R$ X em [categoria]" naquele mês;
+ * - **reduce**: "Y% menos que o mês passado" na categoria.
+ * União discriminada de propósito (não dois campos anuláveis que poderiam se
+ * contradizer), como o `ExpenseOrigin`.
+ */
+export const challengeSchema = z.discriminatedUnion('kind', [
+  z.object({ id: z.string(), kind: z.literal('cap'), ym, categoryId: z.string(), capAmount: cents.positive() }),
+  z.object({
+    id: z.string(),
+    kind: z.literal('reduce'),
+    ym,
+    categoryId: z.string(),
+    /** Percentual de redução alvo vs o mês anterior (ex.: 10 = gastar 10% menos). */
+    reducePercent: z.number().positive(),
+  }),
+])
+
+/** Desafio já avaliado (na virada do mês), com o resultado. */
+export const challengeRecordSchema = z.object({
+  challenge: challengeSchema,
+  met: z.boolean(),
+  /** Gasto real na categoria no mês do desafio (centavos). */
+  actual: cents.nonnegative(),
+  /** Alvo efetivo em centavos (o cap, ou mês-anterior×(1−redução)). */
+  target: cents.nonnegative(),
+})
+
+export const gamificationSchema = z.object({
+  achievements: z.array(achievementSchema),
+  /** Desafio em andamento; null = nenhum. */
+  activeChallenge: challengeSchema.nullable(),
+  challengeHistory: z.array(challengeRecordSchema),
+})
+
 export const zentDataSchema = z.object({
   version: z.literal(DATA_VERSION),
   profile: z.object({
@@ -319,6 +369,8 @@ export const zentDataSchema = z.object({
   boxes: z.array(boxSchema),
   recurringExpenses: z.array(recurringExpenseSchema),
   recurringIncomes: z.array(recurringIncomeSchema),
+  /** Gamificação sóbria (v9 — M4): conquistas + desafio. Score/streak são derivados. */
+  gamification: gamificationSchema,
   meta: z.object({
     createdAt: isoDate,
     /** Última exportação manual — base do lembrete de 45 dias. */
@@ -329,6 +381,8 @@ export const zentDataSchema = z.object({
     lastRecurringYm: ym.nullable(),
     /** Último mês com o salário creditado em conta (v7); null = nunca. */
     lastSalaryCreditYm: ym.nullable(),
+    /** v9 — as conquistas retroativas já foram avaliadas em silêncio no 1º boot? */
+    gamificationOnboarded: z.boolean(),
   }),
 })
 
@@ -355,3 +409,7 @@ export type Rates = z.infer<typeof ratesSchema>
 export type ValueUpdate = z.infer<typeof valueUpdateSchema>
 export type RecurringExpense = z.infer<typeof recurringExpenseSchema>
 export type RecurringIncome = z.infer<typeof recurringIncomeSchema>
+export type Achievement = z.infer<typeof achievementSchema>
+export type Challenge = z.infer<typeof challengeSchema>
+export type ChallengeRecord = z.infer<typeof challengeRecordSchema>
+export type Gamification = z.infer<typeof gamificationSchema>

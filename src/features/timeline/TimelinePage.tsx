@@ -7,6 +7,7 @@ import { Bars } from '@/design/charts/Bars'
 import { useChartColors } from '@/design/charts/useChartColors'
 import { useZentData } from '@/store/dataStore'
 import { incomeByMonth, sumByMonth } from '@/engine/aggregations'
+import { buildScoreCache, scoreForMonth } from '@/engine/score'
 import { formatPercent } from '@/engine/money'
 import { useBRL } from '@/design/money'
 import { currentYm, formatYmShort, formatYmTiny, lastMonths, ymOfDate } from '@/engine/dates'
@@ -63,7 +64,15 @@ export function TimelinePage(): ReactNode {
       }
     }
 
-    return { net, topCategories, totalExpenses, invested, anyActivity, bestNet, bestIncome, bestContribution }
+    // Score de saúde mês a mês — RE-DERIVADO dos dados de cada mês (M4),
+    // determinístico, nunca um snapshot. O cache é construído uma vez para os 12
+    // meses (sem re-varrer os gastos por mês). Meses sem score ficam de fora.
+    const scoreCache = buildScoreCache(data)
+    const scores = window12
+      .map((ym) => ({ ym, score: scoreForMonth(data, ym, scoreCache)?.score ?? null }))
+      .filter((s): s is { ym: string; score: number } => s.score !== null)
+
+    return { net, topCategories, totalExpenses, invested, anyActivity, bestNet, bestIncome, bestContribution, scores }
   }, [data, window12, windowSet])
 
   if (!stats.anyActivity) {
@@ -117,6 +126,32 @@ export function TimelinePage(): ReactNode {
           height={230}
         />
       </Card>
+
+      {/* Score de saúde financeira mês a mês (M4) */}
+      {stats.scores.length >= 2 && (
+        <Card className="p-5 mb-4">
+          <CardTitle className="mb-1">Score de saúde financeira</CardTitle>
+          <p className="text-[12px] text-ink-faint mb-4">
+            Re-derivado dos dados de cada mês (0–100) — a mesma fórmula do anel da Visão geral.
+          </p>
+          <Bars
+            data={stats.scores.map((s) => ({
+              label: formatYmTiny(s.ym),
+              values: [s.score],
+              tip: (
+                <>
+                  <span className="text-ink-soft first-letter:uppercase">{formatYmShort(s.ym)}</span>
+                  <br />
+                  <strong className="text-ink tnum">{s.score}/100</strong>
+                </>
+              ),
+            }))}
+            colorFor={(_, v) => (v >= 70 ? colors.primary : v >= 40 ? colors.warn : colors.neg)}
+            formatValue={(v) => String(Math.round(v))}
+            height={200}
+          />
+        </Card>
+      )}
 
       <div className="grid grid-cols-2 gap-4 mb-4">
         {/* Maiores categorias */}

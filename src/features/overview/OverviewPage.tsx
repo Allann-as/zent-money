@@ -14,6 +14,7 @@ import {
 import { PageHeader } from '@/features/common/PageHeader'
 import { MonthNav } from '@/features/common/MonthNav'
 import { BudgetPanel } from '@/features/budget/BudgetPanel'
+import { HealthCard } from '@/features/gamification/HealthCard'
 import { Card, CardTitle } from '@/design/components/Card'
 import { StatCard } from '@/design/components/StatCard'
 import { AnimatedMoney } from '@/design/AnimatedMoney'
@@ -319,6 +320,9 @@ export function OverviewPage(): ReactNode {
           {hasWealthHistory && <Sparkline values={wealth.values} width={300} height={88} />}
         </div>
       </Card>
+
+      {/* ── Saúde financeira (M4): score + streak + desafio ─────────────── */}
+      <HealthCard />
 
       {/* ── O mês ─────────────────────────────────────────────────────── */}
       <p className="label-caps mb-2.5">O mês</p>
