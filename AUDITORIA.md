@@ -1,5 +1,49 @@
 # AUDITORIA.md — Zent Money
 
+## M5 — bandeja + lançamento rápido (roadmap v2.0) — 19/07/2026
+
+### Mini-janela em <1s, com a identidade do app
+
+- 2ª `BrowserWindow` frameless (380×480), **pré-criada OCULTA no boot** — abrir é
+  só `show()`, instantâneo. Carrega o MESMO bundle com `#quick`; o preload expõe
+  `windowKind` a partir do hash e o `main.tsx` monta `QuickEntryApp` em vez do
+  `App`. Form com `MoneyInput` + categoria + descrição + origem (banco/cartão),
+  cabeçalho Zent, foca o valor ao abrir, **Enter salva · Esc fecha**.
+- **Atalho global `Ctrl+Shift+Z`** (`globalShortcut`) + **Tray** com menu de
+  contexto (Abrir · Lançamento rápido · Sair). Fechar a janela principal
+  **minimiza para a bandeja** (configurável no perfil, default ligado); "Sair"
+  encerra de fato.
+
+### O bloqueio não tem furo pela bandeja
+
+- O `main` guarda `appLocked`, **reportado pelo renderer principal** em cada
+  lock/unlock; default conservador `!bypass && hasPin()` — assume bloqueado até o
+  renderer dizer o contrário. A mini, ao abrir, pergunta `quickIsLocked()`: **se
+  bloqueado, exige o PIN (bolinhas compactas) antes de exibir qualquer coisa**. A
+  verificação usa o **mesmo `verifyPin` do main** (throttle compartilhado) — não
+  há bypass. PIN correto na mini destrava o app inteiro (uma prova de identidade
+  vale para tudo). **E2E 23e** prova: app bloqueado → a mini pede o PIN, não o form.
+
+### Uma fonte de dados (sem race entre janelas)
+
+- A mini **não tem store própria**: ao salvar, `submitQuickExpense` vai ao main,
+  que encaminha ao renderer principal, e ELE aplica `addExpense` no `dataStore`
+  real (mesma persistência, mesma avaliação de conquistas). Reflete na hora no mês
+  e no saldo da origem, sem duas janelas escrevendo o mesmo arquivo. A mini só
+  **lê** categorias/bancos (empurrados pelo main) para os selects. **E2E 23d**
+  prova: gasto pela bandeja aparece em Gastos e debita o Nubank na hora.
+
+### Estado da suíte (M5)
+
+- **204 unit** (201 + 3 do quick-entry: formato do payload e débito na origem) +
+  typecheck estrito + lint limpos.
+- **33 E2E verdes** (31 + **23d** quick-entry reflete no mês/origem + **23e** o
+  bloqueio é respeitado), com o console das **duas janelas** coberto (zero erros).
+- **Smoke verde** (janela em ~444ms com a 2ª janela e a bandeja no boot). **Perf
+  50k** sem regressão (navegar 12 meses ~130ms/clique).
+
+---
+
 ## M4 — gamificação sóbria (roadmap v2.0) — 18/07/2026
 
 Schema **v9**. Score e streak são DERIVADOS (determinísticos, nunca gravados);

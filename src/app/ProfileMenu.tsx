@@ -93,6 +93,8 @@ export function ProfileMenu({
   const setTheme = useUiStore((s) => s.setTheme)
   const lockInactivityMinutes = useUiStore((s) => s.lockInactivityMinutes)
   const setLockInactivityMinutes = useUiStore((s) => s.setLockInactivityMinutes)
+  const minimizeToTray = useUiStore((s) => s.minimizeToTray)
+  const setMinimizeToTray = useUiStore((s) => s.setMinimizeToTray)
 
   const [changePinOpen, setChangePinOpen] = useState(false)
   const [resetPinOpen, setResetPinOpen] = useState(false)
@@ -465,6 +467,25 @@ export function ProfileMenu({
             </div>
             <p className="text-[11px] text-ink-faint mt-2 leading-snug">
               O PIN protege de olhares casuais; ele não criptografa o arquivo de dados.
+            </p>
+          </div>
+
+          {/* Bandeja (M5) */}
+          <div className="px-4 py-3 border-b border-line">
+            <label className="flex items-center justify-between gap-2 cursor-pointer select-none">
+              <span className="text-[13px] font-medium text-ink min-w-0">
+                Manter na bandeja ao fechar
+              </span>
+              <Switch
+                checked={minimizeToTray}
+                onChange={setMinimizeToTray}
+                aria-label="Manter na bandeja ao fechar"
+              />
+            </label>
+            <p className="text-[11px] text-ink-faint mt-1.5 leading-snug">
+              Com isto ligado, fechar a janela minimiza para a bandeja (o atalho{' '}
+              <span className="tnum">Ctrl+Shift+Z</span> segue lançando). Para encerrar de vez, use
+              “Sair” no menu do ícone.
             </p>
           </div>
 

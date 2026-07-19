@@ -45,6 +45,11 @@ interface UiState {
    * null = só bloqueia ao abrir o app (padrão). Só tem efeito com PIN definido.
    */
   lockInactivityMinutes: number | null
+  /**
+   * "Fechar minimiza para a bandeja" (M5): o X esconde o app na bandeja em vez
+   * de encerrar, mantendo o ícone e o atalho global vivos. Default ligado.
+   */
+  minimizeToTray: boolean
   pendingAction: PendingAction
   setTheme(theme: Theme): void
   toggleTheme(): void
@@ -55,6 +60,7 @@ interface UiState {
   togglePrivacy(): void
   setCategoryChartMode(mode: CategoryChartMode): void
   setLockInactivityMinutes(minutes: number | null): void
+  setMinimizeToTray(on: boolean): void
   setPendingAction(action: PendingAction): void
 }
 
@@ -80,10 +86,12 @@ export const useUiStore = create<UiState>()(
       privacy: false,
       categoryChartMode: 'bars',
       lockInactivityMinutes: null,
+      minimizeToTray: true,
       pendingAction: null,
       setSearchOpen: (searchOpen) => set({ searchOpen }),
       setCategoryChartMode: (categoryChartMode) => set({ categoryChartMode }),
       setLockInactivityMinutes: (lockInactivityMinutes) => set({ lockInactivityMinutes }),
+      setMinimizeToTray: (minimizeToTray) => set({ minimizeToTray }),
       togglePrivacy: () => {
         const next = !get().privacy
         applyPrivacy(next)
@@ -114,6 +122,7 @@ export const useUiStore = create<UiState>()(
         privacy: s.privacy,
         categoryChartMode: s.categoryChartMode,
         lockInactivityMinutes: s.lockInactivityMinutes,
+        minimizeToTray: s.minimizeToTray,
       }),
       onRehydrateStorage: () => (state) => {
         applyTheme(state?.theme ?? 'dark')

@@ -1,5 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { IPC, type FetchedRatesDTO, type PinVerifyDTO, type ZentBridge } from './ipc-api'
+import {
+  IPC,
+  type FetchedRatesDTO,
+  type PinVerifyDTO,
+  type QuickDataDTO,
+  type QuickExpenseDTO,
+  type ZentBridge,
+} from './ipc-api'
 import { readLockDisabledArg } from './seam'
 
 const bridge: ZentBridge = {
@@ -27,6 +34,36 @@ const bridge: ZentBridge = {
   verifyPin: (pin) => ipcRenderer.invoke(IPC.verifyPin, pin) as Promise<PinVerifyDTO>,
   changePin: (current, next) => ipcRenderer.invoke(IPC.changePin, current, next) as Promise<boolean>,
   resetPin: () => ipcRenderer.invoke(IPC.resetPin) as Promise<void>,
+
+  // ── Bandeja + lançamento rápido (M5) ──────────────────────────────
+  // 'quick' = mini-janela da bandeja; 'main' = o app. Vem do hash da URL (o
+  // preload é compilado sob o tsconfig node, sem DOM — daí o acesso via globalThis).
+  windowKind:
+    (globalThis as { location?: { hash?: string } }).location?.hash === '#quick' ? 'quick' : 'main',
+  reportLockState: (locked) => ipcRenderer.send(IPC.reportLockState, locked),
+  setMinimizeToTray: (on) => ipcRenderer.send(IPC.setMinimizeToTray, on),
+  pushQuickData: (data) => ipcRenderer.send(IPC.pushQuickData, data),
+  showQuickEntry: () => ipcRenderer.send(IPC.showQuickEntry),
+  onQuickExpense: (cb) => {
+    const listener = (_e: Electron.IpcRendererEvent, payload: QuickExpenseDTO): void => cb(payload)
+    ipcRenderer.on(IPC.quickExpense, listener)
+    return () => ipcRenderer.removeListener(IPC.quickExpense, listener)
+  },
+  onAppUnlock: (cb) => {
+    const listener = (): void => cb()
+    ipcRenderer.on(IPC.appUnlock, listener)
+    return () => ipcRenderer.removeListener(IPC.appUnlock, listener)
+  },
+  quickIsLocked: () => ipcRenderer.invoke(IPC.quickIsLocked) as Promise<boolean>,
+  getQuickData: () => ipcRenderer.invoke(IPC.getQuickData) as Promise<QuickDataDTO>,
+  submitQuickExpense: (payload) => ipcRenderer.invoke(IPC.submitQuickExpense, payload) as Promise<void>,
+  quickUnlock: () => ipcRenderer.send(IPC.quickUnlock),
+  closeQuick: () => ipcRenderer.send(IPC.closeQuick),
+  onQuickShow: (cb) => {
+    const listener = (): void => cb()
+    ipcRenderer.on(IPC.quickShow, listener)
+    return () => ipcRenderer.removeListener(IPC.quickShow, listener)
+  },
 }
 
 contextBridge.exposeInMainWorld('zent', bridge)

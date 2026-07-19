@@ -46,6 +46,58 @@ export interface ZentBridge {
   changePin(current: string, next: string): Promise<boolean>
   /** "Esqueci o PIN": apaga só o PIN (os dados não são tocados). */
   resetPin(): Promise<void>
+
+  // ── Bandeja + lançamento rápido (M5) ──────────────────────────────
+  /**
+   * Janela do renderer: 'main' (o app) ou 'quick' (a mini-janela da bandeja).
+   * Lido do `location.hash` no boot — decide o que montar.
+   */
+  windowKind: 'main' | 'quick'
+  /** [main] Reporta o estado de bloqueio ao processo main (fonte para a mini). */
+  reportLockState(locked: boolean): void
+  /** [main] Preferência "fechar minimiza para a bandeja". */
+  setMinimizeToTray(on: boolean): void
+  /** [main] Empurra os dados que a mini precisa (categorias/bancos/cartões). */
+  pushQuickData(data: QuickDataDTO): void
+  /** [main] Mostra a mini-janela (seam de UI/teste; tray e atalho fazem isto no main). */
+  showQuickEntry(): void
+  /** [main] Recebe um gasto lançado pela mini e o aplica no store real. */
+  onQuickExpense(cb: (payload: QuickExpenseDTO) => void): () => void
+  /** [main] A mini provou o PIN: destrava o app principal também. */
+  onAppUnlock(cb: () => void): () => void
+  /** [quick] O app está bloqueado? (a mini exige PIN antes de exibir qualquer coisa). */
+  quickIsLocked(): Promise<boolean>
+  /** [quick] Dados para os selects da mini (última versão empurrada pelo main). */
+  getQuickData(): Promise<QuickDataDTO>
+  /** [quick] Envia o gasto ao main, que o encaminha ao app (fonte única de dados). */
+  submitQuickExpense(payload: QuickExpenseDTO): Promise<void>
+  /** [quick] PIN correto na mini → destrava o app inteiro. */
+  quickUnlock(): void
+  /** [quick] Fecha (esconde) a mini-janela. */
+  closeQuick(): void
+  /** [quick] Notifica que a mini foi exibida (para focar/re-checar o bloqueio). */
+  onQuickShow(cb: () => void): () => void
+}
+
+/** Origem do gasto rápido (espelha `ExpenseOrigin` do schema sem importá-lo). */
+export type QuickOriginDTO =
+  | { kind: 'bank'; bankId: string }
+  | { kind: 'card'; cardId: string }
+  | null
+
+/** Gasto lançado pela mini-janela (M5). */
+export interface QuickExpenseDTO {
+  amount: number
+  categoryId: string
+  description: string
+  origin: QuickOriginDTO
+}
+
+/** Dados mínimos para os selects da mini (M5). */
+export interface QuickDataDTO {
+  categories: { id: string; name: string }[]
+  banks: { id: string; name: string }[]
+  cards: { id: string; name: string; bankId: string }[]
 }
 
 /** Resultado de uma verificação de PIN (§b). Espelha `VerifyResult` do main. */
@@ -81,4 +133,17 @@ export const IPC = {
   verifyPin: 'zent:verify-pin',
   changePin: 'zent:change-pin',
   resetPin: 'zent:reset-pin',
+  // Bandeja + lançamento rápido (M5)
+  reportLockState: 'zent:report-lock-state',
+  setMinimizeToTray: 'zent:set-minimize-to-tray',
+  pushQuickData: 'zent:push-quick-data',
+  showQuickEntry: 'zent:show-quick-entry',
+  quickExpense: 'zent:quick-expense',
+  appUnlock: 'zent:app-unlock',
+  quickIsLocked: 'zent:quick-is-locked',
+  getQuickData: 'zent:get-quick-data',
+  submitQuickExpense: 'zent:submit-quick-expense',
+  quickUnlock: 'zent:quick-unlock',
+  closeQuick: 'zent:close-quick',
+  quickShow: 'zent:quick-show',
 } as const

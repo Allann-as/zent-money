@@ -1,7 +1,7 @@
-import { app, BrowserWindow, Menu, dialog, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, Menu, Tray, dialog, globalShortcut, ipcMain, nativeImage, shell } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
-import { IPC } from './ipc-api'
+import { IPC, type QuickDataDTO, type QuickExpenseDTO } from './ipc-api'
 import { resolveLockDisabled } from './seam'
 import { listLogos, loadData, saveData, watchLogos } from './storage'
 import { changePin, hasPin, resetPin, setPin, verifyPin } from './pin'
@@ -19,6 +19,34 @@ if (customUserData) {
 }
 
 let mainWindow: BrowserWindow | null = null
+
+// ── Bandeja + lançamento rápido (M5) ──────────────────────────────────
+let quickWindow: BrowserWindow | null = null
+let tray: Tray | null = null
+/** app de fato encerrando? (distingue "fechar → bandeja" de "Sair"). */
+let quitting = false
+/**
+ * O app está bloqueado? Fonte para a mini-janela — o renderer principal reporta
+ * (lock/unlock) e o main guarda. Default conservador: se há PIN e o seam de
+ * bypass NÃO vale, assume bloqueado até o renderer dizer o contrário. Assim a
+ * bandeja NUNCA é um furo no bloqueio, nem no primeiro instante do boot.
+ */
+let appLocked = false
+/** "Fechar minimiza para a bandeja" (configurável no perfil). Default ligado. */
+let minimizeToTray = true
+/** Última fatia de dados que a mini precisa (empurrada pelo renderer principal). */
+let quickData: QuickDataDTO = { categories: [], banks: [], cards: [] }
+
+const rendererIndex = (): string => path.join(__dirname, '../renderer/index.html')
+
+/** Mostra a mini-janela centrada e avisa o renderer (para focar/re-checar PIN). */
+function showQuickWindow(): void {
+  if (!quickWindow || quickWindow.isDestroyed()) return
+  quickWindow.center()
+  quickWindow.show()
+  quickWindow.focus()
+  quickWindow.webContents.send(IPC.quickShow)
+}
 
 /**
  * Altura da faixa de título do app (px). Precisa bater com a do TitleBar do
@@ -95,11 +123,100 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
+  // Fechar → minimiza para a bandeja (M5), a menos que seja um "Sair" de fato.
+  // Assim o ícone e o atalho global seguem vivos com a janela principal fechada.
+  mainWindow.on('close', (e) => {
+    if (quitting || !minimizeToTray) return
+    e.preventDefault()
+    mainWindow?.hide()
+  })
+
   if (process.env['ELECTRON_RENDERER_URL']) {
     void mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    void mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
+    void mainWindow.loadFile(rendererIndex())
   }
+}
+
+/**
+ * Mini-janela do lançamento rápido (M5): frameless, pré-criada OCULTA no boot
+ * para abrir em <1s. Carrega o MESMO bundle com `#quick` — o renderer monta o
+ * `QuickEntryApp` em vez do app. Nunca é destruída ao fechar: só esconde.
+ */
+function createQuickWindow(): void {
+  quickWindow = new BrowserWindow({
+    width: 380,
+    height: 480,
+    show: false,
+    frame: false,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    backgroundColor: '#04070F',
+    icon: path.join(__dirname, '../../assets/icon/zent.ico'),
+    webPreferences: {
+      preload: path.join(__dirname, '../preload/preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+      additionalArguments: [`--zent-lock-disabled=${lockDisabledResolved()}`],
+    },
+  })
+
+  quickWindow.on('close', (e) => {
+    if (quitting) return
+    e.preventDefault()
+    quickWindow?.hide()
+  })
+
+  const url = process.env['ELECTRON_RENDERER_URL']
+  if (url) {
+    void quickWindow.loadURL(`${url}#quick`)
+  } else {
+    void quickWindow.loadFile(rendererIndex(), { hash: 'quick' })
+  }
+}
+
+/** Bandeja: ícone + menu de contexto (Abrir · Lançamento rápido · Sair). */
+function createTray(): void {
+  const icon = nativeImage.createFromPath(path.join(__dirname, '../../assets/icon/zent.ico'))
+  // Em ambiente sem bandeja (alguns headless de CI/teste), `new Tray` pode
+  // lançar — a bandeja é um extra, jamais deve derrubar o app.
+  try {
+    tray = new Tray(icon)
+  } catch {
+    tray = null
+    return
+  }
+  tray.setToolTip('Zent Money')
+  const menu = Menu.buildFromTemplate([
+    { label: 'Abrir Zent Money', click: () => showMainWindow() },
+    { label: 'Lançamento rápido', click: () => showQuickWindow() },
+    { type: 'separator' },
+    {
+      label: 'Sair',
+      click: () => {
+        quitting = true
+        app.quit()
+      },
+    },
+  ])
+  tray.setContextMenu(menu)
+  // Clique no ícone abre o app (atalho comum de bandeja).
+  tray.on('click', () => showMainWindow())
+}
+
+/** Traz a janela principal de volta (da bandeja). */
+function showMainWindow(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createWindow()
+    return
+  }
+  if (!mainWindow.isVisible()) mainWindow.show()
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.focus()
 }
 
 function registerIpc(): void {
@@ -173,20 +290,71 @@ function registerIpc(): void {
   ipcMain.handle(IPC.changePin, (_e, current: string, next: string) => changePin(current, next))
   ipcMain.handle(IPC.resetPin, () => resetPin())
 
+  // ── Bandeja + lançamento rápido (M5) ──────────────────────────────
+  // O renderer principal é a fonte do estado de bloqueio; o main só o espelha
+  // para a mini — que assim nunca fura o bloqueio.
+  ipcMain.on(IPC.reportLockState, (_e, locked: boolean) => {
+    appLocked = locked
+  })
+  ipcMain.on(IPC.setMinimizeToTray, (_e, on: boolean) => {
+    minimizeToTray = on
+  })
+  ipcMain.on(IPC.pushQuickData, (_e, data: QuickDataDTO) => {
+    quickData = data
+  })
+  ipcMain.on(IPC.showQuickEntry, () => showQuickWindow())
+  ipcMain.handle(IPC.quickIsLocked, () => appLocked)
+  ipcMain.handle(IPC.getQuickData, () => quickData)
+  // A mini NÃO tem store própria: manda o gasto ao renderer principal, que o
+  // aplica no dataStore real (fonte única; reflete na hora, sem race de escrita).
+  ipcMain.handle(IPC.submitQuickExpense, (_e, payload: QuickExpenseDTO) => {
+    mainWindow?.webContents.send(IPC.quickExpense, payload)
+  })
+  // PIN correto na mini: destrava o app inteiro (uma prova de identidade vale
+  // para tudo — o throttling é o mesmo do main, então não há bypass).
+  ipcMain.on(IPC.quickUnlock, () => {
+    appLocked = false
+    mainWindow?.webContents.send(IPC.appUnlock)
+  })
+  ipcMain.on(IPC.closeQuick, () => {
+    if (!quickWindow?.isDestroyed()) quickWindow?.hide()
+  })
+
   watchLogos(() => {
     mainWindow?.webContents.send(IPC.logosChanged, listLogos())
   })
 }
 
 app.whenReady().then(() => {
+  // Default conservador do bloqueio: com PIN e sem o seam de bypass, a bandeja
+  // assume bloqueado até o renderer principal reportar — nunca um furo no boot.
+  appLocked = !lockDisabledResolved() && hasPin()
+
   registerIpc()
   createWindow()
+  createQuickWindow()
+  createTray()
+
+  // Atalho GLOBAL de lançamento rápido (M5). `register` devolve false se o SO já
+  // tomou a combinação — nesse caso a bandeja e o menu seguem funcionando.
+  globalShortcut.register('CommandOrControl+Shift+Z', () => showQuickWindow())
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
 
+// "Sair" real: libera os handlers de 'close' que seguravam a janela na bandeja.
+app.on('before-quit', () => {
+  quitting = true
+})
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll()
+  tray?.destroy()
+})
+
 app.on('window-all-closed', () => {
-  app.quit()
+  // Com a bandeja, a mini-janela oculta mantém o app vivo de propósito; só
+  // encerra quando o usuário escolhe "Sair" (quitting) ou desligou a bandeja.
+  if (quitting || !minimizeToTray) app.quit()
 })

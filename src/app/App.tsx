@@ -13,6 +13,7 @@ import { currentYm, diffDays, todayIso } from '@/engine/dates'
 import { materializeRecurrences } from '@/engine/recurring'
 import { runSalaryMaterialization } from '@/store/ledgerActions'
 import { runGamificationBoot, scheduleAchievementEval } from '@/store/gamificationActions'
+import { wireTrayBridge } from '@/store/quickActions'
 import { refreshRates } from '@/store/ratesActions'
 import { newId } from '@/lib/id'
 
@@ -29,6 +30,7 @@ export function App(): ReactNode {
     let cancelled = false
     let ratesTimer: ReturnType<typeof setInterval> | undefined
     let salaryTimer: ReturnType<typeof setInterval> | undefined
+    let unwireTray: (() => void) | undefined
     async function start(): Promise<void> {
       try {
         const [data, logos] = await Promise.all([loadZentData(), window.zent.listLogos()])
@@ -80,6 +82,10 @@ export function App(): ReactNode {
         // Gamificação (M4): avalia o desafio na virada e desbloqueia conquistas
         // — retroativas EM SILÊNCIO no 1º boot, ao vivo daí em diante.
         runGamificationBoot()
+
+        // Bandeja (M5): liga a ponte entre a janela principal e a mini-janela
+        // (reporta bloqueio, empurra dados dos selects, aplica gastos rápidos).
+        unwireTray = wireTrayBridge()
 
         // Taxas oficiais (R4 §2): no boot e a cada 24h, em silêncio. Não é
         // aguardado de propósito — a tela não espera a rede para abrir, e sem
@@ -135,6 +141,7 @@ export function App(): ReactNode {
       cancelled = true
       unsubscribe()
       unsubData()
+      unwireTray?.()
       if (ratesTimer !== undefined) clearInterval(ratesTimer)
       if (salaryTimer !== undefined) clearInterval(salaryTimer)
     }

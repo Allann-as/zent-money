@@ -2,6 +2,59 @@
 
 Registro das decisões tomadas onde a especificação deixou eixos livres.
 
+## M5 — bandeja + lançamento rápido (roadmap v2.0)
+
+### Reprovados pelo Allan — NÃO propor de novo sem pedido explícito
+
+Registro dos itens que já foram considerados e recusados. Ficam aqui para não
+voltarem à mesa por conta própria (só se o Allan pedir):
+
+- **Importação OFX/CSV** de extratos bancários.
+- **Calculadora** embutida nos campos de valor (o `MoneyInput` aceita colar/digitar
+  o valor cheio; caixa-eletrônico e calculadora foram descartados — ver R3).
+- **Vencimento / lembrete de fatura** (o app não modela ciclo de fatura; a fatura é
+  snapshot manual — ver R3 §3.4).
+- **Relatório mensal em PDF.**
+- **Diagrama de Sankey** de fluxo de dinheiro.
+- **Simulador "E se"** (projeções hipotéticas de cenários).
+- **Recap mensal** (resumo automático de fim de mês).
+- **Sparklines nos cards** (sugestão da R3, recusada).
+- **Acento personalizável** (a disciplina é navy + UM acento fixo — ver R2).
+
+### A mini-janela é outro renderer, sem store própria
+
+- **Fonte única de dados.** A mini (`#quick` → `QuickEntryApp`) não carrega o
+  `dataStore`: manda o gasto pelo main, que o encaminha ao renderer principal, e
+  ELE aplica `addExpense`. Duas janelas gravando o mesmo `zent-data.json` seriam
+  duas escritas correndo pelo debounce — a mesma classe de bug que o ledger
+  derivado da R4 fechou. Assim há UM escritor; a mini só lê os selects (empurrados
+  pelo main). Ver [[ledger-hibrido]].
+- **Mesmo bundle, `#quick` no hash**: reaproveita `MoneyInput`, tokens e o `PinPad`
+  — a mini é o app, não um app paralelo que envelheceria à parte.
+- **Pré-criada oculta no boot** para abrir em <1s: `show()` de uma janela que já
+  carregou vence criar-e-carregar sob demanda.
+
+### A bandeja não pode furar o bloqueio
+
+- **`appLocked` mora no main, reportado pelo renderer principal.** O estado de
+  bloqueio vive no `securityStore` (renderer); a mini é outro processo, então o
+  main precisa de uma cópia da verdade. Default conservador: com PIN e sem o seam
+  de bypass, **assume bloqueado até o renderer dizer o contrário** — nunca um furo
+  no primeiro instante. A mini usa o **mesmo `verifyPin`** (throttle do main), sem
+  atalho. **PIN na mini destrava o app inteiro** (decisão do usuário): uma prova de
+  identidade basta. Ver [[pin-de-bloqueio]].
+
+### Outras decisões
+
+- **Fechar → bandeja LIGADO por padrão** (decisão do usuário): sem isso o X mataria
+  o ícone e o atalho, e a bandeja perderia o sentido. "Sair" pelo menu encerra de
+  fato; um texto no perfil explica.
+- **`blur` NÃO esconde a mini.** Popup-de-bandeja que some ao perder foco é elegante
+  mas frágil (fecha sozinho ao abrir um select, e o E2E dirige duas janelas). Esc,
+  salvar (auto-fecha) e o clique fora do foco do SO bastam.
+- **Quick assume `essential: true`** (necessário): o lançamento rápido não pergunta
+  Necessário×Supérfluo — o padrão mais comum, reclassificável depois na lista.
+
 ## M4 — gamificação sóbria (roadmap v2.0)
 
 ### Score e streak são DERIVADOS, não gravados

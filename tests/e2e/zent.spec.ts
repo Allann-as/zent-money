@@ -28,11 +28,21 @@ test.beforeAll(async () => {
   } as Record<string, string>
   delete env['ELECTRON_RUN_AS_NODE'] // shells do VS Code herdam isso e quebram o launch
   app = await electron.launch({ args: ['out/main/main.js'], env })
-  page = await app.firstWindow()
+  // Com a mini-janela da bandeja (M5) pré-criada no boot, há DUAS janelas — pego
+  // a principal (sem `#quick`), não a que abrir primeiro por acaso.
+  page = await mainWindow()
   page.on('console', (msg) => {
     if (msg.type() === 'error') consoleErrors.push(msg.text())
   })
   page.on('pageerror', (err) => consoleErrors.push(`pageerror: ${String(err)}`))
+
+  // A mini-janela da bandeja (M5) é outro renderer: capturo os erros dela também,
+  // para o teste 24 (zero erros) cobrir as duas janelas.
+  const mini = await quickWindow()
+  mini.on('console', (msg) => {
+    if (msg.type() === 'error') consoleErrors.push(`[quick] ${msg.text()}`)
+  })
+  mini.on('pageerror', (err) => consoleErrors.push(`[quick] pageerror: ${String(err)}`))
 
   // Primeira execução (M2 §b): o app nasce pedindo para DEFINIR um PIN. O E2E
   // NÃO usa o bypass (ZENT_NO_LOCK) — exercita o fluxo real. PIN de teste "1234",
@@ -43,6 +53,28 @@ test.beforeAll(async () => {
   await enterPin('1234') // confirmar
   await page.waitForSelector('aside', { timeout: 20_000 })
 })
+
+/** A janela PRINCIPAL do app (sem `#quick` no URL) — não a mini da bandeja. */
+async function mainWindow(): Promise<Page> {
+  for (let i = 0; i < 60; i++) {
+    for (const w of app.windows()) {
+      if (!w.url().includes('#quick')) return w
+    }
+    await new Promise((r) => setTimeout(r, 100))
+  }
+  throw new Error('janela principal não encontrada')
+}
+
+/** A mini-janela da bandeja (`#quick`) — espera ela aparecer após showQuickEntry. */
+async function quickWindow(): Promise<Page> {
+  for (let i = 0; i < 60; i++) {
+    for (const w of app.windows()) {
+      if (w.url().includes('#quick')) return w
+    }
+    await new Promise((r) => setTimeout(r, 100))
+  }
+  throw new Error('mini-janela da bandeja não encontrada')
+}
 
 /** Digita um PIN no teclado do PinPad (cliques nos botões) e confirma. */
 async function enterPin(pin: string): Promise<void> {
@@ -712,6 +744,54 @@ test('23c. gamificação: score no hero, detalhamento, desafio e estante (M4)', 
   await expect(shelf).toBeVisible()
   await expect(shelf.getByText(/desbloqueadas\.$/)).toBeVisible()
   await shelf.getByRole('button', { name: 'Fechar' }).click()
+  await page.keyboard.press('Escape') // fecha o menu de perfil (não deixa o backdrop)
+  await expect(page.getByRole('dialog', { name: 'Menu de perfil' })).toHaveCount(0)
+})
+
+test('23d. bandeja: lançamento rápido reflete no mês e no saldo da origem (M5)', async () => {
+  // Estado do saldo do Nubank ANTES (a mini vai debitá-lo).
+  await goTo('Bancos & Cartões')
+  const nubankSaldo = page.getByRole('button', { name: /editar saldo do nubank/i })
+  const antes = (await nubankSaldo.textContent())?.trim() ?? ''
+
+  // Abre a mini-janela da bandeja (o atalho global/tray são OS-level; aqui uso
+  // o mesmo caminho que eles disparam, via IPC).
+  await page.evaluate(() => (globalThis as unknown as { zent: { showQuickEntry(): void } }).zent.showQuickEntry())
+  const mini = await quickWindow()
+
+  // App desbloqueado → a mini mostra o FORM direto.
+  await mini.getByRole('textbox', { name: 'Valor do gasto rápido' }).fill('50')
+  await mini.getByLabel('Categoria do gasto rápido').selectOption({ index: 0 })
+  await mini.getByLabel('Origem do gasto rápido').selectOption({ label: 'Nubank' })
+  await mini.getByRole('textbox', { name: 'Descrição do gasto rápido' }).fill('Lanche via bandeja')
+  await mini.getByRole('button', { name: 'Lançar' }).click()
+  await expect(mini.getByText('Gasto lançado')).toBeVisible()
+
+  // Reflete no SALDO DA ORIGEM (Nubank debitado; número mudou) — na hora.
+  await expect(nubankSaldo).not.toHaveText(antes)
+  // Reflete no MÊS: o gasto aparece na lista de Gastos do mês corrente.
+  await goTo('Gastos')
+  await expect(page.getByText('Lanche via bandeja')).toBeVisible()
+})
+
+test('23e. bandeja: com PIN, a mini exige o PIN antes de exibir (não fura o bloqueio) (M5)', async () => {
+  // Reinicia o app: renasce BLOQUEADO (como um restart). NÃO desbloqueio o app.
+  await page.reload()
+  await page.getByRole('heading', { name: 'Zent Money', exact: true }).waitFor({ timeout: 20_000 })
+
+  // Abre a mini com o app bloqueado: ela precisa pedir o PIN, não o form.
+  await page.evaluate(() => (globalThis as unknown as { zent: { showQuickEntry(): void } }).zent.showQuickEntry())
+  const mini = await quickWindow()
+  await expect(mini.getByText('Digite seu PIN para lançar pela bandeja.')).toBeVisible()
+  await expect(mini.getByRole('textbox', { name: 'Valor do gasto rápido' })).toHaveCount(0)
+
+  // PIN correto na mini libera o form (e destrava o app inteiro).
+  for (const d of '5678') await mini.getByRole('button', { name: d, exact: true }).click()
+  await mini.getByRole('button', { name: 'Confirmar PIN' }).click()
+  await expect(mini.getByRole('textbox', { name: 'Valor do gasto rápido' })).toBeVisible()
+  await mini.evaluate(() => (globalThis as unknown as { zent: { closeQuick(): void } }).zent.closeQuick())
+  // o app principal foi destravado pela prova de identidade
+  await page.waitForSelector('aside', { timeout: 20_000 })
 })
 
 test('24. zero erros de console/runtime em toda a sessão', () => {
