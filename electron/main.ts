@@ -91,6 +91,13 @@ function createWindow(): void {
       // conhece `app.isPackaged`; o preload apenas lê o argumento resolvido — no
       // app instalado, nenhuma variável de ambiente destrava o bloqueio.
       additionalArguments: [`--zent-lock-disabled=${lockDisabledResolved()}`],
+      // Auto-bloqueio por inatividade (M2 §b) roda com um `setTimeout` no
+      // renderer. Com a janela ESCONDIDA na bandeja (M5), o Chromium estrangula
+      // os timers de background (até ~1/min após alguns minutos oculto), o que
+      // atrasaria o bloqueio. Desligar o throttling faz o timer disparar na hora
+      // mesmo na bandeja — o custo é desprezível (um timer ocioso). Assim
+      // "app na bandeja além da inatividade → reabrir exige PIN" vale de fato.
+      backgroundThrottling: false,
     },
   })
 

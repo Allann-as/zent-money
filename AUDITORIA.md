@@ -1,5 +1,68 @@
 # AUDITORIA.md — Zent Money
 
+## Resumo executivo — v2.0.0 (19/07/2026)
+
+**Zent Money** é um app de finanças pessoais de mesa (Electron + React + TypeScript
+estrito), 100% local — os dados nunca saem do computador; a única conexão é a
+consulta opcional das taxas oficiais. Da v2.0 fazem parte: ledger contábil com
+saldo derivado, orçamento por categoria com realocação, privacidade por máscara,
+bloqueio por PIN, direção de arte navy sóbria, gamificação (score/streak/
+conquistas/desafio) e uma bandeja com lançamento rápido.
+
+**Estado da suíte (v2.0.0):** 204 testes unitários + 34 E2E (jornada completa das 8
+seções + M1–M5) + typecheck estrito + lint, todos verdes, com **zero erros de
+console** nas duas janelas. **Smoke** verde. **Perf 50k lançamentos** (quente):
+boot ~596ms, abrir seções 55–272ms, navegar 12 meses ~126ms/clique — dentro do
+envelope histórico; os fundos, a gamificação e a 2ª janela **não custaram FPS**.
+**Sobriedade:** varreduras anti-emoji e anti-hex limpas — o único hex fora de token
+é a paleta curada de categorias (DADO que o usuário escolhe, exceção documentada).
+
+## Verificação mestra — v2.0.0
+
+Percorri o app contra os checklists de todas as releases. Cada item foi
+**exercitado de fato** (teste que o prova OU condução no app), não marcado por fé.
+Onde apareceu divergência, foi **corrigida antes da tag** (ver a coluna Correções).
+`Un` = teste unitário · `E2E n` = número do teste E2E · `Vis` = captura/condução.
+
+| Área (release) | Item | Prova | Status |
+|---|---|---|---|
+| Base | Schema v1→v9 migra e valida (Zod) | Un `migrations` | OK |
+| Base | Persistência atômica + backup rotativo; export/import | `storage.ts` · E2E 23 (export) | OK |
+| R2 | Fonte Geist, StatCards, dashboards da Visão geral | E2E 1, 15 · Vis | OK |
+| R2 | Busca global (Ctrl+K) navega | E2E 12 | OK |
+| R2 | Recorrências materializam no boot | Un `recurring` · E2E 7 | OK |
+| R3 | Parcelas cartão × avulsa; regra do limite | Un `cards` · E2E 8, 9, 9b | OK |
+| R3 | Drill-down do banco (rota filha) | E2E 19b, 19c | OK |
+| R3 | Campos monetários: digitação natural BR/US | Un `money` · E2E 20 | OK |
+| R4 | Ledger derivado: salário credita, gasto debita, ajuste/transf. fecham | Un `ledger` · E2E 22 | OK |
+| R4 | Taxas ao vivo; offline mantém as antigas; override manual | Un `rates-source` · E2E 23 | OK |
+| M1 | Criar→excluir devolve TODOS os números (invariante) | Un `mutations` | OK |
+| M1 | Toggle rosca/barras (pref. persistida) | E2E 6b | OK |
+| M1 | Orçamento 2.0: disponível, aviso de estouro, realocação | Un `budget` · E2E 6, 6c | OK |
+| M2 | Privacidade por máscara: nada real no DOM | E2E 16 | OK |
+| M2 | PIN: 1ª execução, hash scrypt, throttling, alterar, esqueci | E2E setup, 21 | OK |
+| M2 | Seam `ZENT_NO_LOCK` inerte em produção | Un `seam` | OK |
+| M3 | Fundo em camadas + geometria assinatura por seção | `Backdrop.tsx` · Vis | OK |
+| M3 | Faixa preta do PIN corrigida na raiz | Vis (bloqueio 2 temas) | OK |
+| M3 | Sidebar em 3 grupos; tooltip universal; gráficos | E2E 2 · Vis | OK |
+| M4 | Score 0–100 (fórmula, 4 defs, exemplos 73/44) | Un `score` · E2E 23c | OK |
+| M4 | Streak (azul/pausa/vermelho, virada de ano) | Un `streak` | OK |
+| M4 | Conquistas idempotentes + retroativas; desafio na virada | Un `gamification` · E2E 23c | OK |
+| M5 | Mini-janela <1s com MoneyInput e identidade | E2E 23d · Vis | OK |
+| M5 | Bandeja não fura o bloqueio (PIN antes de exibir) | E2E 23e | OK |
+| M5 | Quick reflete no mês e no saldo da origem (fonte única) | Un `quick-entry` · E2E 23d | OK |
+| M6 | App na bandeja além da inatividade → reabrir exige PIN | E2E 23f | OK |
+
+**Correções feitas durante a verificação (não anotadas e seguidas):**
+- **Bandeja + inatividade:** o `setTimeout` de auto-bloqueio no renderer era
+  estrangulado pelo throttling de background do Chromium com a janela oculta,
+  atrasando o bloqueio. Corrigido com `backgroundThrottling: false` na janela
+  principal — o timer dispara na hora mesmo na bandeja (coberto pelo E2E 23f).
+
+Nenhum item ficou "ausente/divergente" após as correções.
+
+---
+
 ## M5 — bandeja + lançamento rápido (roadmap v2.0) — 19/07/2026
 
 ### Mini-janela em <1s, com a identidade do app

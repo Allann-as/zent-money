@@ -794,6 +794,52 @@ test('23e. bandeja: com PIN, a mini exige o PIN antes de exibir (não fura o blo
   await page.waitForSelector('aside', { timeout: 20_000 })
 })
 
+test('23f. bandeja + inatividade: trancar oculto exige PIN ao reabrir (M6)', async () => {
+  // Liga um auto-bloqueio CURTO (0,05 min = 3s) via localStorage e reinicia: o
+  // app renasce bloqueado; desbloqueio e o timer de inatividade começa a contar.
+  await page.evaluate(() => {
+    const raw = localStorage.getItem('zent-ui')
+    const parsed = raw ? JSON.parse(raw) : { state: {}, version: 0 }
+    parsed.state = { ...parsed.state, lockInactivityMinutes: 0.05 }
+    localStorage.setItem('zent-ui', JSON.stringify(parsed))
+  })
+  await page.reload()
+  await page.getByRole('heading', { name: 'Zent Money', exact: true }).waitFor({ timeout: 20_000 })
+  await enterPin('5678')
+  await page.waitForSelector('aside', { timeout: 20_000 })
+
+  // Esconde a janela na bandeja e NÃO interage: mesmo oculto (backgroundThrottling
+  // desligado), o timer precisa disparar e trancar o app.
+  await app.evaluate(({ BrowserWindow }) => {
+    for (const w of BrowserWindow.getAllWindows()) {
+      if (!w.webContents.getURL().includes('#quick')) w.hide()
+    }
+  })
+  await page.waitForTimeout(6000) // passa a inatividade (3s) com folga
+
+  // A mini, aberta agora, DEVE exigir o PIN — o app trancou na bandeja.
+  await page.evaluate(() => (globalThis as unknown as { zent: { showQuickEntry(): void } }).zent.showQuickEntry())
+  const mini = await quickWindow()
+  await expect(mini.getByText('Digite seu PIN para lançar pela bandeja.')).toBeVisible()
+
+  // E ao reabrir a janela principal, ela está na tela de bloqueio.
+  await app.evaluate(({ BrowserWindow }) => {
+    for (const w of BrowserWindow.getAllWindows()) {
+      if (!w.webContents.getURL().includes('#quick')) w.show()
+    }
+  })
+  await expect(page.getByRole('heading', { name: 'Zent Money', exact: true })).toBeVisible()
+
+  // Cleanup: desliga o auto-bloqueio, desbloqueia e fecha a mini.
+  for (const d of '5678') await mini.getByRole('button', { name: d, exact: true }).click()
+  await mini.getByRole('button', { name: 'Confirmar PIN' }).click()
+  await mini.evaluate(() => (globalThis as unknown as { zent: { closeQuick(): void } }).zent.closeQuick())
+  await page.waitForSelector('aside', { timeout: 20_000 })
+  await page.getByText('Olá, Allan').click()
+  await page.getByLabel('Bloquear por inatividade').selectOption('off')
+  await page.keyboard.press('Escape')
+})
+
 test('24. zero erros de console/runtime em toda a sessão', () => {
   expect(consoleErrors, `Erros de console:\n${consoleErrors.join('\n')}`).toHaveLength(0)
 })

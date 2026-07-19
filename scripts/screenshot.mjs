@@ -93,6 +93,21 @@ async function goToTarget(label) {
     await page.waitForTimeout(350)
     return
   }
+  if (label === 'conquistas') {
+    // Perfil → estante de conquistas (M4). Fecha overlays antes de navegar (a
+    // estante vive dentro do menu de perfil; sem isto o backdrop interceptaria).
+    await page.keyboard.press('Escape')
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(200)
+    await page.click('aside >> text="Visão geral"')
+    await page.waitForTimeout(300)
+    await scrollTop()
+    await page.getByText(/^Olá, /).click()
+    await page.waitForTimeout(300)
+    await page.getByRole('button', { name: /^Conquistas/ }).click()
+    await page.waitForTimeout(400)
+    return
+  }
   await page.click(`aside >> text="${label}"`)
   await page.waitForTimeout(350)
   await scrollTop()

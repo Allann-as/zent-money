@@ -120,3 +120,36 @@ adicionou um logo com o app aberto, ele aparece na hora.
 | Testes | `tests/` | unit (Vitest) + E2E (Playwright) |
 
 Decisões de produto/técnica: [DECISOES.md](DECISOES.md) · Auditoria de qualidade: [AUDITORIA.md](AUDITORIA.md)
+
+## Manutenção — como pedir e fazer mudanças
+
+O projeto é mantido em **milestones curtos**, um de cada vez, com um ciclo fixo que
+manteve a suíte verde do M0 ao v2.0.0. Para evoluir o app:
+
+1. **Ler o contexto primeiro.** Toda mudança começa lendo três arquivos:
+   [`ROADMAP.md`](ROADMAP.md) (o plano mestre e as regras de trabalho),
+   [`AUDITORIA.md`](AUDITORIA.md) (o que existe, como foi verificado, os incidentes
+   e suas causas-raiz) e [`DECISOES.md`](DECISOES.md) (por que cada eixo livre foi
+   resolvido assim — e a **lista de reprovados**, que não devem voltar sem pedido).
+2. **Plano em ≤15 linhas → aguardar o OK.** Nada é implementado antes de um plano
+   curto e do aval. Onde houver fórmula/decisão de produto, ela vem no plano com
+   exemplos numéricos para aprovar.
+3. **Executar → suíte COMPLETA verde.** `npm run typecheck && npm run lint &&
+   npm test && npm run build && npm run test:e2e && npm run test:smoke`, e para
+   mudanças de peso, `node scripts/perf-test.mjs` (50k lançamentos, sem regressão
+   de FPS). Testes e scripts jamais tocam dados reais nem a rede (`ZENT_USER_DATA`
+   temporário + `ZENT_OFFLINE=1`).
+4. **Atualizar `AUDITORIA.md`/`DECISOES.md`** — o que mudou, como foi verificado e o
+   porquê das decisões. A auditoria é honesta: se algo diverge, corrige antes de
+   fechar, não anota e segue.
+5. **Commit + push** (Conventional Commits em português).
+6. **Release de app:** `npm run dist` gera o instalador NSIS; publique com
+   `gh release create vX.Y.Z release/ZentMoney-Setup-*.exe` + changelog curto. O
+   instalador **nunca** entra no git (vai como asset da Release).
+
+**Onde cada coisa mora:** motor puro em `src/engine/` (datas, dinheiro, ledger,
+orçamento, score, streak, conquistas, desafio) — é onde vivem as regras e os
+testes; UI por seção em `src/features/`; design system em `src/design/`; janela,
+bandeja, IPC e persistência em `electron/`; schema + migrações em `src/data/`.
+Disciplina inegociável: navy + um acento, zero emoji, zero cor fora de token,
+`prefers-reduced-motion` respeitado, e o PIN do dono nunca em arquivo/log/teste.
