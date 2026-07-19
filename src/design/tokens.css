@@ -213,36 +213,13 @@ textarea {
 }
 
 /**
- * Fundo com vida (§4): glow radial no topo + malha pontilhada + vinheta.
- * Tudo em UM pseudo-elemento fixo e `pointer-events: none`, atrás do conteúdo
- * (z-index 0 com o app em z-index 1). Sem blur e sem animação: são gradientes
- * estáticos que a GPU compõe uma vez — custo praticamente zero, e nada aqui
- * disputa atenção com os dados.
+ * Fundo com vida (M3 §Fundo): as camadas ② glows por seção · ③ geometria
+ * assinatura · ④ malha/vinheta migraram para o componente <Backdrop> (React),
+ * que é full-viewport e conhece a seção ativa. O body ainda pinta a base
+ * (--bg + --bg-grad) como rede de segurança antes do React montar; o Backdrop
+ * repinta a base por cima para garantir 100% de cobertura em qualquer resolução
+ * (a raiz da "faixa preta" da tela de PIN reportada na QA do M2).
  */
-#root::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background-image:
-    /* vinheta discreta nas bordas */
-    radial-gradient(120% 100% at 50% 50%, transparent 55%, var(--bg-vignette) 100%),
-    /* glow azul profundo no topo */
-    radial-gradient(70% 45% at 50% -8%, var(--bg-glow) 0%, transparent 70%),
-    /* malha pontilhada ~3% */
-    radial-gradient(circle at 1px 1px, var(--bg-mesh) 1px, transparent 0);
-  background-size:
-    100% 100%,
-    100% 100%,
-    22px 22px;
-}
-
-/* O app vive acima dos complementos de fundo */
-#root > * {
-  position: relative;
-  z-index: 1;
-}
 
 /* Valores monetários e numéricos sempre tabulares */
 .tnum {
@@ -264,6 +241,45 @@ textarea {
   border-radius: inherit;
   background: linear-gradient(90deg, transparent, var(--card-lit-line), transparent);
   pointer-events: none;
+}
+
+/* Cards/hero (M3): borda superior 1px com gradiente LUMINOSO no acento
+   (25%→transparente), a partir da esquerda — a "luz de topo" sem virar borda. */
+.card-topline {
+  position: relative;
+}
+.card-topline::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--primary) 25%, transparent),
+    color-mix(in srgb, var(--primary) 8%, transparent) 45%,
+    transparent 80%
+  );
+  pointer-events: none;
+}
+
+/* Chip de ícone com glow radial no acento (M3 §Cards) */
+.chip-glow {
+  position: relative;
+}
+.chip-glow::after {
+  content: '';
+  position: absolute;
+  inset: -30%;
+  border-radius: inherit;
+  background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--primary) 12%, transparent), transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Número-herói com glow ancorado (M3 §Cards) */
+.hero-num {
+  text-shadow: 0 0 26px color-mix(in srgb, var(--primary) 22%, transparent);
 }
 
 /* Títulos: confiantes, não gritados — tracking apertado */
@@ -325,7 +341,7 @@ body,
   transition: transform 180ms var(--ease-out-quint), box-shadow 180ms ease;
 }
 .card-hover:hover {
-  transform: translateY(-1px);
+  transform: translateY(-2px);
   box-shadow: var(--shadow-pop);
 }
 
@@ -339,9 +355,16 @@ body,
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 @keyframes zent-slide-up {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
+/* Ponto final da sparkline pulsa UMA vez (M3 §Cards) */
+@keyframes zent-spark-pulse {
+  0% { transform: scale(0.4); opacity: 0; }
+  45% { transform: scale(1.5); opacity: 0.9; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.anim-spark-pulse { animation: zent-spark-pulse 900ms var(--ease-out-quint) 300ms both; transform-box: fill-box; transform-origin: center; }
 @keyframes zent-toast-in {
   from { opacity: 0; transform: translateX(16px); }
   to { opacity: 1; transform: translateX(0); }

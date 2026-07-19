@@ -2,9 +2,15 @@ import { app, BrowserWindow, Menu, dialog, ipcMain, shell } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
 import { IPC } from './ipc-api'
+import { resolveLockDisabled } from './seam'
 import { listLogos, loadData, saveData, watchLogos } from './storage'
 import { changePin, hasPin, resetPin, setPin, verifyPin } from './pin'
 import { fetchRates, type FetchLike } from '../src/engine/rates-source'
+
+// Versão do produto injetada em build (electron.vite.config.ts) — não depende
+// de `app.getVersion()`, que devolve a versão do Electron quando desempacotado.
+declare const __APP_VERSION__: string
+const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : app.getVersion()
 
 // Diretório de dados alternativo (usado pelo E2E para não tocar dados reais)
 const customUserData = process.env['ZENT_USER_DATA']
@@ -27,6 +33,11 @@ const TITLE_BAR_HEIGHT = 36
  */
 const TITLE_BAR_BOOT = { color: '#060D1F', symbolColor: '#8FA3BF' }
 
+/** Seam de bloqueio só vale em build NÃO empacotado (ver electron/seam.ts). */
+function lockDisabledResolved(): boolean {
+  return resolveLockDisabled(app.isPackaged, process.env['ZENT_NO_LOCK'])
+}
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1360,
@@ -47,6 +58,11 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      // Guarda de produção do seam de teste: `ZENT_NO_LOCK=1` só é honrado em
+      // build NÃO empacotado (dev/test). A decisão vive AQUI porque só o main
+      // conhece `app.isPackaged`; o preload apenas lê o argumento resolvido — no
+      // app instalado, nenhuma variável de ambiente destrava o bloqueio.
+      additionalArguments: [`--zent-lock-disabled=${lockDisabledResolved()}`],
     },
   })
 
@@ -119,7 +135,7 @@ function registerIpc(): void {
 
   ipcMain.handle(IPC.listLogos, () => listLogos())
 
-  ipcMain.handle(IPC.getVersion, () => app.getVersion())
+  ipcMain.handle(IPC.getVersion, () => APP_VERSION)
 
   /**
    * Taxas oficiais (R4 §2) — a única conexão de rede do app. Fica no main

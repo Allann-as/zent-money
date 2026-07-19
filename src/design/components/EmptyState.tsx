@@ -53,6 +53,9 @@ function EmptyIllustration({ icon: Icon }: { icon: LucideIcon }): ReactNode {
             opacity="0.45"
           />
         ))}
+        {/* detalhe no acento (M3): o ponto final da série "acesa" */}
+        <circle cx="110" cy="20" r="3" className="text-primary" fill="currentColor" />
+        <circle cx="110" cy="20" r="6" className="text-primary" fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.4" />
       </svg>
       {/* ícone da seção no chip padrão do app, sobre a cena */}
       <span className="absolute inset-0 flex items-center justify-center">

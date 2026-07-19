@@ -257,7 +257,7 @@ export function OverviewPage(): ReactNode {
       <PageHeader title="Visão geral" subtitle="Seu patrimônio e o mês em um relance" actions={<MonthNav />} />
 
       {/* ── HERO patrimônio: o protagonista da página (§4) ────────────── */}
-      <Card className="card-lit relative p-7 mb-5 overflow-hidden">
+      <Card className="card-topline relative p-7 mb-5 overflow-hidden">
         {/* glow interno: dois focos suaves, sem animação */}
         <div
           aria-hidden="true"
@@ -280,7 +280,8 @@ export function OverviewPage(): ReactNode {
               {!viewingCurrentMonth && <span className="text-ink-faint normal-case">· hoje</span>}
             </p>
             <div className="flex items-baseline gap-3 mt-1.5 flex-wrap">
-              <p className="font-display text-[52px] font-bold text-ink tnum leading-none">
+              {/* número do hero +15% (52→60px) com glow ancorado (M3 §Cards) */}
+              <p className="hero-num font-display text-[60px] font-bold text-ink tnum leading-none">
                 <AnimatedMoney cents={wealth.total} />
               </p>
               {/* variação vs mês anterior em destaque (§4) — o Delta já

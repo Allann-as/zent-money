@@ -13,6 +13,7 @@ import { InvestmentsPage } from '@/features/investments/InvestmentsPage'
 import { BoxesPage } from '@/features/boxes/BoxesPage'
 import { TimelinePage } from '@/features/timeline/TimelinePage'
 import { GlobalSearch } from '@/features/search/GlobalSearch'
+import { Backdrop } from '@/design/Backdrop'
 
 const VIEWS: Record<ViewId, () => ReactNode> = {
   overview: OverviewPage,
@@ -75,23 +76,26 @@ export function AppShell(): ReactNode {
 
   const View = VIEWS[activeView]
 
-  // Sem fundo próprio no shell: o body pinta o gradiente base e #root::before os
-  // complementos (glow/malha/vinheta, §4). Um fundo opaco aqui os taparia.
+  // Fundo em 4 camadas (M3): o <Backdrop> full-viewport pinta base + glows por
+  // seção + geometria assinatura + malha; o conteúdo vive acima dele (z-10).
   return (
-    <div className="h-full flex flex-col theme-transition">
-      <TitleBar />
-      <div className="flex-1 min-h-0 flex">
-        <Sidebar />
-        <main className="flex-1 min-w-0 overflow-y-auto">
-          {/* key força remontagem ao trocar de view — renderiza apenas a ativa;
-              entrada com fade+slide e stagger sutil nos blocos (§5) */}
-          <div
-            key={activeView}
-            className="page-enter stagger-children max-w-[1200px] mx-auto px-7 py-6 min-h-full"
-          >
-            <View />
-          </div>
-        </main>
+    <div className="relative h-full flex flex-col theme-transition">
+      <Backdrop section={activeView} />
+      <div className="relative z-10 flex flex-col h-full min-h-0">
+        <TitleBar />
+        <div className="flex-1 min-h-0 flex">
+          <Sidebar />
+          <main className="flex-1 min-w-0 overflow-y-auto">
+            {/* key força remontagem ao trocar de view — renderiza apenas a ativa;
+                entrada com fade+slide e stagger sutil nos blocos (§5) */}
+            <div
+              key={activeView}
+              className="page-enter stagger-children max-w-[1200px] mx-auto px-7 py-6 min-h-full"
+            >
+              <View />
+            </div>
+          </main>
+        </div>
       </div>
       <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
       <ShortcutsOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />

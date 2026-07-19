@@ -44,7 +44,15 @@ export function Sparkline({
           <path d={area} fill={`url(#${gradId})`} />
         </>
       )}
-      <path d={line} fill="none" stroke={stroke} strokeWidth="1.75" strokeLinejoin="round" />
+      <path d={line} fill="none" stroke={stroke} strokeWidth="1.75" strokeLinejoin="round" strokeLinecap="round" />
+      {/* ponto final pulsando UMA vez (M3 §Cards) */}
+      <circle
+        cx={x(values.length - 1)}
+        cy={y(values[values.length - 1] ?? 0)}
+        r="2.6"
+        fill={stroke}
+        className="anim-spark-pulse"
+      />
     </svg>
   )
 }

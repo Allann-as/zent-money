@@ -102,10 +102,15 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'zent-ui',
-      // activeView/activeYm são de sessão; tema, sidebar e privacidade persistem
+      // `activeView` persiste: fechar e reabrir volta à seção onde eu estava,
+      // igual ao re-lock por inatividade (que mantém a seção porque o store não
+      // é resetado). `activeYm` segue de sessão de propósito — reabrir no mês
+      // corrente é o comportamento esperado; `bankDetailId` também não persiste,
+      // então uma seção 'banks' reabre na lista, não num drill-down órfão.
       partialize: (s) => ({
         theme: s.theme,
         sidebarCollapsed: s.sidebarCollapsed,
+        activeView: s.activeView,
         privacy: s.privacy,
         categoryChartMode: s.categoryChartMode,
         lockInactivityMinutes: s.lockInactivityMinutes,

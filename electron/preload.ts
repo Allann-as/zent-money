@@ -1,9 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC, type FetchedRatesDTO, type PinVerifyDTO, type ZentBridge } from './ipc-api'
+import { readLockDisabledArg } from './seam'
 
 const bridge: ZentBridge = {
-  // Seam de teste: lido do ambiente no load do preload (contexto privilegiado).
-  lockDisabled: process.env['ZENT_NO_LOCK'] === '1',
+  // Seam de teste: NÃO lê o ambiente diretamente — lê o booleano já resolvido
+  // pelo main (que aplica a guarda `!app.isPackaged`). Assim, no app instalado,
+  // `ZENT_NO_LOCK` no ambiente é inerte: o main envia sempre `false`.
+  lockDisabled: readLockDisabledArg(process.argv),
   loadData: () => ipcRenderer.invoke(IPC.loadData) as Promise<string | null>,
   saveData: (json) => ipcRenderer.invoke(IPC.saveData, json) as Promise<void>,
   exportData: (json, suggestedName) =>

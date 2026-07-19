@@ -1,5 +1,130 @@
 # AUDITORIA.md — Zent Money
 
+## M3 — direção de arte final (roadmap v2.0) — 18/07/2026
+
+### Fundo em 4 camadas — `<Backdrop>` full-viewport, custo zero de FPS
+
+- Camadas ②③④ (glows por seção · geometria assinatura · malha/vinheta) migraram
+  do `#root::before` estático para um componente React `<Backdrop section>`
+  (`src/design/Backdrop.tsx`), full-viewport e ciente da seção ativa. Ele **pinta
+  a base ele mesmo** (não depende do `background-attachment: fixed` do body) — é a
+  raiz da correção da faixa preta (abaixo).
+- **Glows são `radial-gradient` estáticos**, não divs com `blur()`. A 1ª passada
+  usou `blur-3xl` (raio 48px) em elementos de 900px por seção; o custo de GPU
+  derrubou o FPS a ponto de o E2E lentificar ~6× (ver "incidente do jank" abaixo).
+  A regra da R3 — "sem blur de área gigante" — vale e foi reencontrada.
+- **Mapa de glows documentado** (canto do acento → canto oposto do azul) em
+  `Backdrop.tsx`: cada seção tem uma posição distinta. **Geometria assinatura por
+  seção** (line-art SVG, stroke 1px, ~4,8% — abaixo do teto de 5% do §, cortada
+  pela borda): arcos concêntricos (Visão geral/bloqueio) · feixe ascendente
+  (Ganhos) · trilha de recibos (Gastos) · grade de cartões (Bancos) · anel
+  fragmentado (Parcelas) · curvas entrelaçadas (Carteira) · órbitas (Caixinhas) ·
+  régua de traços crescentes (Linha do tempo).
+
+### BUG da QA do M2 — faixa preta no terço inferior da tela de PIN
+
+- **Causa-raiz:** a `LockScreen` era `fixed inset-0` transparente e dependia do
+  gradiente do `body` (com `background-attachment: fixed`) para a base; o terço
+  inferior ficava sem glow nem conteúdo e lia-se como uma banda morta. **Corrigido
+  na raiz:** o `<Backdrop>` pinta a base full-bleed (100% da altura em qualquer
+  resolução) e a composição foi **centrada opticamente (~45%, viés pra cima)** com
+  **rodapé de versão** fechando a base — sem ancorar tudo no topo (ajuste pedido).
+- Os 3 reparos da autocrítica do M2 entraram: arcos **descentralizados** e cortados
+  pela borda (via Backdrop), **halo do logo** com mais presença (halo externo largo
+  + interno), **bolinhas vazias** com mais contraste (borda 1,5px + miolo sutil).
+
+### Sidebar redesenhada em 3 grupos
+
+- *Dia a dia* (Visão geral·Ganhos·Gastos) · *Crédito* (Bancos·Parcelas) ·
+  *Patrimônio* (Carteira·Caixinhas·Linha do tempo), com micro-rótulos em caps
+  (expandida) / divisores 1px (colapsada); item ativo = pílula + **barra lateral
+  2px no acento com glow**; **monograma "A" com anel** no perfil expandido, logo
+  com halo no colapsado; **cluster inferior** (busca·privacidade·tema) e **rodapé
+  com versão**; colapso 240ms `cubic-bezier(.22,1,.36,1)`.
+
+### Cards/hero, gráficos e micro
+
+- Cards/hero: fio de topo com gradiente luminoso no acento (`.card-topline`), chips
+  com glow radial (`.chip-glow`), número do hero +15% (52→60px) com glow
+  (`.hero-num`), hover eleva 2px/180ms; sparkline com **ponto final pulsando UMA
+  vez**; empty states com **detalhe no acento** (mantido o footprint — ver incidente).
+- Gráficos: linhas 2.5px com **drop-shadow 4px a 30%** e área 18→0 (desenho 600ms);
+  barras topo 6px com **+15% de brilho** no grupo em hover; roscas 22px com gap 2px
+  e hover +3px; **tooltip universal** (`ChartTip`: card raio 12, borda luminosa no
+  topo, seta) usado no app inteiro; **legenda da rosca clicável isola a fatia**.
+- Micro: transição de página fade+slide 8px com stagger 30ms; backdrop do modal
+  **escurece** o app atrás (a saturação foi cortada — ver DECISOES: filtro de área
+  cheia re-renderiza por frame e custa FPS).
+
+### Persistir a última seção no restart (adição do escopo)
+
+- `activeView` entrou no `partialize` do `uiStore` (`zent-ui`, localStorage):
+  fechar e reabrir volta à seção onde eu estava, igual ao re-lock por inatividade.
+  `activeYm`/`bankDetailId` seguem de sessão. **E2E 23b** prova o comportamento via
+  `page.reload()` (re-boot do renderer → re-lock → reidrata a seção).
+
+### Guarda de produção do seam `ZENT_NO_LOCK` (adição do escopo)
+
+- O bypass da tela de bloqueio agora só vale em build **NÃO empacotado**. A decisão
+  vive no MAIN (`electron/seam.ts` + `app.isPackaged`), que envia ao preload um
+  booleano já resolvido via `additionalArguments` — no app instalado, `ZENT_NO_LOCK`
+  no ambiente é **inerte**. **5 testes** provam a regra, incluindo o caso central:
+  `resolveLockDisabled(true, '1') === false` (empacotado ignora o env var).
+
+### LOOP OBRIGATÓRIO 2.6 — autocrítica de diretor de arte
+
+Screenshots das 8 seções + tela de bloqueio nos 2 temas (isolados: `ZENT_USER_DATA`
+temporário + `ZENT_OFFLINE=1`). **1ª passada em `screenshots/m3-pass1/`.**
+
+**Autocrítica (o que ficou tímido/errado na 1ª passada):**
+1. **Rodapé mostrava `v33.4.11`** — em dev, `app.getVersion()` devolve a versão do
+   Electron. Corrigido: a versão do produto é injetada em build
+   (`electron.vite.config.ts` → `__APP_VERSION__`); agora mostra `v1.0.0` (e o
+   número correto no empacotado).
+2. **Geometria assinatura sumia nas seções densas** a 3,8%. Subida ao limite do §
+   (~4,8%, ainda < 5%) — vira assinatura de fato sem competir com os dados.
+3. **Halo do logo pesava no tema claro** (azul saturado sobre papel). Suavizado
+   (opacidades 0.40/0.50 → 0.32/0.42).
+
+**2ª passada** aplicando os 3 → **`screenshots/m3-pass2/`**; capturas finais do build
+enviado em **`screenshots/m3/`** (8 seções × 2 temas + bloqueio × 2 = 18). A faixa
+preta do PIN some nos dois temas; o rodapé fecha a base; geometria legível porém
+discreta.
+
+### INCIDENTE: jank de fundo e perda de dados no E2E — causa-raiz
+
+Depois da 2ª passada, a suíte E2E acusou **9 falhas** (todo teste que cria gasto ou
+lê dados derivados; os que não tocam gastos passavam). Duas causas compostas, ambas
+de **performance de renderização**, achadas por bissecção (baseline verde → reaplicar
+em grupos):
+
+1. **Glows com `blur-3xl` (1ª passada do Backdrop)** derrubaram o FPS; os timers dos
+   toasts (`setTimeout`) atrasavam e 3 "Gasto registrado" coexistiam onde o teste
+   esperava 1. **Corrigido:** glows viraram `radial-gradient` (custo desprezível).
+2. **Ilustração do empty state ampliada (128→160px)** empurrava páginas além da
+   altura da viewport, alternando a scrollbar e criando **oscilação de layout** — o
+   Playwright via elementos "not stable", cliques/`selectOption` perdiam a corrida e
+   os saves de dados (IPC com debounce) eram famintos: **categorias sumiam a meio da
+   jornada**. **Corrigido:** a cena voltou ao footprint original (128×76), mantendo
+   o detalhe no acento — o ganho visual sem cruzar o limiar de layout.
+
+**A lição (registrada no DECISOES):** todo efeito de fundo do M3 tem de ser
+GPU-barato (gradiente estático, não blur de área) e **não pode mudar o footprint de
+componentes reutilizados** a ponto de disparar reflow — o custo não aparece na tela,
+aparece como flakiness e corrida de estado no E2E. Só se descobre rodando a suíte.
+
+### Estado da suíte (M3)
+
+- **178 unit** (173 + 5 do seam) + **typecheck estrito** + **lint** limpos.
+- **30 E2E verdes** (os 29 + o novo **23b** de persistência de seção), **zero erros
+  de console**.
+- **Smoke verde** (janela em ~401ms). **Perf 50k** (quente): boot **417ms**; seções
+  60–343ms (as de gráfico um pouco acima pelo drop-shadow das linhas, dentro do
+  envelope de 35–406ms da auditoria original); navegar 12 meses **103ms/clique**.
+  Os fundos novos são `radial-gradient`/SVG estáticos — **sem regressão de FPS**.
+
+---
+
 ## M2 — segurança (roadmap v2.0) — 18/07/2026
 
 ### §a — privacidade por máscara (substitui o blur)

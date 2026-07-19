@@ -666,6 +666,25 @@ test('23. sem rede: app funciona, taxas antigas seguem valendo e o manual vira o
   await page.keyboard.press('Escape')
 })
 
+test('23b. persistência: reabrir volta à última seção, ainda bloqueado (M3)', async () => {
+  // Vou para uma seção distinta da inicial.
+  await goTo('Caixinhas')
+  await expect(page.locator('aside button[aria-current="page"]')).toContainText('Caixinhas')
+
+  // Reinicia o app como um "fechar e reabrir": `page.reload()` reexecuta o
+  // renderer (React remonta, o uiStore reidrata do localStorage) sem relançar um
+  // 2º processo Electron sobre o mesmo perfil — o que esbarraria no lock do
+  // LevelDB/pin. O `securityStore` NÃO é persistido, então o app renasce
+  // BLOQUEADO (auto-bloqueio ao abrir), exatamente como num restart real.
+  await page.reload()
+  await page.getByRole('heading', { name: 'Zent Money', exact: true }).waitFor({ timeout: 20_000 })
+  await enterPin('5678') // o teste 21 já alterou o PIN de 1234 para 5678
+  await page.waitForSelector('aside', { timeout: 20_000 })
+
+  // A seção restaurada é Caixinhas (persistida), não o padrão "Visão geral".
+  await expect(page.locator('aside button[aria-current="page"]')).toContainText('Caixinhas')
+})
+
 test('24. zero erros de console/runtime em toda a sessão', () => {
   expect(consoleErrors, `Erros de console:\n${consoleErrors.join('\n')}`).toHaveLength(0)
 })

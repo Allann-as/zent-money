@@ -2,6 +2,73 @@
 
 Registro das decisões tomadas onde a especificação deixou eixos livres.
 
+## M3 — direção de arte final (roadmap v2.0)
+
+### Fundo é `radial-gradient`, nunca `blur()` de área (§Fundo)
+
+- **Os glows do `<Backdrop>` são gradientes radiais estáticos, não divs borrados.**
+  A 1ª passada usou `blur-3xl` em elementos de 900px por seção e isso **custou FPS
+  de verdade** — o E2E lentificou ~6× e os timers dos toasts atrasaram. É a mesma
+  disciplina da R3 ("sem blur de área gigante", ver [[ledger-hibrido]] só como
+  exemplo de decisão documentada): um efeito de fundo tem de ser composto pela GPU
+  numa passada. Blur de área cheia re-renderiza a cada frame em que algo muda atrás.
+- **O `<Backdrop>` pinta a própria base** (`--bg` + `--bg-grad`), em vez de confiar
+  no `background-attachment: fixed` do body. Foi essa dependência que deixou a tela
+  de PIN com o terço inferior morto (a "faixa preta" da QA do M2). Pintar a base num
+  elemento `fixed inset-0` garante 100% de cobertura em qualquer resolução.
+- **Geometria assinatura no teto de 5% (usei ~4,8%).** A 3,8% da 1ª passada ela
+  sumia nas seções densas; o § proíbe passar de 5%, então fica no limite — presença
+  de assinatura sem competir com os dados, e sempre cortada pela borda.
+
+### Tela de PIN: centro óptico, não âncora no topo (ajuste do usuário)
+
+- O problema era o **terço inferior vazio**. Ancorar tudo no topo o manteria; então
+  a composição é **centrada opticamente (~45%, viés leve pra cima)** com um **rodapé
+  de versão discreto** fechando a base. O cofre respira no centro e a base não fica
+  órfã.
+
+### Sidebar: 3 grupos fixos (mapeamento aprovado)
+
+- *Dia a dia* (Visão geral·Ganhos·Gastos) · *Crédito* (Bancos·Parcelas) ·
+  *Patrimônio* (Carteira·Caixinhas·Linha do tempo). O tema saiu do menu de perfil
+  para o **cluster inferior** (busca·privacidade·tema), mas o switch do perfil
+  **permanece** — dois caminhos para o tema não brigam e o E2E do menu segue válido.
+
+### Empty state: enriquecer SEM mudar o footprint
+
+- A cena ganhou **detalhe no acento** (ponto final "aceso") mas **manteve 128×76**.
+  Ampliá-la para 160px empurrava páginas além da viewport, alternava a scrollbar e
+  disparava **oscilação de layout** que, no E2E, faminava os saves de dados (IPC com
+  debounce) e **sumia com categorias a meio da jornada**. **Regra:** um componente
+  reutilizado em dezenas de telas não muda de tamanho sem medir o efeito na suíte —
+  o custo não é visual, é reflow e corrida de estado. As ilustrações **por seção**
+  do § ficam adiadas por isso (a cena única enriquecida atende sem o risco); reabrir
+  só com investigação dedicada do limiar de layout.
+
+### Backdrop de modal escurece, mas não satura (§Micro)
+
+- O § pede "escurece E satura". A saturação/brilho via `backdrop-filter` re-renderiza
+  a cada frame enquanto algo anima atrás (count-up, toasts) — o mesmo custo do blur.
+  Fica só o **escurecer** (via `--backdrop`), que não custa nada. Coerência com a
+  decisão do fundo: nenhum filtro de área cheia no caminho quente.
+
+### Guarda de produção do seam `ZENT_NO_LOCK`
+
+- **A decisão de honrar o seam vive no MAIN**, não no preload: só o main conhece
+  `app.isPackaged`. Ele resolve `!isPackaged && env==='1'` e envia o booleano ao
+  preload via `additionalArguments`. No app instalado o preload recebe sempre
+  `false` — nenhuma variável de ambiente destrava o bloqueio. Provado por teste,
+  incluindo o caso empacotado. Ver [[reprovados]] (o PIN como barreira visual segue
+  valendo; a criptografia continua arquivada).
+
+### Persistir `activeView`, não `activeYm`
+
+- Fechar e reabrir volta à **seção** (como o re-lock por inatividade já fazia, porque
+  o store não é resetado). Mas o **mês** reabre no corrente de propósito — retomar em
+  julho quando estou navegando em janeiro seria surpresa, não conveniência. O
+  `bankDetailId` também não persiste: uma seção 'banks' reabre na lista, nunca num
+  drill-down órfão.
+
 ## M2 — segurança (roadmap v2.0)
 
 ### Privacidade por máscara (§a)

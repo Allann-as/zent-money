@@ -72,10 +72,11 @@ export function PinPad({
           <span
             key={i}
             className={cn(
-              'h-3.5 w-3.5 rounded-full border transition-all duration-150',
+              'h-3.5 w-3.5 rounded-full border-[1.5px] transition-all duration-150',
               i < value.length
-                ? 'bg-primary border-primary shadow-[0_0_10px_var(--primary-soft)]'
-                : 'border-line-strong bg-transparent',
+                ? 'bg-primary border-primary scale-110 shadow-[0_0_12px_2px_var(--primary-soft)]'
+                : // vazia com mais contraste (reparo do M2): borda forte + miolo sutil
+                  'border-line-strong bg-surface-2/70',
             )}
           />
         ))}

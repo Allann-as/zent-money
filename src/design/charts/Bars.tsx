@@ -148,15 +148,22 @@ export function Bars({
         <line x1={PAD_L} x2={W - PAD_R} y1={zeroY} y2={zeroY} stroke={theme.border} strokeWidth="1.25" />
 
         {data.map((g, gi) => (
-          <g key={gi} opacity={hover === null || hover === gi ? 1 : 0.45} style={{ transition: 'opacity 120ms' }}>
+          <g
+            key={gi}
+            opacity={hover === null || hover === gi ? 1 : 0.45}
+            style={{
+              transition: 'opacity 120ms, filter 120ms',
+              // hover +15% de brilho no grupo sob o cursor (M3 §Gráficos)
+              filter: hover === gi ? 'brightness(1.15)' : undefined,
+            }}
+          >
             {g.values.map((v, si) => {
               const bx = PAD_L + gi * groupW + barGap + si * barW
               const h = Math.max(0.5, Math.abs(v) * scale)
               const w = Math.max(1, barW - 1.5)
               const fill = colorFor ? colorFor(g, v) : (palette[si] ?? theme.primary)
-              // topo arredondado (padrão da referência); barras negativas
-              // arredondam a ponta de baixo
-              const r = Math.min(w / 2, 5, h)
+              // topo arredondado 6px (M3); barras negativas arredondam a ponta de baixo
+              const r = Math.min(w / 2, 6, h)
               const d =
                 v >= 0
                   ? `M ${bx} ${zeroY} v ${-(h - r)} q 0 ${-r} ${r} ${-r} h ${w - 2 * r} q ${r} 0 ${r} ${r} v ${h - r} Z`

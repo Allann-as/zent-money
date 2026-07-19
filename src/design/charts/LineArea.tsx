@@ -93,10 +93,15 @@ export function LineArea({
         aria-label="Gráfico de evolução"
       >
         <defs>
+          {/* área 18→0 (M3 §Gráficos) */}
           <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor={stroke} stopOpacity="0.28" />
-            <stop offset="1" stopColor={stroke} stopOpacity="0.02" />
+            <stop offset="0" stopColor={stroke} stopOpacity="0.18" />
+            <stop offset="1" stopColor={stroke} stopOpacity="0" />
           </linearGradient>
+          {/* drop-shadow 4px a 30% sob a linha (M3 §Gráficos) */}
+          <filter id={`${gradId}-sh`} x="-10%" y="-20%" width="120%" height="140%">
+            <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor={stroke} floodOpacity="0.3" />
+          </filter>
         </defs>
 
         {gridLines.map((g) => (
@@ -132,16 +137,18 @@ export function LineArea({
         />
 
         <path d={areaPath} fill={`url(#${gradId})`} className="anim-fade-in" />
-        {/* a linha "se escreve" na primeira renderização (§5) */}
+        {/* a linha "se escreve" na primeira renderização — 2.5px com drop-shadow (M3) */}
         <path
           d={linePath}
           fill="none"
           stroke={stroke}
-          strokeWidth="2.25"
+          strokeWidth="2.5"
+          strokeLinecap="round"
           strokeLinejoin="round"
+          filter={`url(#${gradId}-sh)`}
           pathLength={1}
           strokeDasharray={1}
-          style={{ animation: 'zent-draw 700ms var(--ease-out-quint) both' }}
+          style={{ animation: 'zent-draw 600ms var(--ease-out-quint) both' }}
         />
 
         {hoverIdx !== null && data[hoverIdx] && (
