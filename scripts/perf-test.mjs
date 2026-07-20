@@ -97,7 +97,11 @@ delete env.ELECTRON_RUN_AS_NODE
 const app = await electron.launch({ args: ['out/main/main.js'], env })
 const page = await app.firstWindow()
 
+// A seção inicial padrão passou a ser "Hoje" (v2.1 §2); medimos o boot até a
+// Visão geral navegando até ela, como um usuário faria.
 const t0 = Date.now()
+await page.waitForSelector('aside', { timeout: 30000 })
+await page.click('aside >> text="Visão geral"')
 await page.waitForSelector('text=Patrimônio total', { timeout: 30000 })
 console.log(`Boot até a Visão geral renderizada: ${Date.now() - t0}ms`)
 

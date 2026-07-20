@@ -87,6 +87,30 @@ OneDrive) mesmo não sendo a causa — um projeto de build sincronizado é risco
 conhecido (ver "Infra local" no DECISOES). `C:\dev\zent-money` é o diretório de
 trabalho oficial daqui em diante.
 
+## Gráficos refinados (v2.1) — milestone ③ — 20/07/2026
+
+Elevação visual dos gráficos existentes (§3), sem lógica nova — reusam os
+cálculos que já existem (`byCategory`, `monthPace`, progresso das caixinhas).
+
+- **Espectro de gastos** (Gastos → Resumo por categoria, modo barras): cada barra
+  ganhou **gradiente dim→cor da categoria** + brilho na ponta (box-shadow + tampa
+  clara estática, GPU-barato — nada de blur de área, lição do M3). Mantém o toggle
+  rosca/barras do M1b e o clique-para-filtrar.
+- **Ritmo de queima** (Visão geral → Ritmo do mês): a média diária virou
+  **número-herói âmbar com "/dia"** (`hero-num`), com a projeção de fechamento e a
+  comparação com o mês anterior ao lado. Mesmo `monthPace`, só destaque visual.
+- **Marcos da trajetória em RÉGUA** (Caixinhas): cada caixinha ganhou uma régua de
+  progresso — linha que **preenche em gradiente âmbar→ciano** até a posição atual,
+  marcos como pontos (concluídos âmbar, futuros cinza) e o ponto ciano **"você
+  está aqui"**. Substitui os quadradinhos soltos; **sem a "nave"** (que nunca
+  existiu no código — o "sem nave" já estava satisfeito). O anel (identidade da
+  caixinha) permanece; a régua acrescenta a leitura de marcos.
+
+**Estado da suíte (③ gráficos):** typecheck ✓ · lint ✓ · **222 unit** ✓ ·
+**35 E2E** ✓ · smoke ✓ · **perf 50k**: navegar 12 meses **177ms/clique**
+(elevado vs ~123 do baseline, mas dentro do envelope histórico e imperceptível;
+máquina sob carga contínua da sessão). Screenshots em `screenshots/m9-charts/`.
+
 ## Tela "Hoje" (v2.1) — milestone ② loop diário — 20/07/2026
 
 Nova seção **Hoje**, primeira da navegação e **seção inicial padrão** (é o que

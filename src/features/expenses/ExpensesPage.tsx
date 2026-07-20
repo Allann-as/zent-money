@@ -248,14 +248,24 @@ export function ExpensesPage(): ReactNode {
                           {formatPercent(pct, 0)}
                         </span>
                       </div>
-                      <div className="h-2 rounded-full bg-surface-2 overflow-hidden">
+                      {/* Espectro (v2.1 §3): barra com gradiente dim→cor da categoria
+                          e brilho na ponta. O brilho é box-shadow + uma tampa clara
+                          estática (não blur de área) — GPU-barato (lição do M3). */}
+                      <div className="h-2.5 rounded-full bg-surface-2 overflow-hidden">
                         <div
-                          className="h-full rounded-full transition-[width] duration-300"
+                          className="h-full rounded-full transition-[width] duration-300 relative"
                           style={{
                             width: `${summary.max > 0 ? (total / summary.max) * 100 : 0}%`,
-                            background: category.color,
+                            background: `linear-gradient(90deg, color-mix(in srgb, ${category.color} 32%, transparent), ${category.color})`,
+                            boxShadow: `0 0 10px -2px color-mix(in srgb, ${category.color} 70%, transparent)`,
                           }}
-                        />
+                        >
+                          <span
+                            aria-hidden="true"
+                            className="absolute right-0 top-0 bottom-0 w-2 rounded-full"
+                            style={{ background: 'color-mix(in srgb, #ffffff 30%, transparent)' }}
+                          />
+                        </div>
                       </div>
                     </button>
                   </li>

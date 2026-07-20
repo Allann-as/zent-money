@@ -215,6 +215,10 @@ export function BoxesPage(): ReactNode {
                   <span className="text-ink-faint"> / {brl(c.box.target)}</span>
                 </p>
 
+                {/* Marcos em régua de progresso (v2.1 §3): a trajetória vira uma
+                    linha que preenche até onde você chegou — sem "nave". */}
+                <MilestoneRuler ratio={c.ratio} target={c.box.target} complete={complete} brl={brl} />
+
                 <p className="text-[12px] text-ink-soft mt-2 min-h-[18px]">
                   {complete
                     ? 'Meta batida!'
@@ -243,6 +247,77 @@ export function BoxesPage(): ReactNode {
 
       <BoxDialog state={dialog} onClose={() => setDialog('closed')} />
     </>
+  )
+}
+
+/**
+ * Marcos da trajetória em RÉGUA de progresso (v2.1 §3): uma linha horizontal que
+ * preenche (gradiente âmbar→ciano) até a posição atual; os marcos são pontos na
+ * linha — concluídos em âmbar, futuros em cinza — e a posição de agora é o ponto
+ * ciano "você está aqui". Substitui os quadradinhos soltos; sem a "nave".
+ */
+function MilestoneRuler({
+  ratio,
+  target,
+  complete,
+  brl,
+}: {
+  ratio: number
+  target: number
+  complete: boolean
+  brl: (c: number) => string
+}): ReactNode {
+  const clamped = Math.max(0, Math.min(1, ratio))
+  const marks = [0, 0.25, 0.5, 0.75, 1] as const
+  return (
+    <div className="w-full mt-3 px-1">
+      <div className="relative h-3">
+        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[2px] rounded-full bg-line" />
+        <div
+          className="absolute left-0 top-1/2 -translate-y-1/2 h-[2px] rounded-full"
+          style={{
+            width: `${clamped * 100}%`,
+            background: complete
+              ? 'var(--pos)'
+              : 'linear-gradient(90deg, var(--primary), var(--pos))',
+            transition: 'width 500ms cubic-bezier(0.16, 1, 0.3, 1)',
+          }}
+        />
+        {marks.map((f) => {
+          const done = f <= clamped + 1e-9
+          return (
+            <span
+              key={f}
+              aria-hidden="true"
+              className="absolute top-1/2 h-2 w-2 rounded-full -translate-x-1/2 -translate-y-1/2 border"
+              style={{
+                left: `${f * 100}%`,
+                background: done ? 'var(--primary)' : 'var(--surface-3)',
+                borderColor: done ? 'var(--primary)' : 'var(--border)',
+              }}
+            />
+          )
+        })}
+        {/* "você está aqui" — ponto ciano na posição atual */}
+        <span
+          aria-hidden="true"
+          className="absolute top-1/2 h-3 w-3 rounded-full -translate-x-1/2 -translate-y-1/2"
+          style={{
+            left: `${clamped * 100}%`,
+            background: 'var(--pos)',
+            boxShadow: '0 0 10px color-mix(in srgb, var(--pos) 70%, transparent)',
+            transition: 'left 500ms cubic-bezier(0.16, 1, 0.3, 1)',
+          }}
+        />
+      </div>
+      <div className="flex justify-between items-baseline text-[10px] tnum mt-1.5">
+        <span className="text-ink-faint">{brl(0)}</span>
+        <span className={cn('font-semibold', complete ? 'text-pos' : 'text-pos')}>
+          {complete ? 'meta batida' : 'você está aqui'}
+        </span>
+        <span className="text-ink-faint">{brl(target)}</span>
+      </div>
+    </div>
   )
 }
 

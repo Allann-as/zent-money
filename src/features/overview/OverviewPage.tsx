@@ -459,15 +459,18 @@ export function OverviewPage(): ReactNode {
             </p>
           ) : (
             <>
+              {/* Ritmo de queima (v2.1 §3): a média diária vira número-herói
+                  âmbar com "/dia"; a projeção de fechamento fica ao lado. */}
               <div className="flex items-baseline gap-6">
                 <div>
-                  <p className="font-display text-[24px] font-bold text-ink tnum leading-tight">
+                  <p className="font-display text-[30px] font-extrabold text-primary tnum leading-none hero-num">
                     <AnimatedMoney cents={pace.avgPerDay} />
+                    <span className="text-[15px] font-bold text-ink-soft">/dia</span>
                   </p>
-                  <p className="label-caps mt-1">Gasto médio por dia</p>
+                  <p className="label-caps mt-1.5">Ritmo de queima</p>
                 </div>
                 <div>
-                  <p className="font-display text-[24px] font-bold tnum leading-tight text-ink">
+                  <p className="font-display text-[22px] font-bold tnum leading-tight text-ink">
                     <AnimatedMoney cents={pace.projected} />
                   </p>
                   <p className="label-caps mt-1">{pace.closed ? 'Fechamento' : 'Projeção de fechamento'}</p>
