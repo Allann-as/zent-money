@@ -15,7 +15,7 @@ const RATES: Rates = {
 }
 
 function contrib(date: string, amount: number, investmentId = 'inv1'): Contribution {
-  return { id: `c-${date}-${amount}`, investmentId, date, amount }
+  return { id: `c-${date}-${amount}`, investmentId, date, amount, fromBankId: null }
 }
 
 describe('taxas', () => {

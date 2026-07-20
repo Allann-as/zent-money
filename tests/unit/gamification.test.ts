@@ -28,7 +28,7 @@ describe('conquistas (M4)', () => {
 
   it('retroativo: desbloqueia o que já está satisfeito, com data', () => {
     const d = createSeedData()
-    d.contributions = [{ id: 'c1', investmentId: 'i1', date: '2026-07-05', amount: 200_000 }] // 2k
+    d.contributions = [{ id: 'c1', investmentId: 'i1', date: '2026-07-05', amount: 200_000, fromBankId: null }] // 2k
     d.meta.lastManualExport = '2026-07-01'
     const met = metAchievementIds(d, '2026-07')
     expect(met.has('first-contribution')).toBe(true)
@@ -45,7 +45,7 @@ describe('conquistas (M4)', () => {
 
   it('idempotente: reavaliar não desbloqueia de novo', () => {
     const d = createSeedData()
-    d.contributions = [{ id: 'c1', investmentId: 'i1', date: '2026-07-05', amount: 50_000 }]
+    d.contributions = [{ id: 'c1', investmentId: 'i1', date: '2026-07-05', amount: 50_000, fromBankId: null }]
     const first = evaluateAchievements(d, '2026-07', '2026-07-18')
     d.gamification.achievements = first.unlocked
     const second = evaluateAchievements(d, '2026-07', '2026-07-19')

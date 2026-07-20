@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ZentData } from '@/data/schema'
 import {
   addAdjustment,
+  addBoxTransfer,
   addBudgetReallocation,
   addContribution,
   addExpense,
@@ -11,6 +12,7 @@ import {
   addSalaryCredit,
   addTransfer,
   removeAdjustment,
+  removeBoxTransfer,
   removeBudgetReallocation,
   removeContribution,
   removeExpense,
@@ -20,7 +22,7 @@ import {
   removeSalaryCredit,
   removeTransfer,
 } from '@/store/mutations'
-import { bankBalances, totalInAccounts } from '@/engine/ledger'
+import { bankBalances, boxStoredAmount, totalInAccounts } from '@/engine/ledger'
 import { expensesByCategory, incomeByMonth } from '@/engine/aggregations'
 import { effectiveLimit } from '@/engine/budget'
 import { standaloneMonthlyCommitment, totalInvoices, totalMonthlyCommitment } from '@/engine/cards'
@@ -43,7 +45,7 @@ const MONTH = '2026-07'
 /** Base v7 com dois bancos, um cartão e uma aplicação — o palco dos lançamentos. */
 function baseData(over: Partial<ZentData> = {}): ZentData {
   return {
-    version: 9,
+    version: 10,
     profile: { name: 'Allan' },
     rates: {
       selic: 14.25,
@@ -74,7 +76,8 @@ function baseData(over: Partial<ZentData> = {}): ZentData {
       { id: 'i1', name: 'Tesouro', bankId: 'b1', rateType: 'selic', rateParam: 0, valueUpdates: [] },
     ],
     contributions: [],
-    boxes: [],
+    boxes: [{ id: 'box1', icon: 'target', name: 'Reserva', target: 500_00, investmentId: null, manualAmount: 300_00, celebrated: false }],
+    boxTransfers: [],
     recurringExpenses: [],
     recurringIncomes: [],
     gamification: { achievements: [], activeChallenge: null, challengeHistory: [] },
@@ -112,6 +115,7 @@ function appNumbers(d: ZentData): Record<string, unknown> {
     standalone: standaloneMonthlyCommitment(d.purchases),
     invested,
     patrimonio: inAccounts + invested,
+    boxStored: boxStoredAmount('box1', 300_00, d.boxTransfers),
   }
 }
 
@@ -184,8 +188,26 @@ const cases: Case[] = [
   },
   {
     name: 'aporte',
-    create: (d) => addContribution(d, { id: ID, investmentId: 'i1', date: '2026-07-08', amount: 500_00 }),
+    create: (d) => addContribution(d, { id: ID, investmentId: 'i1', date: '2026-07-08', amount: 500_00, fromBankId: null }),
     remove: (d) => removeContribution(d, ID),
+    fullNeutral: true,
+  },
+  {
+    name: 'aporte com conta de origem (§5)',
+    create: (d) => addContribution(d, { id: ID, investmentId: 'i1', date: '2026-07-08', amount: 500_00, fromBankId: 'b1' }),
+    remove: (d) => removeContribution(d, ID),
+    fullNeutral: true,
+  },
+  {
+    name: 'guardar na caixinha (§4)',
+    create: (d) => addBoxTransfer(d, { id: ID, boxId: 'box1', bankId: 'b1', amount: 200_00, date: '2026-07-10', direction: 'in' }),
+    remove: (d) => removeBoxTransfer(d, ID),
+    fullNeutral: true,
+  },
+  {
+    name: 'resgatar da caixinha (§4)',
+    create: (d) => addBoxTransfer(d, { id: ID, boxId: 'box1', bankId: 'b2', amount: 100_00, date: '2026-07-11', direction: 'out' }),
+    remove: (d) => removeBoxTransfer(d, ID),
     fullNeutral: true,
   },
   {

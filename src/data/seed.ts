@@ -74,6 +74,7 @@ export function createSeedData(): ZentData {
         celebrated: false,
       },
     ],
+    boxTransfers: [],
     recurringExpenses: [],
     recurringIncomes: [],
     gamification: { achievements: [], activeChallenge: null, challengeHistory: [] },

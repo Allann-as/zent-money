@@ -87,6 +87,34 @@ OneDrive) mesmo não sendo a causa — um projeto de build sincronizado é risco
 conhecido (ver "Infra local" no DECISOES). `C:\dev\zent-money` é o diretório de
 trabalho oficial daqui em diante.
 
+## Guardar/Resgatar + BankPicker (v2.1) — milestone ④ — 20/07/2026
+
+Schema **v10**. Movimento de dinheiro entre conta e caixinha, e o seletor de
+banco com logo em todos os formulários. Nada de saldo redundante — tudo derivado.
+
+- **Guardar/Resgatar** (§4) para caixinhas **manuais** (as vinculadas a
+  investimento movimentam por aportes na Carteira — decisão documentada). É uma
+  **transferência real**: `boxTransfer` (in=Guardar, out=Resgatar) debita/credita
+  a conta pelo ledger e o guardado da caixinha é `manualAmount + Σin − Σout`
+  (`boxStoredAmount`). A UI mostra o **fluxo** (−origem → +destino) antes de
+  confirmar; conta zerada fica **desabilitada** ("sem saldo") no Guardar; não se
+  resgata mais do que há guardado.
+- **Aporte com conta de origem** (§5): `contribution.fromBankId` (null = aporte
+  antigo, sem débito — retrocompatível). Com conta escolhida, o aporte debita a
+  conta pelo ledger, como Guardar.
+- **`<BankPicker>`** (§5): componente único em estilo lista com **logo real do
+  banco** (assets/logos/, fallback monograma), nome e contexto (saldo/fatura);
+  opção inválida desabilitada **com o motivo à mostra**. Usado em Guardar,
+  Resgatar, aporte, "pago com" do gasto e "recebido em" do ganho.
+- **Ledger** (`bankBalances`, `bankMovements`, `accountBalanceSeries`,
+  `isLedgerLinked`) agora inclui box transfers e aportes-com-conta. Migração
+  v9→v10 invisível (boxTransfers vazio; aportes ganham `fromBankId: null`).
+
+**Estado da suíte (④):** typecheck ✓ · lint ✓ · **225 unit** ✓ (invariante
+criar→excluir cobre Guardar, Resgatar e aporte-com-conta; migração v1→v10) ·
+**36 E2E** ✓ (novo **22b**: Guardar/Resgatar com BankPicker, conta zerada
+bloqueada, efeito líquido zero) · smoke ✓. Screenshots em `screenshots/m10-guardar/`.
+
 ## Gráficos refinados (v2.1) — milestone ③ — 20/07/2026
 
 Elevação visual dos gráficos existentes (§3), sem lógica nova — reusam os

@@ -10,7 +10,7 @@ import { z } from 'zod'
  *   (`openingBalance`) e os MOVIMENTOS; o saldo sai da soma (ver engine/ledger.ts).
  */
 
-export const DATA_VERSION = 9
+export const DATA_VERSION = 10
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'data ISO YYYY-MM-DD')
 const ym = z.string().regex(/^\d{4}-\d{2}$/, 'mês YYYY-MM')
@@ -229,6 +229,29 @@ export const contributionSchema = z.object({
   investmentId: z.string(),
   date: isoDate,
   amount: cents.positive(),
+  /**
+   * Conta de onde o aporte saiu (v10); null = aporte antigo, sem vínculo — não
+   * debita conta nenhuma (retrocompatível). Quando preenchido, o ledger debita
+   * essa conta, como Guardar numa caixinha.
+   */
+  fromBankId: z.string().nullable(),
+})
+
+/**
+ * Movimento de Guardar/Resgatar de uma caixinha MANUAL (v10 — §4). É uma
+ * transferência real entre conta e caixinha, registrada nos dois lados:
+ *  - `in`  (Guardar):  debita a conta, credita a caixinha;
+ *  - `out` (Resgatar): sai da caixinha, credita a conta.
+ * O saldo da conta é DERIVADO daqui (ledger), e o guardado da caixinha manual é
+ * `manualAmount + Σ in − Σ out` — nada de saldo redundante (disciplina da R4).
+ */
+export const boxTransferSchema = z.object({
+  id: z.string(),
+  boxId: z.string(),
+  bankId: z.string(),
+  amount: cents.positive(),
+  date: isoDate,
+  direction: z.enum(['in', 'out']),
 })
 
 export const boxSchema = z.object({
@@ -367,6 +390,8 @@ export const zentDataSchema = z.object({
   investments: z.array(investmentSchema),
   contributions: z.array(contributionSchema),
   boxes: z.array(boxSchema),
+  /** Movimentos de Guardar/Resgatar das caixinhas manuais (v10). */
+  boxTransfers: z.array(boxTransferSchema),
   recurringExpenses: z.array(recurringExpenseSchema),
   recurringIncomes: z.array(recurringIncomeSchema),
   /** Gamificação sóbria (v9 — M4): conquistas + desafio. Score/streak são derivados. */
@@ -405,6 +430,7 @@ export type Purchase = z.infer<typeof purchaseSchema>
 export type Investment = z.infer<typeof investmentSchema>
 export type Contribution = z.infer<typeof contributionSchema>
 export type Box = z.infer<typeof boxSchema>
+export type BoxTransfer = z.infer<typeof boxTransferSchema>
 export type Rates = z.infer<typeof ratesSchema>
 export type ValueUpdate = z.infer<typeof valueUpdateSchema>
 export type RecurringExpense = z.infer<typeof recurringExpenseSchema>

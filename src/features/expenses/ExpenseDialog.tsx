@@ -3,9 +3,11 @@ import { Modal } from '@/design/components/Modal'
 import { Button } from '@/design/components/Button'
 import { Field, Input, MoneyInput } from '@/design/components/Input'
 import { Select } from '@/design/components/Select'
+import { BankPicker, type BankPickerOption } from '@/design/components/BankPicker'
 import { toast } from '@/design/components/toast'
 import { useDataStore, useZentData } from '@/store/dataStore'
 import { useBRL } from '@/design/money'
+import { bankBalances } from '@/engine/ledger'
 import { todayIso, ymOfDate } from '@/engine/dates'
 import { effectiveLimit } from '@/engine/budget'
 import { newId } from '@/lib/id'
@@ -71,6 +73,32 @@ export function ExpenseDialog({
   if (!open && openedFor !== 'closed') setOpenedFor('closed')
 
   const originCardId = origin.startsWith('card:') ? origin.slice(5) : null
+
+  // Origem "pago com" no BankPicker (§5): "Sem origem" neutro + contas (com saldo)
+  // + cartões (logo do banco, contexto da fatura). Aqui NÃO se desabilita conta
+  // zerada — um gasto pode deixar a conta negativa (o app permite e o histórico
+  // denuncia); a trava de saldo é só onde se CEDE dinheiro (Guardar/aporte).
+  const balances = bankBalances(data)
+  const originOptions: BankPickerOption[] = [
+    { id: '', name: 'Sem origem', logoName: '', logoColor: '#000', neutral: true, subtitle: 'não debita conta nem cartão' },
+    ...data.banks.map((b) => ({
+      id: `bank:${b.id}`,
+      name: b.name,
+      logoName: b.name,
+      logoColor: b.color,
+      subtitle: `saldo ${brl(balances.get(b.id) ?? 0)}`,
+    })),
+    ...data.cards.map((c) => {
+      const bank = data.banks.find((b) => b.id === c.bankId)
+      return {
+        id: `card:${c.id}`,
+        name: `${c.name}${bank ? ` · ${bank.name}` : ''}`,
+        logoName: bank?.name ?? c.name,
+        logoColor: bank?.color ?? '#888',
+        subtitle: `fatura ${brl(c.invoice)}`,
+      }
+    }),
+  ]
 
   const valid = categoryId !== '' && amount !== null && amount > 0 && date !== ''
 
@@ -251,38 +279,15 @@ export function ExpenseDialog({
           </Field>
           {/* R3 §3.4 — opcional: habilita as análises por banco */}
           <Field label="Pago com (opcional)">
-            <Select
+            <BankPicker
+              options={originOptions}
               value={origin}
-              onChange={(e) => {
-                setOrigin(e.target.value)
-                if (!e.target.value.startsWith('card:')) setAddToInvoice(false)
+              onChange={(id) => {
+                setOrigin(id)
+                if (!id.startsWith('card:')) setAddToInvoice(false)
               }}
-              aria-label="Pago com"
-            >
-              <option value="">Sem origem</option>
-              {data.banks.length > 0 && (
-                <optgroup label="Contas">
-                  {data.banks.map((b) => (
-                    <option key={b.id} value={`bank:${b.id}`}>
-                      {b.name}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-              {data.cards.length > 0 && (
-                <optgroup label="Cartões">
-                  {data.cards.map((c) => {
-                    const bank = data.banks.find((b) => b.id === c.bankId)
-                    return (
-                      <option key={c.id} value={`card:${c.id}`}>
-                        {c.name}
-                        {bank ? ` · ${bank.name}` : ''}
-                      </option>
-                    )
-                  })}
-                </optgroup>
-              )}
-            </Select>
+              ariaLabel="Pago com"
+            />
           </Field>
         </div>
         {originCardId !== null && !editing && (

@@ -497,8 +497,9 @@ test('19b. gasto com "Pago com" entra nas análises do banco de origem', async (
   await dialog.getByLabel('Categoria').selectOption({ label: 'Mercado' })
   await dialog.getByPlaceholder('Ex.: Compras da semana').fill('Compra no cartão')
   await dialog.getByRole('textbox', { name: 'Valor do gasto' }).fill('250')
-  // "Ultravioleta" foi criado no teste 8, no primeiro banco (Nubank)
-  await dialog.getByLabel('Pago com').selectOption({ label: 'Ultravioleta · Nubank' })
+  // "Ultravioleta" foi criado no teste 8, no primeiro banco (Nubank).
+  // "Pago com" agora é um BankPicker (§5): escolhe-se clicando a opção.
+  await dialog.getByRole('radio', { name: /Ultravioleta/ }).click()
   await dialog.getByRole('button', { name: 'Adicionar' }).click()
   await expect(page.getByText('Gasto registrado')).toBeVisible()
 
@@ -650,8 +651,9 @@ test('22. ledger: salário credita, gasto debita, transferência e ajuste fecham
   dialog = page.getByRole('dialog')
   await dialog.getByLabel('Categoria').selectOption({ label: 'Mercado' })
   await dialog.getByPlaceholder('Ex.: Compras da semana').fill('Feira paga pela conta')
+  // "Pago com" agora é BankPicker (§5) — a conta é escolhida clicando a opção.
   await dialog.getByRole('textbox', { name: 'Valor do gasto' }).fill('100')
-  await dialog.getByLabel('Pago com').selectOption({ label: 'Nubank' })
+  await dialog.getByRole('radio', { name: /Nubank saldo/ }).click()
   await dialog.getByRole('button', { name: 'Adicionar' }).click()
   await goTo('Bancos & Cartões')
   await expect(page.getByRole('button', { name: /editar saldo do nubank/i })).toContainText('R$ 3.400,00')
@@ -684,6 +686,31 @@ test('22. ledger: salário credita, gasto debita, transferência e ajuste fecham
   await expect(page.getByText('Crédito desfeito')).toBeVisible()
   await expect(page.getByText('Saldo atual da conta').locator('..')).toContainText('R$ 1.000,00')
   await page.getByRole('button', { name: 'Voltar para Bancos & Cartões' }).click()
+})
+
+/**
+ * §4 — Guardar/Resgatar com BankPicker. Roda DEPOIS do teste 22 (Nubank já tem
+ * saldo do ledger) e é de EFEITO LÍQUIDO ZERO no saldo: guarda e resgata o mesmo
+ * valor, para não bagunçar as asserções de saldo dos testes seguintes.
+ */
+test('22b. caixinhas: Guardar/Resgatar com BankPicker, conta zerada bloqueada (§4)', async () => {
+  await goTo('Caixinhas')
+  await page.getByRole('button', { name: 'Guardar', exact: true }).first().click()
+  let dialog = page.getByRole('dialog')
+  await dialog.getByRole('textbox', { name: 'Valor a guardar' }).fill('120')
+  // Conta zerada aparece desabilitada ("sem saldo") — não se cede o que não se tem.
+  await expect(dialog.getByRole('radio', { name: /Bradesco/ })).toBeDisabled()
+  await dialog.getByRole('radio', { name: /Nubank saldo/ }).click()
+  await dialog.getByRole('button', { name: /^Guardar R\$/ }).click()
+  await expect(page.getByText('Guardado', { exact: true })).toBeVisible()
+
+  // Resgatar o mesmo valor de volta ao Nubank (efeito líquido zero).
+  await page.getByRole('button', { name: 'Resgatar', exact: true }).first().click()
+  dialog = page.getByRole('dialog')
+  await dialog.getByRole('textbox', { name: 'Valor a resgatar' }).fill('120')
+  await dialog.getByRole('radio', { name: /Nubank saldo/ }).click()
+  await dialog.getByRole('button', { name: /^Resgatar R\$/ }).click()
+  await expect(page.getByText('Resgatado', { exact: true })).toBeVisible()
 })
 
 /**

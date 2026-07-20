@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Link2, Pencil, PiggyBank, Plus, Trash2 } from 'lucide-react'
+import { ArrowDownToLine, ArrowUpFromLine, Link2, Pencil, PiggyBank, Plus, Trash2 } from 'lucide-react'
 import { PageHeader } from '@/features/common/PageHeader'
 import { Card } from '@/design/components/Card'
 import { Button } from '@/design/components/Button'
@@ -14,7 +14,9 @@ import { confirmDialog } from '@/design/components/confirm'
 import { useDataStore, useZentData } from '@/store/dataStore'
 import { useUiStore } from '@/store/uiStore'
 import { investmentSnapshot } from '@/engine/investments'
+import { boxStoredAmount } from '@/engine/ledger'
 import { sumByMonth } from '@/engine/aggregations'
+import { BoxTransferDialog, type BoxTransferState } from './BoxTransferDialog'
 import { formatPercent } from '@/engine/money'
 import { useBRL } from '@/design/money'
 import { addMonths, currentYm, formatYmShort, lastMonths } from '@/engine/dates'
@@ -41,6 +43,7 @@ export function BoxesPage(): ReactNode {
   const colors = useChartColors()
   const brl = useBRL()
   const [dialog, setDialog] = useState<'closed' | 'new' | Box>('closed')
+  const [transfer, setTransfer] = useState<BoxTransferState>('closed')
 
   // Ação rápida vinda da paleta de comandos (Ctrl+K)
   const pendingAction = useUiStore((s) => s.pendingAction)
@@ -56,7 +59,8 @@ export function BoxesPage(): ReactNode {
     const now = currentYm()
     const recent = new Set(lastMonths(now, 3))
     return data.boxes.map((box) => {
-      let current = box.manualAmount
+      // Caixinha manual: guardado = base manual + Guardar/Resgatar (§4, derivado).
+      let current = boxStoredAmount(box.id, box.manualAmount, data.boxTransfers)
       let pace: number | null = null
       let investmentName: string | null = null
       if (box.investmentId) {
@@ -80,7 +84,7 @@ export function BoxesPage(): ReactNode {
       }
       return { box, current, ratio, pace, eta, investmentName }
     })
-  }, [data.boxes, data.investments, data.contributions, data.rates])
+  }, [data.boxes, data.investments, data.contributions, data.rates, data.boxTransfers])
 
   // Celebração: dispara UMA vez quando a meta é batida
   useEffect(() => {
@@ -229,6 +233,30 @@ export function BoxesPage(): ReactNode {
                         : 'Atualize o guardado para acompanhar'}
                 </p>
 
+                {/* Guardar/Resgatar — só caixinhas manuais (§4). As vinculadas a
+                    investimento movimentam por aportes na Carteira. */}
+                {c.investmentName === null && (
+                  <div className="flex gap-2 w-full mt-3">
+                    <Button
+                      variant="soft"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => setTransfer({ box: c.box, mode: 'in' })}
+                    >
+                      <ArrowDownToLine size={13} /> Guardar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      disabled={c.current <= 0}
+                      onClick={() => setTransfer({ box: c.box, mode: 'out' })}
+                    >
+                      <ArrowUpFromLine size={13} /> Resgatar
+                    </Button>
+                  </div>
+                )}
+
                 <p className="flex items-center gap-1.5 text-[11.5px] text-ink-faint mt-3 pt-3 border-t border-line w-full justify-center">
                   <Link2 size={11.5} />
                   {c.investmentName ? (
@@ -246,6 +274,7 @@ export function BoxesPage(): ReactNode {
       )}
 
       <BoxDialog state={dialog} onClose={() => setDialog('closed')} />
+      <BoxTransferDialog state={transfer} onClose={() => setTransfer('closed')} />
     </>
   )
 }

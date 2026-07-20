@@ -2,6 +2,38 @@
 
 Registro das decisões tomadas onde a especificação deixou eixos livres.
 
+## Guardar/Resgatar + BankPicker (v2.1) — ④
+
+### Guardar/Resgatar só em caixinha MANUAL; investimento usa aporte
+
+- Caixinha vinculada a investimento tem seu valor DERIVADO do investimento
+  (`investmentSnapshot`); modelar Guardar/Resgatar nela exigiria representar
+  resgate/aporte no investimento e ainda ficaria ambíguo. Então Guardar/Resgatar
+  é só para caixinha manual (`investmentId: null`), onde `manualAmount` é a linha
+  de base e os `boxTransfers` a movimentam; a vinculada movimenta por aportes na
+  Carteira (que ganharam conta de origem). Ver [[ledger-hibrido]].
+
+### boxTransfer é um EVENTO; o guardado é derivado (disciplina da R4)
+
+- Nada de gravar um "saldo guardado" ao lado dos movimentos: `boxStoredAmount =
+  manualAmount + Σin − Σout`, e o saldo da conta deriva do mesmo `boxTransfer`
+  pelo ledger. Criar→excluir é neutro por construção (apagar o evento devolve
+  conta e caixinha) — provado na invariante do M1, agora com dois casos novos.
+
+### Aporte ganhou `fromBankId` nullable (retrocompatível)
+
+- Aporte antigo (fromBankId null) não debita conta — o app de quem não usa
+  ledger segue idêntico. Com conta escolhida no BankPicker, o aporte debita como
+  Guardar. Uma opção neutra "Não debitar conta" preserva o fluxo antigo.
+
+### Um único `<BankPicker>`, mas zerada-desabilitada só onde se CEDE
+
+- O mesmo componente serve Guardar/Resgatar/aporte/gasto/ganho. Mas desabilitar
+  conta zerada só faz sentido onde se **cede** dinheiro (Guardar, aporte): num
+  gasto a conta pode ficar negativa (o app permite e o histórico denuncia), e
+  receber um ganho numa conta zerada é normal. Então a trava de saldo é por
+  formulário, não do componente.
+
 ## Tela "Hoje" (v2.1) — ② loop diário
 
 ### Limite diário auto-corretivo, e a honestidade do "sem teto"

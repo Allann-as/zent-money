@@ -16,6 +16,8 @@ import type { Ym } from './dates'
  *                  + Σ transferências recebidas − Σ transferências enviadas
  *                  − Σ pagamentos de fatura feitos por aqui
  *                  + Σ ajustes de conciliação
+ *                  − Σ Guardado em caixinha daqui + Σ Resgatado para aqui (§4)
+ *                  − Σ aportes com origem NESTA CONTA (§5)
  *
  * Guardar `balance` ao lado dos movimentos seria estado redundante livre para
  * divergir do próprio histórico — exatamente o defeito que esta release corrige.
@@ -37,6 +39,9 @@ export type MovementKind =
   | 'transfer-out'
   | 'invoice'
   | 'adjustment'
+  | 'box-in'
+  | 'box-out'
+  | 'contribution'
 
 export interface Movement {
   /** Único no histórico (prefixado pelo tipo: um transfer gera dois movimentos). */
@@ -80,6 +85,10 @@ export function bankBalances(data: ZentData): Map<string, number> {
   }
   for (const p of data.invoicePayments) add(p.bankId, -p.amount)
   for (const a of data.adjustments) add(a.bankId, a.amount)
+  // Guardar (in) debita a conta; Resgatar (out) credita (§4).
+  for (const bt of data.boxTransfers) add(bt.bankId, bt.direction === 'in' ? -bt.amount : bt.amount)
+  // Aporte com conta de origem debita (§5); aporte antigo (fromBankId null) não.
+  for (const c of data.contributions) add(c.fromBankId, -c.amount)
 
   return out
 }
@@ -110,8 +119,25 @@ export function isLedgerLinked(data: ZentData): boolean {
     data.adjustments.length > 0 ||
     data.invoicePayments.length > 0 ||
     data.extraIncomes.some((e) => e.receivedIn !== null) ||
-    data.expenses.some((e) => e.origin?.kind === 'bank')
+    data.expenses.some((e) => e.origin?.kind === 'bank') ||
+    data.boxTransfers.length > 0 ||
+    data.contributions.some((c) => c.fromBankId !== null)
   )
+}
+
+/**
+ * Guardado atual de uma caixinha MANUAL (§4): a linha de base editável à mão
+ * (`manualAmount`) mais os movimentos de Guardar/Resgatar. Derivado, nunca um
+ * saldo à parte — a mesma disciplina do saldo de conta. Para caixinha vinculada
+ * a investimento o valor vem do investimento (ver `investmentSnapshot`), não daqui.
+ */
+export function boxStoredAmount(boxId: string, manualAmount: number, transfers: readonly { boxId: string; amount: number; direction: 'in' | 'out' }[]): number {
+  let total = manualAmount
+  for (const t of transfers) {
+    if (t.boxId !== boxId) continue
+    total += t.direction === 'in' ? t.amount : -t.amount
+  }
+  return total
 }
 
 /**
@@ -219,6 +245,36 @@ export function bankMovements(data: ZentData, bankId: string): Movement[] {
     })
   }
 
+  // Guardar/Resgatar de caixinha (§4).
+  for (const bt of data.boxTransfers) {
+    if (bt.bankId !== bankId) continue
+    const boxName = data.boxes.find((b) => b.id === bt.boxId)?.name ?? 'caixinha removida'
+    out.push({
+      id: `box-${bt.id}`,
+      date: bt.date,
+      bankId,
+      amount: bt.direction === 'in' ? -bt.amount : bt.amount,
+      kind: bt.direction === 'in' ? 'box-in' : 'box-out',
+      description: bt.direction === 'in' ? `Guardado em ${boxName}` : `Resgatado de ${boxName}`,
+      sourceId: bt.id,
+    })
+  }
+
+  // Aporte com conta de origem (§5).
+  for (const c of data.contributions) {
+    if (c.fromBankId !== bankId) continue
+    const invName = data.investments.find((i) => i.id === c.investmentId)?.name ?? 'aplicação removida'
+    out.push({
+      id: `contribution-${c.id}`,
+      date: c.date,
+      bankId,
+      amount: -c.amount,
+      kind: 'contribution',
+      description: `Aporte em ${invName}`,
+      sourceId: c.id,
+    })
+  }
+
   /**
    * O saldo inicial precisa ser SEMPRE o movimento mais antigo — é a definição
    * dele: o que havia na conta antes de tudo que o app conhece. Datá-lo em
@@ -289,6 +345,8 @@ export function accountBalanceSeries(data: ZentData, months: readonly Ym[]): num
   }
   for (const p of data.invoicePayments) add(p.bankId, p.date, -p.amount)
   for (const a of data.adjustments) add(a.bankId, a.date, a.amount)
+  for (const bt of data.boxTransfers) add(bt.bankId, bt.date, bt.direction === 'in' ? -bt.amount : bt.amount)
+  for (const c of data.contributions) add(c.fromBankId, c.date, -c.amount)
 
   // Tudo que aconteceu ANTES da janela já está embutido no primeiro ponto.
   const first = months[0]

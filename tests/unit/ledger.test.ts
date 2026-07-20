@@ -21,7 +21,7 @@ import { standaloneMonthlyCommitment, totalInvoices, totalMonthlyCommitment } fr
 /** Base v7 mínima com dois bancos e um cartão. */
 function baseData(over: Partial<ZentData> = {}): ZentData {
   return {
-    version: 9,
+    version: 10,
     profile: { name: 'Allan' },
     rates: {
       selic: 14.25,
@@ -51,6 +51,7 @@ function baseData(over: Partial<ZentData> = {}): ZentData {
     investments: [],
     contributions: [],
     boxes: [],
+    boxTransfers: [],
     recurringExpenses: [],
     recurringIncomes: [],
     gamification: { achievements: [], activeChallenge: null, challengeHistory: [] },

@@ -37,6 +37,16 @@ const BOX_EMOJI_TO_ICON: Record<string, string> = {
 }
 
 const MIGRATIONS: Record<number, (data: RawData) => RawData> = {
+  // v9 → v10: Guardar/Resgatar de caixinhas (§4) e aporte com conta de origem
+  // (§5). `boxTransfers` nasce vazio e cada aporte antigo ganha `fromBankId: null`
+  // — sem vínculo, não debita conta nenhuma, então o saldo derivado de quem já
+  // usa o app fica idêntico (retrocompatível, como toda migração desta linhagem).
+  9: (data) => {
+    const contributions = Array.isArray(data['contributions'])
+      ? (data['contributions'] as RawData[]).map((c) => ({ fromBankId: null, ...c }))
+      : []
+    return { ...data, version: 10, boxTransfers: [], contributions }
+  },
   // v8 → v9: gamificação sóbria (M4). Nasce vazia; `gamificationOnboarded: false`
   // faz o 1º boot avaliar as conquistas retroativas EM SILÊNCIO (sem toasts).
   // Score e streak são derivados — não há nada a migrar deles.

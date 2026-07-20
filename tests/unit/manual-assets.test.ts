@@ -18,7 +18,7 @@ function upd(date: string, value: number): ValueUpdate {
 }
 
 function contrib(date: string, amount: number): Contribution {
-  return { id: `c-${date}`, investmentId: 'inv1', date, amount }
+  return { id: `c-${date}`, investmentId: 'inv1', date, amount, fromBankId: null }
 }
 
 describe('classe de ativo derivada do tipo', () => {

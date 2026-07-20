@@ -1,5 +1,6 @@
 import type {
   Adjustment,
+  BoxTransfer,
   BudgetReallocation,
   Contribution,
   Expense,
@@ -59,6 +60,20 @@ export function addContribution(d: ZentData, c: Contribution): void {
 }
 export function removeContribution(d: ZentData, id: string): void {
   d.contributions = dropById(d.contributions, id)
+}
+
+// ── Guardar/Resgatar de caixinha manual (§4) ─────────────────────────────────
+/**
+ * Um `boxTransfer` é uma transferência real conta↔caixinha. O efeito nos DOIS
+ * lados (saldo da conta e guardado da caixinha) é DERIVADO deste registro
+ * (ver ledger.ts / boxStoredAmount), então criar→excluir é neutro por
+ * construção: apagar o movimento devolve conta e caixinha ao estado anterior.
+ */
+export function addBoxTransfer(d: ZentData, t: BoxTransfer): void {
+  d.boxTransfers.push(t)
+}
+export function removeBoxTransfer(d: ZentData, id: string): void {
+  d.boxTransfers = dropById(d.boxTransfers, id)
 }
 
 // ── Parcela (de cartão ou avulsa) ─────────────────────────────────────────────

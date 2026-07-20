@@ -9,6 +9,7 @@ import { AnimatedMoney } from '@/design/AnimatedMoney'
 import { Button } from '@/design/components/Button'
 import { Field, Input, MoneyInput } from '@/design/components/Input'
 import { Select } from '@/design/components/Select'
+import { BankPicker } from '@/design/components/BankPicker'
 import { Modal } from '@/design/components/Modal'
 import { EmptyState } from '@/design/components/EmptyState'
 import { toast } from '@/design/components/toast'
@@ -17,7 +18,7 @@ import { useDataStore, useZentData } from '@/store/dataStore'
 import { addExtraIncome, removeExtraIncome } from '@/store/mutations'
 import { useUiStore } from '@/store/uiStore'
 import { creditSalaryFor, runSalaryMaterialization } from '@/store/ledgerActions'
-import { pendingSalaryCredits } from '@/engine/ledger'
+import { bankBalances, pendingSalaryCredits } from '@/engine/ledger'
 import { groupByMonth, salaryForYm, sumByMonth } from '@/engine/aggregations'
 import { useBRL } from '@/design/money'
 import { currentYm, formatDateShort, formatYmLong, todayIso, ymCompare, ymOfDate } from '@/engine/dates'
@@ -457,18 +458,21 @@ function ExtraDialog({
         {/* "Recebido em" (R4 §1.2): opcional — sem conta, o extra segue contando
             no fluxo do mês e simplesmente não move saldo nenhum. */}
         <Field label="Recebido em" hint="Opcional — vincule para o saldo da conta subir junto">
-          <Select
+          <BankPicker
+            options={[
+              { id: '', name: 'Não vincular a uma conta', logoName: '', logoColor: '#000', neutral: true, subtitle: 'só entra no fluxo do mês' },
+              ...data.banks.map((b) => ({
+                id: b.id,
+                name: b.name,
+                logoName: b.name,
+                logoColor: b.color,
+                subtitle: `saldo ${brl(bankBalances(data).get(b.id) ?? 0)}`,
+              })),
+            ]}
             value={receivedIn}
-            onChange={(e) => setReceivedIn(e.target.value)}
-            aria-label="Conta em que o ganho foi recebido"
-          >
-            <option value="">Não vincular a uma conta</option>
-            {data.banks.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </Select>
+            onChange={setReceivedIn}
+            ariaLabel="Conta em que o ganho foi recebido"
+          />
         </Field>
         {!editing && (
           <label className="flex items-center gap-2.5 cursor-pointer select-none">

@@ -1,11 +1,14 @@
 import { useMemo, type ReactNode } from 'react'
 import {
   ArrowDownLeft,
+  ArrowDownToLine,
+  ArrowUpFromLine,
   ArrowUpRight,
   Flag,
   Receipt,
   Scale,
   ShoppingBag,
+  TrendingUp,
   Undo2,
   Wallet,
 } from 'lucide-react'
@@ -89,6 +92,9 @@ const ICONS: Record<MovementKind, LucideIcon> = {
   'transfer-out': ArrowUpRight,
   invoice: Receipt,
   adjustment: Scale,
+  'box-in': ArrowUpFromLine,
+  'box-out': ArrowDownToLine,
+  contribution: TrendingUp,
 }
 
 /**

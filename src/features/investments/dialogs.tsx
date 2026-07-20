@@ -5,10 +5,12 @@ import { Button } from '@/design/components/Button'
 import { Field, Input, MoneyInput } from '@/design/components/Input'
 import { Select } from '@/design/components/Select'
 import { BankSelect } from '@/design/components/BankSelect'
+import { BankPicker, type BankPickerOption } from '@/design/components/BankPicker'
 import { toast } from '@/design/components/toast'
 import { confirmDialog } from '@/design/components/confirm'
 import { useDataStore, useZentData } from '@/store/dataStore'
 import { addContribution } from '@/store/mutations'
+import { bankBalances } from '@/engine/ledger'
 import { formatDateBR, todayIso } from '@/engine/dates'
 import { useBRL } from '@/design/money'
 import { ASSET_CLASS_LABELS, type AssetClass } from '@/engine/rates'
@@ -261,8 +263,10 @@ export function ContributionDialog({
   const investment = open ? state.investment : null
   const brl = useBRL()
 
+  const data = useZentData()
   const [date, setDate] = useState(todayIso())
   const [amount, setAmount] = useState<number | null>(null)
+  const [fromBankId, setFromBankId] = useState<string | null>(null)
   const [openedFor, setOpenedFor] = useState<string>('closed')
 
   const target = investment?.id ?? 'closed'
@@ -270,15 +274,40 @@ export function ContributionDialog({
     setOpenedFor(target)
     setDate(todayIso())
     setAmount(null)
+    setFromBankId(null)
   }
   if (!open && openedFor !== 'closed') setOpenedFor('closed')
 
-  const valid = amount !== null && amount > 0 && date !== ''
+  const balances = bankBalances(data)
+  // BankPicker do aporte (§5): conta de origem, com uma opção neutra "não debitar
+  // conta" para quem só quer registrar o aporte sem mexer no saldo (fromBankId
+  // null — o comportamento antigo). Conta zerada fica desabilitada.
+  const NONE = '__none__'
+  const bankOptions: BankPickerOption[] = [
+    { id: NONE, name: 'Não debitar conta', logoName: '', logoColor: '#000', neutral: true, subtitle: 'só registrar o aporte' },
+    ...data.banks.map((b) => {
+      const bal = balances.get(b.id) ?? 0
+      const disabled = bal <= 0
+      return {
+        id: b.id,
+        name: b.name,
+        logoName: b.name,
+        logoColor: b.color,
+        subtitle: `saldo ${brl(bal)}`,
+        danger: bal <= 0,
+        disabled,
+        ...(disabled ? { reason: 'sem saldo' } : {}),
+      }
+    }),
+  ]
+  const pickerValue = fromBankId ?? NONE
+  const enoughBalance = fromBankId === null || amount === null || (balances.get(fromBankId) ?? 0) >= amount
+  const valid = amount !== null && amount > 0 && date !== '' && enoughBalance
 
   function save(): void {
     if (!valid || amount === null || !investment) return
     mutate((d) => {
-      addContribution(d, { id: newId(), investmentId: investment.id, date, amount })
+      addContribution(d, { id: newId(), investmentId: investment.id, date, amount, fromBankId })
     })
     toast.success('Aporte registrado', `${brl(amount)} em ${investment.name}`)
     onClose()
@@ -308,6 +337,13 @@ export function ContributionDialog({
           <MoneyInput value={amount} onChange={setAmount} aria-label="Valor do aporte" />
         </Field>
       </div>
+      <p className="text-[12px] font-semibold text-ink-soft mt-4 mb-2">De qual conta sai</p>
+      <BankPicker
+        options={bankOptions}
+        value={pickerValue}
+        onChange={(id) => setFromBankId(id === NONE ? null : id)}
+        ariaLabel="Conta de origem do aporte"
+      />
     </Modal>
   )
 }

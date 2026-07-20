@@ -34,11 +34,14 @@ function v1Data(): Record<string, unknown> {
   }
 }
 
-describe('migração de dados v1 → v9', () => {
+describe('migração de dados v1 → v10', () => {
   it('migra um arquivo v1 completo em cadeia e passa na validação do schema atual', () => {
     const migrated = migrate(v1Data())
     const parsed = zentDataSchema.parse(migrated)
-    expect(parsed.version).toBe(9)
+    expect(parsed.version).toBe(10)
+    // v9→v10: Guardar/Resgatar nasce vazio e o aporte antigo ganha fromBankId null
+    expect(parsed.boxTransfers).toEqual([])
+    expect(parsed.contributions[0]?.fromBankId).toBeNull()
     // v8→v9: gamificação nasce vazia e retroativa a avaliar (silenciosa) no 1º boot
     expect(parsed.gamification).toEqual({ achievements: [], activeChallenge: null, challengeHistory: [] })
     expect(parsed.meta.gamificationOnboarded).toBe(false)
