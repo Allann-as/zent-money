@@ -31,7 +31,24 @@ const useToastStore = create<ToastStore>((set) => ({
   toasts: [],
   push: (t) => {
     const id = nextId++
-    set((s) => ({ toasts: [...s.toasts.slice(-4), { ...t, id }] }))
+    set((s) => {
+      // COALESCE por tipo+título (v2.1) — generaliza a disciplina que o M4 já
+      // aplicava só às conquistas ("um toast, mesmo com várias medalhas").
+      // Registrar 3 gastos em sequência empilhava 3 banners "Gasto registrado"
+      // (cada um vive `duration`ms); um aviso repetido não informa mais que o
+      // primeiro, e a pilha de banners idênticos polui a tela. Um push com mesmo
+      // tipo+título SUBSTITUI o anterior (id novo, timer zerado, descrição mais
+      // recente) em vez de empilhar. Avisos de título distinto seguem coexistindo.
+      //
+      // Efeito colateral saudável: torna o E2E determinístico. Máquina rápida
+      // roda os passos do teste dentro da janela de `duration`, então os banners
+      // não expiravam entre um add e outro e `getByText('Gasto registrado')`
+      // casava N elementos, quebrando o strict-mode do Playwright — de forma
+      // dependente da velocidade da máquina (verde na de referência, vermelho
+      // aqui). Coalescer mata a corrida na origem, sem enfraquecer a asserção.
+      const kept = s.toasts.filter((x) => !(x.type === t.type && x.title === t.title))
+      return { toasts: [...kept.slice(-4), { ...t, id }] }
+    })
     setTimeout(() => {
       set((s) => ({ toasts: s.toasts.filter((x) => x.id !== id) }))
     }, t.duration)

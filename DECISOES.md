@@ -33,13 +33,25 @@ Registro das decisões tomadas onde a especificação deixou eixos livres.
   relativo devolve a largura ao patamar anterior em cada contexto sem nenhuma
   tela saber que a fonte mudou.
 
-### Projeto sai do OneDrive (pendência de ambiente do E2E)
+### Toast coalesce por tipo+título (causa-raiz do E2E vermelho)
 
-- O E2E falha 14/34 **também no baseline v2.0.0** nesta máquina (comprovado por
-  stash+build+run) — a assinatura do incidente do M3 (saves de IPC famintos sob
-  jank → dados somem no meio da jornada). Hipótese: o OneDrive segura arquivos
-  da árvore de código em meio à escrita. Decisão: mover para `C:\dev\zent-money`
-  e revalidar; verde lá confirma a causa. Registrado no AUDITORIA como pendência.
+- O E2E falhava 14/34 **também no baseline v2.0.0** — não era o reskin. Duas
+  hipóteses de ambiente (OneDrive; saves famintos sob jank) foram **refutadas
+  por experimento**: clone limpo em `C:\dev` reproduziu os mesmos 14, e a falha
+  era **determinística** (jank flutuaria). Causa real: `toast.push` **empilhava
+  banners de mesmo título** — 3 "Gasto registrado" (4500ms cada) coexistiam numa
+  máquina rápida, `getByText` casava 3, o strict-mode quebrava o teste 6 e a
+  falha **cascateava** pela `page` única (`workers:1`). Correção: coalescer por
+  tipo+título (o último substitui o anterior), como o M4 já fazia com conquistas.
+  Melhor UX **e** determinismo independente de velocidade de máquina. Detalhes e
+  o experimento de refutação no AUDITORIA.
+
+### Projeto mora em `C:\dev\zent-money`, fora do OneDrive (higiene)
+
+- Movido mesmo não sendo a causa do E2E: projeto de build dentro de pasta
+  sincronizada é risco conhecido (o sync corrompia/apagava artefatos — ver
+  "Infra local"). `C:\dev\zent-money` é o diretório oficial daqui em diante; a
+  cópia antiga no OneDrive fica congelada no commit do ① e é abandonada.
 
 ## M5 — bandeja + lançamento rápido (roadmap v2.0)
 

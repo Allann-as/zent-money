@@ -46,23 +46,46 @@ Primeiro milestone da release v2.1: troca completa de identidade visual
   com os novos `--cat-*`.
 
 **Estado da suíte (① reskin):** typecheck estrito ✓ · lint ✓ · **204 unit** ✓ ·
-**smoke** ✓ (janela ~1,6s) · **perf 50k**: navegar 12 meses **123ms/clique**
+**34 E2E** ✓ · **smoke** ✓ · **perf 50k**: navegar 12 meses **123ms/clique**
 (baseline ~126 — sem regressão; o `0.95em` do mono manteve o footprint).
 Screenshots dos 2 temas em `screenshots/m7-pass1/` (7 seções × 2).
 
-### PENDÊNCIA DE AMBIENTE — E2E vermelho no baseline desta máquina
+### INCIDENTE: E2E vermelho (14/34) — causa-raiz era EMPILHAMENTO DE TOASTS, não ambiente
 
-Nesta máquina (repo dentro do OneDrive), `npm run test:e2e` falha **14 de 34** —
-e falha **os mesmos 14 no baseline v2.0.0 intocado** (comprovado com
-`git stash` → build → run). **Não é regressão do reskin.** A assinatura é o
-incidente do M3 já documentado ("jank de fundo e perda de dados no E2E"): sob
-jank de render, os saves de dados (IPC, debounce 400ms) ficam famintos e
-categorias/dados **somem no meio da jornada** — daí "element is not stable",
-botão "Novo gasto" ausente e toasts idênticos empilhados. Hipótese de causa:
-o **OneDrive** segura arquivos da árvore de código em meio à escrita. Ação
-combinada: mover o projeto para fora do OneDrive (`C:\dev\zent-money`) e
-revalidar; se o E2E voltar ao verde, a causa era o sincronizador; se persistir,
-vira tarefa dedicada (tornar os saves/asserções robustos a jank).
+Durante o ①, o E2E acusou **14 falhas** — e falhava **os mesmos 14 no baseline
+v2.0.0 intocado** (comprovado com `git stash` → build → run), então **não era
+regressão do reskin**. Duas hipóteses de ambiente foram **levantadas e depois
+refutadas por experimento**:
+
+1. *OneDrive segurando arquivos* → **refutada**: clone limpo em `C:\dev\zent-money`
+   (`npm ci` + build) reproduziu **os mesmos 14**. Não era o sincronizador.
+2. *Saves famintos sob jank* (a leitura do incidente do M3) → **refutada**: as
+   falhas eram **determinísticas** (sempre os mesmos 14, em dois locais, várias
+   corridas), e jank produziria flutuação, não determinismo.
+
+**Causa-raiz real:** o `toast.push` **empilhava banners de mesmo título**. O
+teste 6 registra 3 gastos em sequência; cada `toast.success('Gasto registrado', …)`
+vive 4500ms. Numa máquina **rápida** os 3 adds acontecem dentro dessa janela, os
+banners **coexistem**, e `getByText('Gasto registrado')` casa **3 elementos** —
+strict-mode do Playwright falha. Como a suíte roda numa **única janela**
+(`workers:1`, `beforeAll`), a falha do teste 6 **cascateava**: a `page`
+compartilhada ficava num estado quebrado e os 13 testes seguintes esperavam
+seus timeouts de 30s (por isso a corrida vermelha levava 5,9min). Na máquina de
+referência (mais lenta por passo) os banners expiravam entre os adds, então
+lá passava — um verde **dependente de velocidade de máquina**, não de código.
+
+**Correção (na origem, sem enfraquecer asserção):** `toast.push` agora
+**coalesce por tipo+título** — um push de "Gasto registrado" substitui o anterior
+(id novo, timer zerado, descrição mais recente) em vez de empilhar. Generaliza a
+disciplina que o M4 já aplicava às conquistas ("um toast, mesmo com várias
+medalhas") e é melhor UX (nada de pilha de banners idênticos). Resultado: **34/34
+verdes em 50s** (contra 5,9min), tanto em `C:\dev` quanto valeria em qualquer
+máquina — o determinismo passou a não depender da velocidade.
+
+**Higiene mantida:** o projeto foi movido para `C:\dev\zent-money` (fora do
+OneDrive) mesmo não sendo a causa — um projeto de build sincronizado é risco
+conhecido (ver "Infra local" no DECISOES). `C:\dev\zent-money` é o diretório de
+trabalho oficial daqui em diante.
 
 ## Verificação mestra — v2.0.0
 
