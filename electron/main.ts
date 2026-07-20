@@ -59,7 +59,7 @@ const TITLE_BAR_HEIGHT = 36
  * mandar os tokens reais. Espelham --titlebar-bg/--titlebar-symbol do tema
  * escuro (o padrão) só para não haver um flash branco no boot.
  */
-const TITLE_BAR_BOOT = { color: '#060D1F', symbolColor: '#8FA3BF' }
+const TITLE_BAR_BOOT = { color: '#0B1712', symbolColor: '#879C90' }
 
 /** Seam de bloqueio só vale em build NÃO empacotado (ver electron/seam.ts). */
 function lockDisabledResolved(): boolean {
@@ -74,7 +74,7 @@ function createWindow(): void {
     minHeight: 680,
     show: false,
     title: 'Zent Money',
-    backgroundColor: '#04070F',
+    backgroundColor: '#08120E',
     autoHideMenuBar: true,
     // Barra de título do sistema fora: o app desenha a sua e o Windows só
     // sobrepõe os botões, pintados nas cores do tema (R3).
@@ -112,7 +112,7 @@ function createWindow(): void {
    *
    * `did-finish-load` dispara e basta: o conteúdo já está carregado, então não há
    * flash. O timer é rede de segurança — nenhum evento perdido justifica um app sem
-   * janela, e `backgroundColor` já pinta o navy enquanto isso.
+   * janela, e `backgroundColor` já pinta o verde-abissal enquanto isso.
    */
   let revealed = false
   const reveal = (): void => {
@@ -161,7 +161,7 @@ function createQuickWindow(): void {
     maximizable: false,
     fullscreenable: false,
     skipTaskbar: true,
-    backgroundColor: '#04070F',
+    backgroundColor: '#08120E',
     icon: path.join(__dirname, '../../assets/icon/zent.ico'),
     webPreferences: {
       preload: path.join(__dirname, '../preload/preload.js'),

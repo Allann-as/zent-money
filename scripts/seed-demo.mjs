@@ -17,12 +17,12 @@ const ym = (offset) => {
 const day = (offset, dd) => `${ym(offset)}-${String(dd).padStart(2, '0')}`
 
 const categories = [
-  { id: 'cat-mercado', name: 'Mercado', color: '#7fa66f', monthlyLimit: 90000 },
-  { id: 'cat-farmacia', name: 'Farmácia', color: '#5fa8a4', monthlyLimit: null },
-  { id: 'cat-rest', name: 'Restaurantes', color: '#c08767', monthlyLimit: 35000 },
-  { id: 'cat-transp', name: 'Transporte', color: '#5b8fc0', monthlyLimit: 25000 },
-  { id: 'cat-lazer', name: 'Lazer', color: '#8d84b8', monthlyLimit: 20000 },
-  { id: 'cat-casa', name: 'Contas de casa', color: '#c2a466', monthlyLimit: 60000 },
+  { id: 'cat-mercado', name: 'Mercado', color: '#7e9c86', monthlyLimit: 90000 },
+  { id: 'cat-farmacia', name: 'Farmácia', color: '#6fa894', monthlyLimit: null },
+  { id: 'cat-rest', name: 'Restaurantes', color: '#d98f7e', monthlyLimit: 35000 },
+  { id: 'cat-transp', name: 'Transporte', color: '#7fa9c0', monthlyLimit: 25000 },
+  { id: 'cat-lazer', name: 'Lazer', color: '#b598f0', monthlyLimit: 20000 },
+  { id: 'cat-casa', name: 'Contas de casa', color: '#c7a55e', monthlyLimit: 60000 },
 ]
 
 let n = 0

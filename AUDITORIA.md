@@ -17,6 +17,53 @@ envelope histórico; os fundos, a gamificação e a 2ª janela **não custaram F
 **Sobriedade:** varreduras anti-emoji e anti-hex limpas — o único hex fora de token
 é a paleta curada de categorias (DADO que o usuário escolhe, exceção documentada).
 
+## Redesign "Painel de Bordo" (v2.1) — milestone ① reskin base — 20/07/2026
+
+Primeiro milestone da release v2.1: troca completa de identidade visual
+(verde-abissal + âmbar-fósforo + ciano gelo, Nunito + JetBrains Mono)
+**mantendo toda a lógica**. Nada de comportamento financeiro mudou.
+
+- **Tokens reescritos por VALOR, não por nome** (`src/design/tokens.css`): o
+  reskin não renomeou nenhum token, então nenhum componente/gráfico/teste
+  precisou mudar. `--primary` deixou de ser azul-céu e virou âmbar `#F0BC5E`;
+  `--pos` virou ciano `#6FE0C6`; `--neg` coral `#F58374`; `--warn` um âmbar
+  QUEIMADO distinto do acento (para o "≥80% âmbar" do orçamento não se
+  confundir com destaque). Base verde-abissal (`--bg #08120E`, painéis
+  `#0E1B15/#12211A`, linhas `#1D3328`). Tema claro na mesma família clareada
+  (o âmbar não passa em contraste sobre papel → `--primary` claro é âmbar
+  queimado que passa; a identidade vem do matiz).
+- **Fontes empacotadas localmente** (`@fontsource-variable/nunito` +
+  `jetbrains-mono`): zero rede. O mono entra no `.tnum` (marcador universal de
+  valor monetário) com `font-size: 0.95em` — relativo, para NÃO crescer o
+  footprint dos números e disparar reflow (lição do M3). Geist aposentada.
+- **Grid de instrumento** no `<Backdrop>`: `linear-gradient` + `mask-image`
+  radial, estáticos e compostos pela GPU — mesma disciplina dos glows, nada de
+  blur de área.
+- **Marca/ícone recoloridos**: o logo já era `currentColor`, então recolore
+  sozinho pelo token; `zent.svg` passou a ciano→âmbar e o `.ico` 16→256 foi
+  regerado; `TITLE_BAR_BOOT` e `backgroundColor` do Electron acompanham o novo
+  tema escuro. Paleta curada de categorias e cores do seed-demo sincronizadas
+  com os novos `--cat-*`.
+
+**Estado da suíte (① reskin):** typecheck estrito ✓ · lint ✓ · **204 unit** ✓ ·
+**smoke** ✓ (janela ~1,6s) · **perf 50k**: navegar 12 meses **123ms/clique**
+(baseline ~126 — sem regressão; o `0.95em` do mono manteve o footprint).
+Screenshots dos 2 temas em `screenshots/m7-pass1/` (7 seções × 2).
+
+### PENDÊNCIA DE AMBIENTE — E2E vermelho no baseline desta máquina
+
+Nesta máquina (repo dentro do OneDrive), `npm run test:e2e` falha **14 de 34** —
+e falha **os mesmos 14 no baseline v2.0.0 intocado** (comprovado com
+`git stash` → build → run). **Não é regressão do reskin.** A assinatura é o
+incidente do M3 já documentado ("jank de fundo e perda de dados no E2E"): sob
+jank de render, os saves de dados (IPC, debounce 400ms) ficam famintos e
+categorias/dados **somem no meio da jornada** — daí "element is not stable",
+botão "Novo gasto" ausente e toasts idênticos empilhados. Hipótese de causa:
+o **OneDrive** segura arquivos da árvore de código em meio à escrita. Ação
+combinada: mover o projeto para fora do OneDrive (`C:\dev\zent-money`) e
+revalidar; se o E2E voltar ao verde, a causa era o sincronizador; se persistir,
+vira tarefa dedicada (tornar os saves/asserções robustos a jank).
+
 ## Verificação mestra — v2.0.0
 
 Percorri o app contra os checklists de todas as releases. Cada item foi

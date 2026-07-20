@@ -1,12 +1,15 @@
 @import 'tailwindcss';
-@import '@fontsource-variable/geist';
+@import '@fontsource-variable/nunito';
+@import '@fontsource-variable/jetbrains-mono';
 
 /* ═══════════════════════════════════════════════════════════════════
-   ZENT MONEY — DESIGN TOKENS R2 (navy premium, sobriedade de private bank)
+   ZENT MONEY — DESIGN TOKENS v2.1 "PAINEL DE BORDO"
    Disciplina de cor:
-   · Neutros: escala navy (fundo, painéis, bordas, texto).
-   · UM acento: azul-céu --primary (ações, links, item ativo, série
-     principal dos gráficos, chips de ícone).
+   · Neutros: escala verde-abissal (fundo, painéis, bordas, texto) —
+     textura de instrumento, não de planilha.
+   · ACENTO PRINCIPAL: âmbar-fósforo --primary (números-herói, destaques,
+     progresso, item ativo, série principal dos gráficos).
+   · SEGUNDO acento: ciano gelo --pos (streaks, entradas, estados "ok").
    · Semânticas restritas: --pos/--neg SÓ em valores monetários e
      variações; --warn só em alertas reais.
    · Multicolor SOMENTE na rosca de gastos por categoria (--cat-1..10,
@@ -14,77 +17,95 @@
      saem daqui).
    Exceção documentada (DADOS, não tema): cores oficiais de marca dos
    bancos. Tema troca via <html data-theme>; tudo lê tokens no render.
+
+   ── POR QUE A TROCA É DE *VALOR*, NÃO DE NOME ──────────────────────
+   O reskin do v2.1 reescreve os VALORES destes tokens e não renomeia
+   nenhum: por isso nenhum componente, gráfico ou teste precisou mudar
+   para o app trocar de identidade. `--primary` deixou de ser azul-céu e
+   passou a ser âmbar; `--pos` deixou de ser verde e passou a ser ciano.
+   Quem lê token continua correto por construção.
+
+   ── --warn NÃO é o âmbar do acento (deliberado) ────────────────────
+   Com o acento agora âmbar, um alerta em âmbar se confundiria com um
+   destaque comum — e o Orçamento 2.0 (M1c) depende de ler "≥80% âmbar"
+   como escalada, não como enfeite. Por isso --warn é um âmbar mais
+   queimado/alaranjado, distinto do --primary a olho nu.
    ═══════════════════════════════════════════════════════════════════ */
 
 :root,
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  /* Superfícies — navy com leve gradiente no fundo */
-  --bg: #04070f;
-  --bg-grad: linear-gradient(180deg, #060d1f 0%, #04070f 100%);
+  /* Superfícies — verde-abissal quase preto com leve gradiente no fundo */
+  --bg: #08120e;
+  --bg-grad: linear-gradient(180deg, #0b1712 0%, #08120e 100%);
   /* Faixa de título do app: fundo e cor dos botões nativos da janela.
      Fonte única — o TitleBar lê estes tokens e os envia ao processo main. */
-  --titlebar-bg: #060d1f;
-  --titlebar-symbol: #8fa3bf;
-  /* Complementos de fundo (§4): glow radial no topo, malha pontilhada e
-     vinheta. Tokens porque a intensidade muda entre os temas. */
-  --bg-glow: rgba(87, 182, 242, 0.1);
-  --bg-mesh: rgba(143, 163, 191, 0.06);
-  --bg-vignette: rgba(2, 5, 12, 0.55);
-  --card-lit-line: rgba(180, 214, 245, 0.14);
-  --surface: #0b1424;
-  --surface-2: #0e1930;
-  --surface-3: #142240;
-  --border: #1b2a44;
-  --border-strong: #293d63;
+  --titlebar-bg: #0b1712;
+  --titlebar-symbol: #879c90;
+  /* Complementos de fundo (§4): glow radial no topo, malha pontilhada,
+     vinheta e o GRID de instrumento. Tokens porque a intensidade muda
+     entre os temas. */
+  --bg-glow: rgba(240, 188, 94, 0.1);
+  --bg-mesh: rgba(135, 156, 144, 0.06);
+  --bg-vignette: rgba(3, 8, 6, 0.55);
+  /* Grid de fundo (v2.1): linhas a ~4% — textura de instrumento, discreta. */
+  --bg-grid: rgba(111, 224, 198, 0.04);
+  --card-lit-line: rgba(224, 240, 230, 0.13);
+  --surface: #0e1b15;
+  --surface-2: #12211a;
+  --surface-3: #16281f;
+  --border: #1d3328;
+  --border-strong: #2a4839;
 
-  /* Acento único: azul-céu */
-  --primary: #57b6f2;
-  --primary-hover: #7cc8f7;
-  --primary-press: #3d9fe0;
-  --primary-soft: rgba(87, 182, 242, 0.1);
-  --on-primary: #041220;
+  /* ACENTO PRINCIPAL: âmbar-fósforo */
+  --primary: #f0bc5e;
+  --primary-hover: #f5cd84;
+  --primary-press: #d9a445;
+  --primary-soft: rgba(240, 188, 94, 0.1);
+  --on-primary: #08120e;
 
   /* Texto */
-  --ink: #f2f6fb;
-  --ink-soft: #8fa3bf;
-  --ink-faint: #5b6d8c;
+  --ink: #eaf2ec;
+  --ink-soft: #879c90;
+  --ink-faint: #4e6358;
 
-  /* Semânticas — uso restrito a valores monetários e alertas */
-  --pos: #34d399;
-  --pos-soft: rgba(52, 211, 153, 0.12);
-  --neg: #f0655a;
-  --neg-soft: rgba(240, 101, 90, 0.12);
-  --warn: #ffb454;
-  --warn-soft: rgba(255, 180, 84, 0.13);
+  /* Semânticas — uso restrito a valores monetários e alertas.
+     --pos é o SEGUNDO acento (ciano gelo): entradas, streaks, "ok". */
+  --pos: #6fe0c6;
+  --pos-soft: rgba(111, 224, 198, 0.12);
+  --neg: #f58374;
+  --neg-soft: rgba(245, 131, 116, 0.12);
+  /* Âmbar queimado — distinto do --primary a olho nu (ver cabeçalho) */
+  --warn: #e8a33c;
+  --warn-soft: rgba(232, 163, 60, 0.14);
 
-  /* Gráficos NEUTROS: variações de azul do próprio acento */
-  --chart-1: #57b6f2;
-  --chart-2: #3a7fc2;
-  --chart-3: #7cc8f7;
-  --chart-4: #2b5e94;
-  --chart-5: #9ad4f5;
-  --chart-6: #21486f;
-  --chart-7: #6aa9d8;
-  --chart-8: #48688f;
+  /* Gráficos NEUTROS: variações dos DOIS acentos (âmbar ↔ ciano) */
+  --chart-1: #f0bc5e;
+  --chart-2: #6fe0c6;
+  --chart-3: #c79a4a;
+  --chart-4: #356e62;
+  --chart-5: #f5cd84;
+  --chart-6: #6e5628;
+  --chart-7: #9ad3c0;
+  --chart-8: #48705f;
 
   /* Categórica DESSATURADA — só a rosca de gastos (e cores de categoria) */
-  --cat-1: #5b8fc0;  /* azul-aço */
-  --cat-2: #5fa8a4;  /* ciano-acinzentado */
-  --cat-3: #7fa66f;  /* verde-sálvia */
-  --cat-4: #c2a466;  /* areia */
-  --cat-5: #c08767;  /* terracota suave */
-  --cat-6: #b47f96;  /* malva */
-  --cat-7: #8d84b8;  /* lavanda-ardósia */
-  --cat-8: #6f82a1;  /* ardósia */
-  --cat-9: #a4a06a;  /* oliva suave */
-  --cat-10: #9a7f6a; /* castanho suave */
+  --cat-1: #6fa894;  /* verde-água */
+  --cat-2: #c7a55e;  /* areia dourada */
+  --cat-3: #b598f0;  /* violeta (o da direção v2.1) */
+  --cat-4: #d98f7e;  /* coral suave */
+  --cat-5: #7fa9c0;  /* azul-gelo */
+  --cat-6: #a8b36e;  /* oliva */
+  --cat-7: #c08ba8;  /* malva */
+  --cat-8: #7e9c86;  /* sálvia */
+  --cat-9: #c9925c;  /* âmbar-terra */
+  --cat-10: #8e8fb0; /* ardósia-lilás */
 
   /* Sombras em camadas (ambiente + contato) */
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -8px rgba(0, 0, 0, 0.5);
   --shadow-pop: 0 2px 6px rgba(0, 0, 0, 0.45), 0 16px 48px -12px rgba(0, 0, 0, 0.65);
-  --backdrop: rgba(2, 5, 11, 0.68);
+  --backdrop: rgba(4, 10, 7, 0.68);
 
   /* Movimento */
   --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
@@ -93,61 +114,66 @@
 :root[data-theme='light'] {
   color-scheme: light;
 
-  --bg: #eef3fa;
-  --bg-grad: linear-gradient(180deg, #f4f8fd 0%, #e9f0f9 100%);
-  --titlebar-bg: #f4f8fd;
-  --titlebar-symbol: #41506b;
+  /* Mesma família do escuro, clareada: verde-abissal vira papel esverdeado.
+     O âmbar-fósforo do escuro NÃO sobrevive sobre papel (falha contraste),
+     então o --primary claro é o mesmo âmbar QUEIMADO até passar em texto —
+     a identidade vem do matiz, não da luminosidade. */
+  --bg: #edf3ef;
+  --bg-grad: linear-gradient(180deg, #f4f8f5 0%, #e8f0ea 100%);
+  --titlebar-bg: #f4f8f5;
+  --titlebar-symbol: #466052;
   /* No claro tudo é mais discreto: o mesmo peso do escuro sujaria o papel. */
-  --bg-glow: rgba(87, 182, 242, 0.13);
-  --bg-mesh: rgba(41, 61, 99, 0.05);
-  --bg-vignette: rgba(120, 140, 170, 0.14);
+  --bg-glow: rgba(200, 140, 30, 0.13);
+  --bg-mesh: rgba(45, 75, 60, 0.05);
+  --bg-vignette: rgba(120, 150, 132, 0.14);
+  --bg-grid: rgba(45, 90, 72, 0.045);
   --card-lit-line: rgba(255, 255, 255, 0.9);
   --surface: #ffffff;
-  --surface-2: #edf3fb;
-  --surface-3: #dfe9f7;
-  --border: #d5e0ef;
-  --border-strong: #b7c8e0;
+  --surface-2: #edf4ef;
+  --surface-3: #deeae2;
+  --border: #d3e2d8;
+  --border-strong: #b4cbbd;
 
-  --primary: #2b96dd;
-  --primary-hover: #4babe8;
-  --primary-press: #1f7fbe;
-  --primary-soft: rgba(43, 150, 221, 0.1);
+  --primary: #96680f;
+  --primary-hover: #b07e1f;
+  --primary-press: #7a5409;
+  --primary-soft: rgba(150, 104, 15, 0.1);
   --on-primary: #ffffff;
 
-  --ink: #0c1524;
-  --ink-soft: #54678a;
-  --ink-faint: #8ea0bd;
+  --ink: #0d1a13;
+  --ink-soft: #466052;
+  --ink-faint: #7f9a8b;
 
-  --pos: #0f9d6c;
-  --pos-soft: rgba(15, 157, 108, 0.1);
-  --neg: #d8483d;
-  --neg-soft: rgba(216, 72, 61, 0.1);
-  --warn: #c07a12;
-  --warn-soft: rgba(192, 122, 18, 0.12);
+  --pos: #0e8c6e;
+  --pos-soft: rgba(14, 140, 110, 0.1);
+  --neg: #c4483a;
+  --neg-soft: rgba(196, 72, 58, 0.1);
+  --warn: #a86b0e;
+  --warn-soft: rgba(168, 107, 14, 0.12);
 
-  --chart-1: #2b96dd;
-  --chart-2: #1f6aa8;
-  --chart-3: #56b1e8;
-  --chart-4: #174e7c;
-  --chart-5: #7fc4ec;
-  --chart-6: #10395c;
-  --chart-7: #4a90c4;
-  --chart-8: #35567a;
+  --chart-1: #96680f;
+  --chart-2: #0e8c6e;
+  --chart-3: #b98a2a;
+  --chart-4: #1c5c4c;
+  --chart-5: #7a5409;
+  --chart-6: #3f7a68;
+  --chart-7: #c9a24e;
+  --chart-8: #58806f;
 
-  --cat-1: #40749f;
-  --cat-2: #3f8a86;
-  --cat-3: #628a52;
-  --cat-4: #a2854a;
-  --cat-5: #a56a4b;
-  --cat-6: #99647c;
-  --cat-7: #72699e;
-  --cat-8: #566a87;
-  --cat-9: #85824f;
-  --cat-10: #7e6552;
+  --cat-1: #3f8073;
+  --cat-2: #9a7a2c;
+  --cat-3: #6f52ab;
+  --cat-4: #b05a48;
+  --cat-5: #4a7891;
+  --cat-6: #6f7a35;
+  --cat-7: #8e5474;
+  --cat-8: #4e7359;
+  --cat-9: #99612c;
+  --cat-10: #5c5d80;
 
-  --shadow-card: 0 1px 2px rgba(15, 35, 70, 0.06), 0 8px 24px -10px rgba(15, 35, 70, 0.12);
-  --shadow-pop: 0 2px 6px rgba(15, 35, 70, 0.08), 0 16px 48px -12px rgba(15, 35, 70, 0.22);
-  --backdrop: rgba(15, 25, 45, 0.35);
+  --shadow-card: 0 1px 2px rgba(18, 45, 32, 0.06), 0 8px 24px -10px rgba(18, 45, 32, 0.12);
+  --shadow-pop: 0 2px 6px rgba(18, 45, 32, 0.08), 0 16px 48px -12px rgba(18, 45, 32, 0.22);
+  --backdrop: rgba(10, 28, 20, 0.35);
 
   --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -175,9 +201,15 @@
   --color-warn: var(--warn);
   --color-warn-soft: var(--warn-soft);
 
-  /* Fonte premium única: Geist (excelente em números, tabular nativa) */
-  --font-sans: 'Geist Variable', 'Segoe UI', system-ui, sans-serif;
-  --font-display: 'Geist Variable', 'Segoe UI', system-ui, sans-serif;
+  /* Tipografia v2.1 "Painel de Bordo" — duas vozes, papéis separados:
+     · Nunito (arredondada, 400–800) para TEXTO e títulos — a voz humana.
+     · JetBrains Mono para TODO número monetário — a voz do instrumento.
+     A separação é o ponto: o dinheiro fica tabular e alinhado em coluna,
+     o texto ao redor fica acolhedor. Ambas empacotadas localmente
+     (@fontsource-variable), sem nenhuma chamada de rede. */
+  --font-sans: 'Nunito Variable', 'Segoe UI', system-ui, sans-serif;
+  --font-display: 'Nunito Variable', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'Cascadia Mono', Consolas, monospace;
 
   --radius-card: 16px;
   --radius-control: 10px;
@@ -221,9 +253,27 @@ textarea {
  * (a raiz da "faixa preta" da tela de PIN reportada na QA do M2).
  */
 
-/* Valores monetários e numéricos sempre tabulares */
+/**
+ * Valores monetários e numéricos: JetBrains Mono, sempre tabulares (v2.1).
+ *
+ * `.tnum` já era o marcador universal de "isto é um número do app" — todo
+ * valor monetário passa por ele (ver design/money.tsx). Trocar a família AQUI
+ * é o que dá voz de instrumento ao dinheiro inteiro do app sem tocar em
+ * nenhuma tela, pelo mesmo motivo que a troca de paleta é de valor e não de
+ * nome de token.
+ *
+ * CUIDADO CONHECIDO (lição do M3): mono é mais largo que a sans, então o
+ * footprint dos números CRESCE. Componente reutilizado que muda de tamanho já
+ * disparou oscilação de layout e corrida de estado no E2E antes. Por isso o
+ * `font-size: 0.95em` — relativo, não absoluto: ele devolve a largura ao
+ * patamar da Geist em cada contexto (hero, card, tabela) sem que nenhuma tela
+ * precise saber que a fonte mudou. Validado rodando a suíte E2E inteira.
+ */
 .tnum {
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+  font-size: 0.95em;
+  letter-spacing: -0.01em;
 }
 
 /**

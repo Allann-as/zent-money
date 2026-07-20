@@ -9,16 +9,16 @@ import { cn } from '@/lib/cn'
 
 /** Sugestões do onboarding — cores da paleta curada dessaturada (§3). */
 const SUGGESTIONS: { name: string; color: string }[] = [
-  { name: 'Mercado', color: '#7fa66f' },
-  { name: 'Farmácia', color: '#5fa8a4' },
-  { name: 'Restaurantes', color: '#c08767' },
-  { name: 'Transporte', color: '#5b8fc0' },
-  { name: 'Lazer', color: '#8d84b8' },
-  { name: 'Assinaturas', color: '#b47f96' },
-  { name: 'Contas de casa', color: '#c2a466' },
-  { name: 'Educação', color: '#6f82a1' },
-  { name: 'Roupas', color: '#a4a06a' },
-  { name: 'Saúde', color: '#9a7f6a' },
+  { name: 'Mercado', color: '#7e9c86' },
+  { name: 'Farmácia', color: '#6fa894' },
+  { name: 'Restaurantes', color: '#d98f7e' },
+  { name: 'Transporte', color: '#7fa9c0' },
+  { name: 'Lazer', color: '#b598f0' },
+  { name: 'Assinaturas', color: '#c08ba8' },
+  { name: 'Contas de casa', color: '#c7a55e' },
+  { name: 'Educação', color: '#8e8fb0' },
+  { name: 'Roupas', color: '#a8b36e' },
+  { name: 'Saúde', color: '#c9925c' },
 ]
 
 export function CategoriesOnboarding({ onCreateCustom }: { onCreateCustom(): void }): ReactNode {

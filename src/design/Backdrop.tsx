@@ -75,6 +75,23 @@ function layersFor(section: BackdropSection): React.CSSProperties {
 }
 
 /**
+ * ⓪ Grid de instrumento (v2.1) — a textura que dá o nome à direção "Painel de
+ * Bordo". Linhas a ~4% (token `--bg-grid`, calibrado por tema) com máscara
+ * radial ancorada no topo: presente onde o olho entra, dissolvido antes de
+ * chegar ao conteúdo denso da base. Não depende da seção — é a moldura fixa do
+ * app, ao contrário dos glows e da geometria, que mudam de lugar a cada tela.
+ */
+const gridLayer: React.CSSProperties = {
+  backgroundImage: [
+    `linear-gradient(var(--bg-grid) 1px, transparent 1px)`,
+    `linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px)`,
+  ].join(', '),
+  backgroundSize: '46px 46px, 46px 46px',
+  maskImage: 'radial-gradient(circle at 50% 15%, #000 25%, transparent 80%)',
+  WebkitMaskImage: 'radial-gradient(circle at 50% 15%, #000 25%, transparent 80%)',
+}
+
+/**
  * Geometria assinatura por seção — line-art estático, `stroke="var(--primary)"`
  * (segue o tema), sempre posicionado para ser CORTADO pela borda da viewport.
  */
@@ -193,6 +210,10 @@ export function Backdrop({ section }: { section: BackdropSection }): ReactNode {
     <div aria-hidden="true" className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
       {/* ①②④ base + glows + malha + vinheta — UM único layer composto */}
       <div className="absolute inset-0" style={layersFor(section)} />
+      {/* ⓪ GRID DE INSTRUMENTO (v2.1) — duas linhas retas de 46px com máscara
+          radial no topo. É `linear-gradient` estático + `mask-image`: composto
+          pela GPU numa passada, mesma disciplina dos glows (nada de blur). */}
+      <div className="absolute inset-0" style={gridLayer} />
       {/* ③ geometria assinatura — ~4,8% (abaixo do teto de 5% do §), cortada pela borda */}
       <div className="absolute inset-0 opacity-[0.048]">
         <Geometry section={section} />

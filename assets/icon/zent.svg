@@ -1,21 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Ícone do app — identidade v2.1 "Painel de Bordo".
+       A GEOMETRIA é a mesma da R2 (Z em degraus): só as cores mudaram, para
+       que o ícone no atalho continue reconhecível como o mesmo produto.
+       Fundo verde-abissal, símbolo em gradiente ciano→âmbar (os dois acentos
+       da direção, na mesma ordem em que aparecem no anel da tela Hoje). -->
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#0A1730"/>
-      <stop offset="1" stop-color="#050B18"/>
+      <stop offset="0" stop-color="#0E1B15"/>
+      <stop offset="1" stop-color="#08120E"/>
     </linearGradient>
-    <linearGradient id="z" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#7CC8F7"/>
-      <stop offset="1" stop-color="#57B6F2"/>
+    <linearGradient id="z" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6FE0C6"/>
+      <stop offset="1" stop-color="#F0BC5E"/>
     </linearGradient>
     <linearGradient id="topline" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#57B6F2" stop-opacity="0"/>
-      <stop offset="0.5" stop-color="#9AD4F5" stop-opacity="0.55"/>
-      <stop offset="1" stop-color="#57B6F2" stop-opacity="0"/>
+      <stop offset="0" stop-color="#F0BC5E" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#F5CD84" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#F0BC5E" stop-opacity="0"/>
     </linearGradient>
   </defs>
   <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#bg)"/>
-  <rect x="8" y="8" width="240" height="240" rx="56" fill="none" stroke="#1B2A44" stroke-width="2"/>
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="none" stroke="#1D3328" stroke-width="2"/>
   <rect x="48" y="9" width="160" height="2.5" rx="1.25" fill="url(#topline)"/>
   <rect x="102" y="60" width="118" height="34" rx="17" fill="url(#z)"/>
   <rect x="69" y="111" width="118" height="34" rx="17" fill="url(#z)"/>

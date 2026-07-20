@@ -2,6 +2,45 @@
 
 Registro das decisões tomadas onde a especificação deixou eixos livres.
 
+## Redesign "Painel de Bordo" (v2.1) — ① reskin base
+
+### A troca de paleta é de VALOR de token, não de nome
+
+- O reskin reescreve os valores de `--primary`, `--pos`, `--neg`, `--bg`,
+  `--surface*`, `--cat-*` e não renomeia nenhum. Por isso o app inteiro trocou
+  de identidade sem que um componente, gráfico ou teste mudasse: quem lê token
+  continua correto por construção. Mesma lógica da troca de fonte no `.tnum`.
+
+### `--warn` NÃO é o âmbar do acento (deliberado)
+
+- Com o acento agora âmbar, um alerta em âmbar se confundiria com um destaque
+  comum — e o Orçamento 2.0 (M1c) depende de ler "≥80% âmbar" como escalada.
+  Então `--warn` é um âmbar QUEIMADO/alaranjado, distinto do `--primary` a olho
+  nu. Ver [[reprovados]] só como exemplo de decisão documentada.
+
+### Tema claro: identidade vem do MATIZ, não da luminosidade
+
+- O âmbar-fósforo `#F0BC5E` não passa em contraste sobre papel. No claro,
+  `--primary` é um âmbar QUEIMADO (`#96680f`) escuro o bastante para texto —
+  mesma família, luminosidade sacrificada pelo contraste. A alternativa (manter
+  o âmbar claro) reprovaria acessibilidade e o app tem de servir os dois temas.
+
+### O mono no `.tnum` usa `font-size: 0.95em` (relativo, não absoluto)
+
+- JetBrains Mono é mais largo que a Nunito; sem compensar, TODO número do app
+  cresceria e um componente reutilizado mudando de tamanho já disparou
+  oscilação de layout e corrida de estado no E2E (incidente do M3). O `0.95em`
+  relativo devolve a largura ao patamar anterior em cada contexto sem nenhuma
+  tela saber que a fonte mudou.
+
+### Projeto sai do OneDrive (pendência de ambiente do E2E)
+
+- O E2E falha 14/34 **também no baseline v2.0.0** nesta máquina (comprovado por
+  stash+build+run) — a assinatura do incidente do M3 (saves de IPC famintos sob
+  jank → dados somem no meio da jornada). Hipótese: o OneDrive segura arquivos
+  da árvore de código em meio à escrita. Decisão: mover para `C:\dev\zent-money`
+  e revalidar; verde lá confirma a causa. Registrado no AUDITORIA como pendência.
+
 ## M5 — bandeja + lançamento rápido (roadmap v2.0)
 
 ### Reprovados pelo Allan — NÃO propor de novo sem pedido explícito

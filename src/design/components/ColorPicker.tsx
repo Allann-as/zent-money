@@ -8,16 +8,16 @@ import { cn } from '@/lib/cn'
  * multicolor do app é a rosca de gastos. Mesmos tons de --cat-1..10.
  */
 export const CURATED_COLORS = [
-  '#5b8fc0', // azul-aço
-  '#5fa8a4', // ciano-acinzentado
-  '#7fa66f', // verde-sálvia
-  '#c2a466', // areia
-  '#c08767', // terracota suave
-  '#b47f96', // malva
-  '#8d84b8', // lavanda-ardósia
-  '#6f82a1', // ardósia
-  '#a4a06a', // oliva suave
-  '#9a7f6a', // castanho suave
+  '#6fa894', // verde-água
+  '#c7a55e', // areia dourada
+  '#b598f0', // violeta
+  '#d98f7e', // coral suave
+  '#7fa9c0', // azul-gelo
+  '#a8b36e', // oliva
+  '#c08ba8', // malva
+  '#7e9c86', // sálvia
+  '#c9925c', // âmbar-terra
+  '#8e8fb0', // ardósia-lilás
 ] as const
 
 export function ColorPicker({
