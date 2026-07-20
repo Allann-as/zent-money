@@ -87,6 +87,36 @@ OneDrive) mesmo não sendo a causa — um projeto de build sincronizado é risco
 conhecido (ver "Infra local" no DECISOES). `C:\dev\zent-money` é o diretório de
 trabalho oficial daqui em diante.
 
+## Tela "Hoje" (v2.1) — milestone ② loop diário — 20/07/2026
+
+Nova seção **Hoje**, primeira da navegação e **seção inicial padrão** (é o que
+faz abrir o app todo dia). Tudo DERIVADO (motores puros), nada gravado — a
+disciplina do score/streak do M4.
+
+- **`engine/today.ts`** (11 testes): anel do dia, fita da semana, streak diário,
+  resumo do dia. **Limite diário auto-corretivo** (fórmula aprovada):
+  `(Σ limites efetivos das categorias − gasto do mês até ontem) ÷ dias restantes`.
+  Estourar antes de hoje aperta hoje; economizar folga. Reusa o limite EFETIVO
+  do M1c. Sem categoria com limite → **teto diário configurável** (`dailyCapCents`
+  no uiStore); sem os dois → anel sem denominador (nunca inventa teto).
+- **`engine/xp.ts`** (7 testes): combustível DERIVADO (peça NOVA — o M4 não tinha
+  XP). Blinda o incentivo: **hábito é por DIA ÚNICO com atividade** (nunca por
+  lançamento — 1 ou 20 gastos no dia rendem o mesmo +15), com **teto mensal**; e
+  os componentes de **disciplina** (mês no azul +150, limite respeitado +40,
+  caixinha batida +200) **pesam mais que o hábito** no acumulado do mês. A barra
+  enche por saúde financeira, não por volume de movimento.
+- **UI** (`features/today/TodayPage.tsx`): anel ciano→âmbar (coral ao estourar,
+  "sem bronca"), frase viva (linguagem dos balões, valores mascaráveis sob
+  privacidade), fita Seg→Dom (hoje âmbar, dias com registro em ciano, futuros
+  esmaecidos), ignição (7 células), combustível (barra + nível), resumo do dia,
+  FAB "Lançar gasto". **Micro-recompensa**: registrar reage no anel/fita (leem o
+  store) e o toast do 1º gasto do dia traz "+15 XP, sequência acesa".
+
+**Estado da suíte (② Hoje):** typecheck ✓ · lint ✓ · **222 unit** (204 + 18) ✓ ·
+**35 E2E** ✓ (novo **7b**: anel/ignição/combustível + micro-recompensa) · smoke ✓.
+Screenshots em `screenshots/m8-today/` (2 temas). Default `activeView` passou a
+'today' — o **E2E 1** ganhou um `goTo('Visão geral')` explícito (a entrada mudou).
+
 ## Verificação mestra — v2.0.0
 
 Percorri o app contra os checklists de todas as releases. Cada item foi

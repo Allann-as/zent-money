@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import { currentYm, type Ym } from '@/engine/dates'
 
 export type ViewId =
+  | 'today'
   | 'overview'
   | 'income'
   | 'expenses'
@@ -51,6 +52,13 @@ interface UiState {
    */
   minimizeToTray: boolean
   pendingAction: PendingAction
+  /**
+   * Teto diário configurável (v2.1 §2), em centavos. É o FALLBACK do anel da
+   * tela Hoje quando nenhuma categoria tem limite (a fórmula principal usa o
+   * orçamento efetivo). null = sem teto → o anel mostra só o gasto do dia, sem
+   * denominador (nunca se inventa um teto). Preferência de UI, em localStorage.
+   */
+  dailyCapCents: number | null
   setTheme(theme: Theme): void
   toggleTheme(): void
   toggleSidebar(): void
@@ -62,6 +70,7 @@ interface UiState {
   setLockInactivityMinutes(minutes: number | null): void
   setMinimizeToTray(on: boolean): void
   setPendingAction(action: PendingAction): void
+  setDailyCapCents(cents: number | null): void
 }
 
 function applyTheme(theme: Theme): void {
@@ -77,7 +86,10 @@ export const useUiStore = create<UiState>()(
     (set, get) => ({
       theme: 'dark',
       sidebarCollapsed: false,
-      activeView: 'overview',
+      // A tela "Hoje" é a porta de entrada do loop diário (v2.1 §2): é o que
+      // faz abrir o app todo dia, então é a seção inicial padrão. `activeView`
+      // persiste, então quem já usava reabre onde estava.
+      activeView: 'today',
       activeYm: currentYm(),
       bankDetailId: null,
       openBankDetail: (bankDetailId) => set({ activeView: 'banks', bankDetailId }),
@@ -88,6 +100,8 @@ export const useUiStore = create<UiState>()(
       lockInactivityMinutes: null,
       minimizeToTray: true,
       pendingAction: null,
+      dailyCapCents: null,
+      setDailyCapCents: (dailyCapCents) => set({ dailyCapCents }),
       setSearchOpen: (searchOpen) => set({ searchOpen }),
       setCategoryChartMode: (categoryChartMode) => set({ categoryChartMode }),
       setLockInactivityMinutes: (lockInactivityMinutes) => set({ lockInactivityMinutes }),
@@ -123,6 +137,7 @@ export const useUiStore = create<UiState>()(
         categoryChartMode: s.categoryChartMode,
         lockInactivityMinutes: s.lockInactivityMinutes,
         minimizeToTray: s.minimizeToTray,
+        dailyCapCents: s.dailyCapCents,
       }),
       onRehydrateStorage: () => (state) => {
         applyTheme(state?.theme ?? 'dark')

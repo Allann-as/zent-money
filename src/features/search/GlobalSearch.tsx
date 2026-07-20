@@ -4,6 +4,7 @@ import {
   ChartLine,
   CreditCard,
   Eye,
+  Flame,
   Gift,
   Landmark,
   Layers,
@@ -42,6 +43,7 @@ function normalize(s: string): string {
 }
 
 const SECTION_ENTRIES: { view: ViewId; label: string; icon: LucideIcon }[] = [
+  { view: 'today', label: 'Hoje', icon: Flame },
   { view: 'overview', label: 'Visão geral', icon: Search },
   { view: 'income', label: 'Ganhos', icon: Gift },
   { view: 'expenses', label: 'Gastos', icon: ReceiptText },

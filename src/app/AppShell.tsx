@@ -4,6 +4,7 @@ import { toast } from '@/design/components/toast'
 import { ShortcutsOverlay } from '@/features/common/ShortcutsOverlay'
 import { Sidebar } from './Sidebar'
 import { TitleBar } from './TitleBar'
+import { TodayPage } from '@/features/today/TodayPage'
 import { OverviewPage } from '@/features/overview/OverviewPage'
 import { IncomePage } from '@/features/income/IncomePage'
 import { ExpensesPage } from '@/features/expenses/ExpensesPage'
@@ -16,6 +17,7 @@ import { GlobalSearch } from '@/features/search/GlobalSearch'
 import { Backdrop } from '@/design/Backdrop'
 
 const VIEWS: Record<ViewId, () => ReactNode> = {
+  today: TodayPage,
   overview: OverviewPage,
   income: IncomePage,
   expenses: ExpensesPage,

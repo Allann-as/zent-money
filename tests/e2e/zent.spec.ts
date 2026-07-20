@@ -93,6 +93,9 @@ async function goTo(label: string): Promise<void> {
 }
 
 test('1. visão geral abre com o seed (hero + saudação + balão)', async () => {
+  // A seção inicial padrão passou a ser "Hoje" (v2.1 §2, o loop diário); a Visão
+  // geral agora se alcança pela navegação.
+  await goTo('Visão geral')
   await expect(page.getByText('Olá, Allan')).toBeVisible()
   await expect(page.getByText('Patrimônio total')).toBeVisible()
   await expect(page.getByText(/^Resumo de/)).toBeVisible() // balão inteligente
@@ -231,6 +234,26 @@ test('7. gastos: lançamento recorrente cria template gerenciável', async () =>
   await modal.getByRole('button', { name: 'Encerrar' }).click()
   await expect(page.getByText('"Assinatura mensal" encerrada')).toBeVisible()
   await page.keyboard.press('Escape')
+})
+
+test('7b. Hoje: anel do dia, ignição, combustível e micro-recompensa ao registrar (v2.1 §2)', async () => {
+  await goTo('Hoje')
+  // Peças do loop diário presentes.
+  await expect(page.getByText('gasto hoje')).toBeVisible()
+  await expect(page.getByText('sequência de ignição')).toBeVisible()
+  await expect(page.getByText(/Nível/)).toBeVisible()
+  await expect(page.getByText('resumo do dia')).toBeVisible()
+
+  // Registrar um gasto pela FAB abre o MESMO fluxo e dá a micro-recompensa.
+  await page.getByRole('button', { name: 'Lançar gasto' }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByLabel('Categoria').selectOption({ label: 'Mercado' })
+  await dialog.getByPlaceholder('Ex.: Compras da semana').fill('Café')
+  await dialog.getByRole('textbox', { name: 'Valor do gasto' }).fill('8')
+  await dialog.getByRole('button', { name: 'Adicionar' }).click()
+  await expect(page.getByText('Gasto registrado')).toBeVisible()
+  // O dia de hoje acende na fita (o número do dia fica visível no bloco "hoje").
+  await expect(page.getByText('gasto hoje')).toBeVisible()
 })
 
 test('8. cartão: parcela reduz o limite (caso 5.000 / 100×10 da spec)', async () => {

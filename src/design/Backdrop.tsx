@@ -43,6 +43,7 @@ export type BackdropSection = ViewId | 'lock'
 
 /** Centro (posição CSS) de cada glow por seção — fora da borda = cortado. */
 const GLOWS: Record<BackdropSection, { accent: string; deep: string }> = {
+  today: { accent: '50% -14%', deep: '112% 118%' },
   overview: { accent: '50% -12%', deep: '114% 116%' },
   income: { accent: '112% -10%', deep: '-12% 116%' },
   expenses: { accent: '-12% -10%', deep: '114% 116%' },
@@ -97,6 +98,15 @@ const gridLayer: React.CSSProperties = {
  */
 function Geometry({ section }: { section: BackdropSection }): ReactNode {
   switch (section) {
+    // Hoje — anel do dia ecoado no fundo: dois círculos concêntricos no topo,
+    // como a assinatura do loop diário, cortados pela borda.
+    case 'today':
+      return (
+        <svg className="absolute -top-52 left-1/2 -translate-x-1/2" width="760" height="760" viewBox="0 0 760 760" fill="none" stroke="var(--primary)" strokeWidth="1">
+          <circle cx="380" cy="380" r="250" strokeDasharray="200 60" />
+          <circle cx="380" cy="380" r="330" />
+        </svg>
+      )
     // Visão geral / lock — 3 arcos concêntricos, descentralizados e cortados
     case 'overview':
     case 'lock':

@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import {
+  Flame,
   LayoutDashboard,
   TrendingUp,
   ReceiptText,
@@ -36,6 +37,7 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: 'Dia a dia',
     items: [
+      { id: 'today', label: 'Hoje', icon: Flame },
       { id: 'overview', label: 'Visão geral', icon: LayoutDashboard },
       { id: 'income', label: 'Ganhos', icon: TrendingUp },
       { id: 'expenses', label: 'Gastos', icon: ReceiptText },

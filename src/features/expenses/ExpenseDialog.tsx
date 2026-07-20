@@ -111,6 +111,11 @@ export function ExpenseDialog({
     if (!valid || amount === null) return
     const cleanDesc = description.trim()
     const nextOrigin = valueToOrigin(origin)
+    // Micro-recompensa do loop diário (v2.1 §2): o hábito rende +15 XP na PRIMEIRA
+    // vez que se registra num dia (nunca por lançamento — ver engine/xp.ts). Só
+    // aqui a UI sabe se este gasto abre o dia; a mensagem reforça a sequência.
+    const isNewToday = !editing && date === todayIso()
+    const firstOfDay = isNewToday && !data.expenses.some((e) => e.date === date)
     // Opt-in: soma pontual à fatura do cartão. NÃO é um vínculo vivo — a fatura
     // segue sendo o snapshot que o usuário mantém (ver DECISOES.md, R3 §3.4).
     const invoiceCardId = addToInvoice && originCardId !== null ? originCardId : null
@@ -162,7 +167,9 @@ export function ExpenseDialog({
         ? `${brl(amount)} — somados à fatura do cartão.`
         : repeatMonthly && !editing
           ? `${brl(amount)} — será lançado todo mês automaticamente.`
-          : brl(amount),
+          : firstOfDay
+            ? `${brl(amount)} · +15 XP, sequência acesa`
+            : brl(amount),
     )
     onClose()
   }

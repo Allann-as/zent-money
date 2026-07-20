@@ -2,6 +2,45 @@
 
 Registro das decisões tomadas onde a especificação deixou eixos livres.
 
+## Tela "Hoje" (v2.1) — ② loop diário
+
+### Limite diário auto-corretivo, e a honestidade do "sem teto"
+
+- Fórmula aprovada: `(Σ limites efetivos das categorias − gasto do mês até
+  ontem) ÷ dias restantes` (hoje incluso). Auto-corrige: estourou ontem → aperta
+  hoje; economizou → folga. Reusa o EFETIVO do M1c, sem inventar campo. Sem
+  categoria com limite → cai no teto diário configurável; **sem os dois, o anel
+  mostra só o gasto, sem denominador** — a mesma honestidade do "sem score ainda"
+  do M4. Nunca se inventa um teto que o usuário não definiu. Ver [[score]] (M4).
+
+### XP (`engine/xp.ts`) é peça NOVA — o M4 não entregou XP
+
+- O §2 dizia "reusa o XP do M4", mas o M4 só tem score/streak/conquistas/desafio.
+  O XP foi construído do zero, mantendo a disciplina: **derivado, nunca gravado**.
+
+### XP enche por SAÚDE, não por VOLUME DE MOVIMENTO (decisão do usuário)
+
+- Duas travas: (1) **hábito por DIA ÚNICO** com atividade, no máx. uma vez/dia —
+  nunca por lançamento; spammar cadastros não move a barra. (2) **disciplina
+  pesa mais que hábito no mês**: cada evento de disciplina (azul +150, limite +40,
+  caixinha +200) vale mais que um dia de hábito (+15), e o hábito tem **teto
+  mensal** (`HABIT_MONTH_CAP`), de modo que um mês disciplinado supera o hábito.
+  **Nenhuma release futura deve inverter esses pesos sem intenção.** Os números do
+  protótipo (+15/+100/+30/+150) eram ilustrativos; os pesos reais (+150/+40/+200)
+  foram calibrados para satisfazer a trava "disciplina > hábito".
+
+### Hoje é a seção INICIAL padrão
+
+- `activeView` nasce em 'today' (era 'overview'): é a porta do loop diário, o que
+  faz abrir o app todo dia. `activeView` persiste, então quem já usava reabre
+  onde estava. O E2E 1 passou a navegar explicitamente à Visão geral.
+
+### Teto diário no uiStore (localStorage), não no arquivo — por ora
+
+- `dailyCapCents` é preferência de UI (como tema/privacidade), fora do schema
+  para evitar uma migração só por ele neste milestone. Pode migrar para o arquivo
+  na v10 do ④ (Guardar/Resgatar) se quisermos que entre no export/import.
+
 ## Redesign "Painel de Bordo" (v2.1) — ① reskin base
 
 ### A troca de paleta é de VALOR de token, não de nome

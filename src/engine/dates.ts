@@ -129,3 +129,35 @@ export function diffDays(aIso: string, bIso: string): number {
   const b = Date.UTC(Number(bIso.slice(0, 4)), Number(bIso.slice(5, 7)) - 1, Number(bIso.slice(8, 10)))
   return Math.round((b - a) / 86_400_000)
 }
+
+/** Soma (ou subtrai) dias a uma data ISO, via UTC para não pular por fuso. */
+export function addDaysIso(iso: string, delta: number): string {
+  const t = Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)))
+  const d = new Date(t + delta * 86_400_000)
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const dd = String(d.getUTCDate()).padStart(2, '0')
+  return `${d.getUTCFullYear()}-${mm}-${dd}`
+}
+
+/**
+ * Dia da semana de uma data ISO (0 = domingo … 6 = sábado), via UTC — o mesmo
+ * critério de `addDaysIso`, para não divergir por fuso.
+ */
+export function weekdayOfIso(iso: string): number {
+  const t = Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)))
+  return new Date(t).getUTCDay()
+}
+
+/** Segunda-feira da semana que contém `iso` (semana Seg→Dom da fita "Hoje"). */
+export function mondayOfIso(iso: string): string {
+  const wd = weekdayOfIso(iso) // 0=dom … 6=sáb
+  const backToMonday = wd === 0 ? 6 : wd - 1
+  return addDaysIso(iso, -backToMonday)
+}
+
+const WEEKDAYS_PT_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'] as const
+
+/** Rótulo curto do dia da semana de uma data ISO: "Seg", "Ter"… */
+export function weekdayShort(iso: string): string {
+  return WEEKDAYS_PT_SHORT[weekdayOfIso(iso)] ?? ''
+}
