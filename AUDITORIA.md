@@ -87,6 +87,32 @@ OneDrive) mesmo não sendo a causa — um projeto de build sincronizado é risco
 conhecido (ver "Infra local" no DECISOES). `C:\dev\zent-money` é o diretório de
 trabalho oficial daqui em diante.
 
+## Crédito + parcelamento com prévia (v2.1) — milestone ⑤ — 20/07/2026
+
+Nova seção **Crédito** (hub dos cartões) e prévia de impacto do parcelamento —
+o freio consciente. Sem lógica financeira nova: reusa `cards`, `score`, o ledger.
+
+- **Tela de Crédito** (§6): card por cartão com logo, nome, **barra de uso**
+  (usado coral / livre ciano), limite total e fatura. Painel-resumo com **fatura
+  total do mês** (= `totalInvoices`, o mesmo de Compromissos — sem dupla
+  contagem), limite usado × disponível totais e **medidor de saúde** (o score do
+  M4) com leitura ("faturas somam X% da renda — zona ..."). **Pagar fatura**
+  reusa o `PayInvoiceDialog`: debita a conta e abate a fatura → `availableLimit`
+  (= limite − fatura − comprometido) **sobe sozinho** (o limite volta ao cartão).
+- **`engine/credit.ts`** (`installmentImpact`, `creditHealthReading`): prévia
+  pura. Limite após = `availableLimit` com a compra hipotética somada; saúde
+  antes→depois = o MESMO `scoreForMonth` recomputado sobre o estado hipotético
+  (sem duplicar a fórmula); salário disponível = salário − compromissos atuais −
+  nova parcela; 1ª/última parcela por mês.
+- **Prévia no diálogo de compra parcelada** (§7): painel "o que acontece se
+  confirmar" com valor/mês (n× parcela), meses, limite após, saúde antes→depois
+  e salário disponível antes→depois. Parcela avulsa mantém o resumo simples.
+
+**Estado da suíte (⑤):** typecheck ✓ · lint ✓ · **230 unit** ✓ (5 de credit:
+prévia, saúde, e **pagar fatura devolve o limite** com round-trip) · **37 E2E** ✓
+(novo **8b** hub de crédito; o **8** agora assere a prévia de impacto) · smoke ✓.
+Screenshots em `screenshots/m11-credit/`.
+
 ## Guardar/Resgatar + BankPicker (v2.1) — milestone ④ — 20/07/2026
 
 Schema **v10**. Movimento de dinheiro entre conta e caixinha, e o seletor de

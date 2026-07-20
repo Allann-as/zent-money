@@ -270,6 +270,10 @@ test('8. cartão: parcela reduz o limite (caso 5.000 / 100×10 da spec)', async 
   await dialog.getByPlaceholder('Ex.: Notebook').fill('Notebook')
   await dialog.getByRole('textbox', { name: 'Valor da parcela' }).fill('100')
   await dialog.getByLabel('Total de parcelas').fill('10')
+  // Prévia de impacto do parcelamento (§7): o freio consciente antes de confirmar.
+  await expect(dialog.getByText('o que acontece se confirmar')).toBeVisible()
+  await expect(dialog.getByText('Valor por mês')).toBeVisible()
+  await expect(dialog.getByText('Salário disponível após')).toBeVisible()
   await dialog.getByRole('button', { name: 'Adicionar' }).click()
 
   // disponível = 5.000 − 0 − 10×100 = 4.000
@@ -278,6 +282,19 @@ test('8. cartão: parcela reduz o limite (caso 5.000 / 100×10 da spec)', async 
   await expect(page.getByText('R$ 4.100,00')).toBeVisible()
   await page.getByRole('button', { name: 'desfazer' }).click()
   await expect(page.getByText('R$ 4.000,00')).toBeVisible()
+})
+
+test('8b. crédito: hub dos cartões com usado × disponível e fatura total (§6)', async () => {
+  // "Crédito" é o nome do grupo E do item de nav — navega pelo botão do item.
+  await page.getByRole('navigation', { name: 'Seções' }).getByRole('button', { name: 'Crédito', exact: true }).click()
+  await page.waitForTimeout(250)
+  await expect(page.getByText('Fatura total do mês')).toBeVisible()
+  await expect(page.getByText('Todos os cartões')).toBeVisible()
+  // o cartão "Ultravioleta" (teste 8) aparece com usado e livre
+  await expect(page.getByText('Ultravioleta').first()).toBeVisible()
+  await expect(page.getByText(/^usado/).first()).toBeVisible()
+  await expect(page.getByText(/^livre/).first()).toBeVisible()
+  await expect(page.getByText('Limite usado', { exact: true })).toBeVisible()
 })
 
 test('9. parcelas: visão consolidada com ações +1 paga/desfazer', async () => {

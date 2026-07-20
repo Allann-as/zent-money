@@ -8,6 +8,7 @@ export type ViewId =
   | 'income'
   | 'expenses'
   | 'banks'
+  | 'credit'
   | 'installments'
   | 'investments'
   | 'boxes'

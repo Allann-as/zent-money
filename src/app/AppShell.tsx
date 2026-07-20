@@ -9,6 +9,7 @@ import { OverviewPage } from '@/features/overview/OverviewPage'
 import { IncomePage } from '@/features/income/IncomePage'
 import { ExpensesPage } from '@/features/expenses/ExpensesPage'
 import { BanksPage } from '@/features/banks/BanksPage'
+import { CreditPage } from '@/features/credit/CreditPage'
 import { InstallmentsPage } from '@/features/installments/InstallmentsPage'
 import { InvestmentsPage } from '@/features/investments/InvestmentsPage'
 import { BoxesPage } from '@/features/boxes/BoxesPage'
@@ -22,6 +23,7 @@ const VIEWS: Record<ViewId, () => ReactNode> = {
   income: IncomePage,
   expenses: ExpensesPage,
   banks: BanksPage,
+  credit: CreditPage,
   installments: InstallmentsPage,
   investments: InvestmentsPage,
   boxes: BoxesPage,

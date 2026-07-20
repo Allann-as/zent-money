@@ -9,6 +9,7 @@ import {
   PiggyBank,
   History,
   Layers,
+  WalletCards,
   Menu,
   Search,
   Eye,
@@ -47,6 +48,7 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
     label: 'Crédito',
     items: [
       { id: 'banks', label: 'Bancos & Cartões', icon: CreditCard },
+      { id: 'credit', label: 'Crédito', icon: WalletCards },
       { id: 'installments', label: 'Parcelas', icon: Layers },
     ],
   },

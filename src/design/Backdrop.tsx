@@ -48,6 +48,7 @@ const GLOWS: Record<BackdropSection, { accent: string; deep: string }> = {
   income: { accent: '112% -10%', deep: '-12% 116%' },
   expenses: { accent: '-12% -10%', deep: '114% 116%' },
   banks: { accent: '116% 46%', deep: '-12% -12%' },
+  credit: { accent: '112% 40%', deep: '-12% 110%' },
   installments: { accent: '115% 116%', deep: '-12% -12%' },
   investments: { accent: '-14% 116%', deep: '112% -10%' },
   boxes: { accent: '112% -6%', deep: '-12% 116%' },
@@ -151,7 +152,9 @@ function Geometry({ section }: { section: BackdropSection }): ReactNode {
         </svg>
       )
     // Bancos & Cartões — grade de retângulos arredondados sobrepostos
+    // Bancos & Crédito — grade de cartões arredondados sobrepostos
     case 'banks':
+    case 'credit':
       return (
         <svg className="absolute -top-20 -right-20" width="700" height="640" viewBox="0 0 700 640" fill="none" stroke="var(--primary)" strokeWidth="1">
           {Array.from({ length: 5 }).map((_, i) => (

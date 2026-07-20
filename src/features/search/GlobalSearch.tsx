@@ -48,6 +48,7 @@ const SECTION_ENTRIES: { view: ViewId; label: string; icon: LucideIcon }[] = [
   { view: 'income', label: 'Ganhos', icon: Gift },
   { view: 'expenses', label: 'Gastos', icon: ReceiptText },
   { view: 'banks', label: 'Bancos & Cartões', icon: Landmark },
+  { view: 'credit', label: 'Crédito', icon: CreditCard },
   { view: 'installments', label: 'Parcelas', icon: Layers },
   { view: 'investments', label: 'Carteira', icon: ChartLine },
   { view: 'boxes', label: 'Caixinhas', icon: PiggyBank },

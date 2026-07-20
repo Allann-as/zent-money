@@ -108,7 +108,12 @@ async function goToTarget(label) {
     await page.waitForTimeout(400)
     return
   }
-  await page.click(`aside >> text="${label}"`)
+  // "Crédito" é o nome do grupo E do item de nav — desambigua pelo botão do item.
+  if (label === 'Crédito') {
+    await page.getByRole('navigation', { name: 'Seções' }).getByRole('button', { name: 'Crédito', exact: true }).click()
+  } else {
+    await page.click(`aside >> text="${label}"`)
+  }
   await page.waitForTimeout(350)
   await scrollTop()
 }

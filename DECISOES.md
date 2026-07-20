@@ -2,6 +2,36 @@
 
 Registro das decisões tomadas onde a especificação deixou eixos livres.
 
+## Crédito + parcelamento com prévia (v2.1) — ⑤
+
+### "Pagar fatura devolve o limite" é consequência do modelo, não código novo
+
+- `availableLimit = limite − fatura − comprometido`. Pagar a fatura (o
+  `PayInvoiceDialog` da R4) abate `card.invoice`, então o disponível **sobe
+  sozinho** — não há um "devolver limite" a implementar, só a derivação a
+  confiar. Testado com round-trip (pagar → sobe; desfazer → volta). Ver
+  [[ledger-hibrido]].
+
+### Saúde antes→depois reusa `scoreForMonth`, não uma 2ª fórmula
+
+- A prévia de impacto (§7) monta um estado hipotético com a compra já lançada e
+  chama o MESMO `scoreForMonth` — a saúde "depois" é o score real que o usuário
+  veria. Duplicar a fórmula do score seria duas contas livres para divergir
+  (o defeito que a R4 caçou). Ver [[score]].
+
+### Salário disponível = salário − compromissos atuais − nova parcela
+
+- Fórmula aprovada no plano. Número conservador de "o que ainda sobra por mês",
+  o freio consciente. Inclui as faturas nos compromissos (como o card
+  Compromissos), então é uma estimativa pessimista de propósito.
+
+### A seção nova chama-se "Crédito" (colide com o nome do grupo, aceito)
+
+- O grupo da sidebar já se chama "Crédito" (Bancos·Crédito·Parcelas) e o item
+  novo também. A redundância é mínima (cabeçalho em caps apagadas × botão de
+  nav) e o nome é o certo para o hub. Testes e screenshots desambiguam pelo
+  botão do item (role=button, exact).
+
 ## Guardar/Resgatar + BankPicker (v2.1) — ④
 
 ### Guardar/Resgatar só em caixinha MANUAL; investimento usa aporte

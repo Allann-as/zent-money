@@ -11,8 +11,10 @@ import { addPurchase } from '@/store/mutations'
 import { reconcileBankBalance } from '@/store/ledgerActions'
 import { bankBalances } from '@/engine/ledger'
 import { useBRL } from '@/design/money'
-import { currentYm, formatYmLong, addMonths } from '@/engine/dates'
+import { currentYm, formatYmLong, formatYmShort, todayIso, addMonths } from '@/engine/dates'
+import { installmentImpact } from '@/engine/credit'
 import { newId } from '@/lib/id'
+import { cn } from '@/lib/cn'
 import type { Bank, Card, Purchase } from '@/data/schema'
 
 // ── Banco ────────────────────────────────────────────────────────────────────
@@ -245,7 +247,9 @@ export function PurchaseDialog({
   onClose(): void
 }): ReactNode {
   const mutate = useDataStore((s) => s.mutate)
-  const allCards = useZentData().cards
+  const data = useZentData()
+  const allCards = data.cards
+  const brl = useBRL()
   const open = state !== 'closed'
   const editing = open && state.mode === 'edit' ? state.purchase : null
 
@@ -433,20 +437,69 @@ export function PurchaseDialog({
             </Select>
           </Field>
         </div>
-        {installment !== null && installment > 0 && valid && (
+        {/* Parcela avulsa: resumo simples (não consome limite de cartão). */}
+        {standalone && installment !== null && installment > 0 && valid && (
           <p className="text-[12.5px] text-ink-soft bg-surface-2 border border-line rounded-[10px] px-3 py-2.5 tnum">
             Compromisso total:{' '}
-            <strong className="text-ink">
-              {((installment * totalN) / 100).toLocaleString('pt-BR', {
-                style: 'currency',
-                currency: 'BRL',
-              })}
-            </strong>{' '}
-            · restam {totalN - paidN} parcelas
-            {standalone ? ' · não consome limite de cartão' : ''}
+            <strong className="text-ink">{brl(installment * totalN)}</strong> · restam{' '}
+            {totalN - paidN} parcelas · não consome limite de cartão
           </p>
+        )}
+
+        {/* Prévia de impacto (§7): o freio consciente antes de confirmar. */}
+        {!standalone && !editing && installment !== null && installment > 0 && valid && (
+          <ImpactPreview cardId={cardId} installment={installment} totalN={totalN} data={data} brl={brl} />
         )}
       </div>
     </Modal>
+  )
+}
+
+/** Painel de impacto do parcelamento (§7): limite após, saúde antes→depois e salário disponível. */
+function ImpactPreview({
+  cardId,
+  installment,
+  totalN,
+  data,
+  brl,
+}: {
+  cardId: string
+  installment: number
+  totalN: number
+  data: ReturnType<typeof useZentData>
+  brl: (c: number) => string
+}): ReactNode {
+  const imp = installmentImpact(data, cardId, installment, totalN, todayIso())
+  if (!imp) return null
+  return (
+    <div className="rounded-[12px] border border-line bg-surface-2 p-3.5">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-pos mb-2.5">o que acontece se confirmar</p>
+      <Row label="Valor por mês" value={`${totalN}× ${brl(imp.perMonth)}`} highlight />
+      <Row label="1ª parcela em" value={formatYmShort(imp.firstYm)} />
+      <Row label="Última parcela em" value={formatYmShort(imp.lastYm)} />
+      <Row label="Limite do cartão após a compra" value={`${brl(imp.limitAfter)} livre`} tone="text-pos" />
+      {imp.healthBefore !== null && imp.healthAfter !== null && (
+        <Row
+          label="Saúde financeira"
+          value={`${imp.healthBefore} → ${imp.healthAfter}`}
+          tone={imp.healthAfter < imp.healthBefore ? 'text-warn' : 'text-pos'}
+        />
+      )}
+      <div className="flex items-center justify-between pt-2.5 mt-1 border-t border-line">
+        <span className="text-[12px] text-ink-soft">Salário disponível após</span>
+        <span className="tnum text-[13px] font-bold text-ink">
+          {brl(imp.salaryAvailableBefore)} → <span className={imp.salaryAvailableAfter < 0 ? 'text-neg' : 'text-primary'}>{brl(imp.salaryAvailableAfter)}</span>
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function Row({ label, value, tone, highlight }: { label: string; value: string; tone?: string; highlight?: boolean }): ReactNode {
+  return (
+    <div className="flex items-center justify-between py-1">
+      <span className="text-[12px] text-ink-soft">{label}</span>
+      <span className={cn('tnum text-[12.5px] font-semibold', highlight ? 'text-primary' : (tone ?? 'text-ink'))}>{value}</span>
+    </div>
   )
 }
