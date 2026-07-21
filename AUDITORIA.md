@@ -1,5 +1,19 @@
 # AUDITORIA.md — Zent Money
 
+## Resumo executivo — v2.1.0 "Painel de Bordo" (20/07/2026)
+
+**Release v2.1** = reskin visual completo ("Painel de Bordo": verde-abissal +
+âmbar-fósforo + ciano gelo, Nunito + JetBrains Mono) + funcionalidades de
+dinheiro/crédito. Novidades: tela **Hoje** (loop diário: anel do dia, streak,
+XP), **Guardar/Resgatar** de caixinhas com transferência real no ledger,
+**`<BankPicker>`** com logo em todos os formulários, tela de **Crédito** (hub dos
+cartões) e **parcelamento com prévia de impacto**. Toda a lógica financeira da
+v2.0 preservada. **Suíte:** 230 unit + 37 E2E + typecheck + lint + smoke, verdes;
+perf 50k sem regressão (navegar 12 meses ~124ms/clique). Schema **v10**.
+Diretório de trabalho oficial: `C:\dev\zent-money` (fora do OneDrive).
+
+---
+
 ## Resumo executivo — v2.0.0 (19/07/2026)
 
 **Zent Money** é um app de finanças pessoais de mesa (Electron + React + TypeScript
@@ -16,6 +30,46 @@ boot ~596ms, abrir seções 55–272ms, navegar 12 meses ~126ms/clique — dentr
 envelope histórico; os fundos, a gamificação e a 2ª janela **não custaram FPS**.
 **Sobriedade:** varreduras anti-emoji e anti-hex limpas — o único hex fora de token
 é a paleta curada de categorias (DADO que o usuário escolhe, exceção documentada).
+
+## Fechamento v2.1.0 — auto-revisão visual + release — 20/07/2026
+
+Milestone ⑥: loop de auto-revisão visual, qualidade final e Release.
+
+### Loop de auto-revisão visual (§8)
+
+Screenshots das telas novas + reskin nos 2 temas ao longo dos milestones
+(`screenshots/m7-pass1` reskin · `m8-today` Hoje · `m9-charts` gráficos ·
+`m10-guardar` Guardar/Resgatar · `m11-credit` e `m12-final` Crédito + finais).
+**Autocrítica** e correções da passada:
+1. **Hex solto em fallback de var inventada** — `var(--void,#0a140f)` (Crédito) e
+   `var(--cyan-dim,#356e62)` (Hoje) usavam tokens inexistentes com fallback hex.
+   Corrigidos para `color-mix` sobre tokens reais (sem hex fora de token).
+2. **Colisão de nome "Crédito"** (grupo × item da sidebar) — aceita como
+   redundância mínima; testes/screenshots desambiguam pelo botão do item.
+3. **Tema claro**: âmbar-fósforo não passa em papel → `--primary` claro é âmbar
+   queimado; validado que todos os números/acentos das telas novas leem bem nos
+   dois temas (anel de Hoje, barras do Crédito, régua das Caixinhas).
+Nenhuma tela ficou "tímida" a ponto de exigir refação — a direção do Conjunto 1
+foi seguida (anel âmbar+ciano, mono nos números, grid de instrumento).
+
+### Qualidade final
+
+- **Suíte completa verde:** typecheck estrito · lint · **230 unit** · **37 E2E**
+  (jornada das 9 seções + Hoje + Guardar/Resgatar + Crédito) · smoke.
+- **Perf 50k** (quente): navegar 12 meses **124ms/clique** (baseline ~123 — sem
+  regressão); seções 46–261ms; boot ~826ms. As telas novas (Hoje, Crédito,
+  Guardar, régua) são renders estáticos baratos — **sem custo de FPS**.
+- **Anti-hex/anti-emoji**: varredura limpa; o único hex fora de token segue a
+  paleta curada de categorias e as marcas de banco (DADO, exceção documentada).
+
+### Release v2.1.0
+
+- `package.json` → **2.1.0**; `npm run dist` → `release/ZentMoney-Setup-2.1.0.exe`
+  (**79 MB**). Instalador entregue na Área de Trabalho do usuário.
+- Migração v9→v10 invisível (boxTransfers vazio; aportes ganham `fromBankId: null`).
+- **Tag `v2.1.0` + GitHub Release** com instalador e changelog.
+- **Dados reais resetados** a pedido (backup em `Desktop/zent-data-BACKUP-antes-reset.json`;
+  `pin.json` preservado — o app abre limpo e pede o PIN atual).
 
 ## Redesign "Painel de Bordo" (v2.1) — milestone ① reskin base — 20/07/2026
 

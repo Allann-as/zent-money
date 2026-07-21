@@ -87,7 +87,7 @@ export function CreditPage(): ReactNode {
                       <p className="text-[12px] text-ink-soft truncate">{c.name}</p>
                     </div>
                   </div>
-                  <div className="h-2 rounded-full bg-[color:var(--void,#0a140f)] overflow-hidden" style={{ background: 'color-mix(in srgb, var(--neg) 8%, var(--surface))' }}>
+                  <div className="h-2 rounded-full overflow-hidden" style={{ background: 'color-mix(in srgb, var(--neg) 8%, var(--surface))' }}>
                     <div
                       className="h-full rounded-full"
                       style={{

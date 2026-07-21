@@ -339,7 +339,7 @@ function FuelBlock({ xp }: { xp: ReturnType<typeof xpBreakdown> }): ReactNode {
           className="h-full rounded-full"
           style={{
             width: `${pct}%`,
-            background: 'linear-gradient(90deg, var(--cyan-dim, #356e62), var(--pos))',
+            background: 'linear-gradient(90deg, color-mix(in srgb, var(--pos) 45%, var(--surface)), var(--pos))',
             boxShadow: '0 0 12px color-mix(in srgb, var(--pos) 45%, transparent)',
             transition: 'width 500ms cubic-bezier(0.16, 1, 0.3, 1)',
           }}
