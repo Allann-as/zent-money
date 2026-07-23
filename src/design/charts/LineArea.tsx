@@ -1,8 +1,20 @@
 import { useId, useRef, useState, type ReactNode } from 'react'
 import { useChartColors } from './useChartColors'
+import { measureText } from '@/design/ringGeometry'
 import { ChartTip, niceMax, type TipState } from './ChartTip'
 import { formatBRLCompact } from '@/engine/money'
 import { usePrivacy } from '@/design/money'
+
+/**
+ * Tamanho de fonte por STYLE, e não por atributo (robustez de magnitude).
+ *
+ * `.tnum` traz `font-size: 0.95em`, e CSS vence atributo de apresentação: todo
+ * `fontSize="10.5"` destes gráficos vinha sendo renderizado a ~13,3 unidades —
+ * 27% maior que o pretendido. Isso não só engordava as etiquetas do eixo como
+ * fazia qualquer cálculo de gutter baseado no 10.5 subestimar a largura real,
+ * que é como os rótulos de milhão passaram a sair para fora do gráfico.
+ */
+const AXIS_FONT = 10.5
 
 export interface LinePoint {
   label: string
@@ -36,7 +48,6 @@ export function LineArea({
 
   const W = 800
   const H = height
-  const PAD_L = 56
   const PAD_R = 12
   const PAD_T = 14
   const PAD_B = 26
@@ -44,6 +55,24 @@ export function LineArea({
   if (data.length === 0) return null
 
   const max = niceMax(Math.max(...data.map((d) => d.value), 1))
+
+  /**
+   * ── GUTTER DO EIXO Y MEDIDO, NÃO CHUTADO (robustez de magnitude) ────────
+   * `PAD_L` era 56 fixo. Com valores grandes, "R$ 187,5 mi" a 10,5px mede ~54px
+   * e é desenhado com `textAnchor="end"` a partir de `PAD_L − 8`: sobrava
+   * −6, ou seja, o rótulo saía PELA ESQUERDA do próprio gráfico. O teste de
+   * estresse pegou isso em todas as magnitudes acima de milhão.
+   *
+   * Agora o gutter é a maior etiqueta realmente formatada, medida na fonte
+   * real, com 8px de folga — e nunca menor que os 56 originais, para gráficos
+   * de valores pequenos não ficarem com o eixo colado no canto.
+   */
+  const gridLines = [0.25, 0.5, 0.75, 1]
+  const PAD_L = Math.max(
+    56,
+    ...gridLines.map((g) => measureText(formatValue(max * g), AXIS_FONT, 400) + 16),
+  )
+
   const innerW = W - PAD_L - PAD_R
   const innerH = H - PAD_T - PAD_B
   const stepX = data.length > 1 ? innerW / (data.length - 1) : 0
@@ -52,7 +81,6 @@ export function LineArea({
 
   const linePath = data.map((d, i) => `${i === 0 ? 'M' : 'L'} ${x(i)} ${y(d.value)}`).join(' ')
   const areaPath = `${linePath} L ${x(data.length - 1)} ${PAD_T + innerH} L ${x(0)} ${PAD_T + innerH} Z`
-  const gridLines = [0.25, 0.5, 0.75, 1]
 
   function onMove(e: React.MouseEvent<SVGSVGElement>): void {
     if (privacy) return // sem tooltip de valor no modo privacidade (M2 §a)
@@ -119,7 +147,7 @@ export function LineArea({
               x={PAD_L - 8}
               y={y(max * g) + 3.5}
               textAnchor="end"
-              fontSize="10.5"
+              style={{ fontSize: AXIS_FONT }}
               fill={colors.inkFaint}
               className="tnum"
             >
@@ -180,7 +208,7 @@ export function LineArea({
               x={x(i)}
               y={H - 8}
               textAnchor="middle"
-              fontSize="10.5"
+              style={{ fontSize: AXIS_FONT }}
               fill={colors.inkFaint}
             >
               {d.label}

@@ -23,13 +23,51 @@ export function formatMoneyPlain(centavos: number): string {
   return brlNoSymbol.format(centavos / 100)
 }
 
-/** Formato compacto para eixos de gráfico: 123456 → "R$ 1,2 mil". */
+/**
+ * Formato compacto para containers apertados: 123456 → "R$ 1,2 mil".
+ *
+ * Escala até BILHÕES (R$ 1,2 bi) porque o app tem de aguentar magnitudes que
+ * não cabem em nenhum miolo de rosca — sem o degrau de bilhão, um patrimônio
+ * de nove dígitos vira "R$ 1.234,5 mi", que é mais largo que o valor exato e
+ * some com a razão de existir do compacto.
+ *
+ * ── ONDE ISTO É PROIBIDO ────────────────────────────────────────────────
+ * Campos de formulário e MoneyInput, listas de lançamentos, histórico da
+ * conta, saldo em edição, faturas, valores de parcela — qualquer lugar onde o
+ * usuário confere um centavo. Compactar é a única etapa da cascata que PERDE
+ * informação. Onde ela acontece, o valor exato tem de continuar disponível no
+ * `title` e no `aria-label`.
+ */
 export function formatBRLCompact(centavos: number): string {
   const v = centavos / 100
   const abs = Math.abs(v)
-  if (abs >= 1_000_000) return `R$ ${(v / 1_000_000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mi`
-  if (abs >= 1_000) return `R$ ${(v / 1_000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mil`
-  return brl.format(v)
+  if (abs < 1_000) return brl.format(v)
+
+  /**
+   * A unidade é escolhida pelo valor JÁ ARREDONDADO, não pelo bruto.
+   *
+   * Escolhendo pelo bruto, R$ 999.999.999,99 caía no degrau de milhão e virava
+   * "R$ 1.000 mi": mais largo que o necessário, e lendo como mil milhões em vez
+   * de um bilhão. Como arredondar para uma casa pode empurrar o número para
+   * 1.000, a checagem tem de acontecer DEPOIS de arredondar — e aí subir de
+   * degrau. Compactar que produz string mais longa perdeu a razão de existir.
+   */
+  const UNITS = [
+    { div: 1_000, suffix: 'mil' },
+    { div: 1_000_000, suffix: 'mi' },
+    { div: 1_000_000_000, suffix: 'bi' },
+  ]
+  let chosen = UNITS[0]!
+  for (const unit of UNITS) {
+    if (abs >= unit.div) chosen = unit
+  }
+  let scaled = v / chosen.div
+  const next = UNITS[UNITS.indexOf(chosen) + 1]
+  if (Math.abs(Number(scaled.toFixed(1))) >= 1_000 && next !== undefined) {
+    chosen = next
+    scaled = v / chosen.div
+  }
+  return `R$ ${scaled.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} ${chosen.suffix}`
 }
 
 /**

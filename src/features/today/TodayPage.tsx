@@ -9,6 +9,8 @@ import { ExpenseDialog, type ExpenseDialogState } from '@/features/expenses/Expe
 import { useZentData } from '@/store/dataStore'
 import { useUiStore } from '@/store/uiStore'
 import { useBRL } from '@/design/money'
+import { RingCenter, FitValue, RingLabel } from '@/design/RingCenter'
+import { innerRadiusPx } from '@/design/ringGeometry'
 import { formatTodayLong, todayIso } from '@/engine/dates'
 import {
   dailyConsumption,
@@ -70,10 +72,8 @@ export function TodayPage(): ReactNode {
 
             <div className="flex justify-center py-2">
               <DayRing
-                spent={brl(consumption.spentToday)}
-                limitLabel={
-                  consumption.limit === null ? 'sem teto' : `de ${brl(consumption.limit)}`
-                }
+                spentCents={consumption.spentToday}
+                limitCents={consumption.limit}
                 ratio={consumption.ratio}
                 over={consumption.over}
                 hasLimit={consumption.limit !== null}
@@ -126,18 +126,21 @@ export function TodayPage(): ReactNode {
 
 /** Anel do dia — gradiente ciano→âmbar; coral quando estoura. */
 function DayRing({
-  spent,
-  limitLabel,
+  spentCents,
+  limitCents,
   ratio,
   over,
   hasLimit,
 }: {
-  spent: string
-  limitLabel: string
+  /** Em CENTAVOS, e não pré-formatado: a cascata de magnitude precisa do
+      número para decidir fonte e notação (ver design/ringGeometry). */
+  spentCents: number
+  limitCents: number | null
   ratio: number
   over: boolean
   hasLimit: boolean
 }): ReactNode {
+  const brlPlain = useBRL()
   const size = 210
   const thickness = 15
   const R = 50 - thickness / 2
@@ -171,13 +174,31 @@ function DayRing({
           />
         )}
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className={cn('tnum font-extrabold text-[30px] hero-num leading-none', over ? 'text-neg' : 'text-primary')}>
-          {spent}
-        </span>
-        <span className="text-[10px] uppercase tracking-[0.14em] text-ink-soft mt-1.5">gasto hoje</span>
-        <span className="tnum text-[12px] text-ink-faint mt-1">{limitLabel}</span>
-      </div>
+      <RingCenter innerRadius={innerRadiusPx(size, thickness)}>
+        {/**
+          * 22px, e não os 30px de antes.
+          *
+          * Num anel de 210px com três linhas, a corda útil é ~123px — e
+          * "R$ 150,00" a 30px mede ~162px. Ou seja: o tamanho antigo NUNCA
+          * coube; ele só não parecia quebrado porque o texto transbordava por
+          * cima do anel sem ninguém reclamar. 22px é o maior tamanho em que um
+          * valor do dia-a-dia cabe junto com os rótulos.
+          */}
+        <FitValue
+          cents={spentCents}
+          fontPx={22}
+          weight={800}
+          className={cn('hero-num', over ? 'text-neg' : 'text-primary')}
+        />
+        {/* "gasto hoje" é o rótulo secundário: é ele que cede espaço primeiro
+            quando o valor cresce (etapa `a` da cascata). */}
+        <RingLabel className="text-[10px] uppercase tracking-[0.14em] text-ink-soft mt-1.5">
+          gasto hoje
+        </RingLabel>
+        <RingLabel className="tnum text-[12px] text-ink-faint mt-1">
+          {limitCents === null ? 'sem teto' : `de ${brlPlain(limitCents)}`}
+        </RingLabel>
+      </RingCenter>
     </div>
   )
 }

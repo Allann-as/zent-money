@@ -41,6 +41,7 @@ import {
 import { ASSET_CLASS_LABELS, assetClass, rateLabel, type AssetClass } from '@/engine/rates'
 import { formatPercent } from '@/engine/money'
 import { useBRL } from '@/design/money'
+import { FitBox, FitValue } from '@/design/RingCenter'
 import { currentYm, diffMonths, formatDateBR, formatYmShort, formatYmTiny, ymOfDate } from '@/engine/dates'
 import { cn } from '@/lib/cn'
 import type { Contribution, Investment } from '@/data/schema'
@@ -617,14 +618,16 @@ function InvestmentCard({
               {formatPercent(snapshot.monthly, 2)}
             </p>
           </div>
-          <div>
+          {/* Mini-card: a cascata pode compactar aqui (§3 permite), sempre com
+              o valor exato no title/aria — quem confere centavo abre o ativo. */}
+          <FitBox>
             <p className="text-[10.5px] text-ink-faint">Rende/mês</p>
-            <p className="text-[12.5px] font-semibold text-pos tnum">{brl(snapshot.yieldPerMonth)}</p>
-          </div>
-          <div>
+            <FitValue cents={snapshot.yieldPerMonth} fontPx={12.5} weight={600} className="text-pos block" />
+          </FitBox>
+          <FitBox>
             <p className="text-[10.5px] text-ink-faint">Rende/ano</p>
-            <p className="text-[12.5px] font-semibold text-pos tnum">{brl(snapshot.yieldPerYear)}</p>
-          </div>
+            <FitValue cents={snapshot.yieldPerYear} fontPx={12.5} weight={600} className="text-pos block" />
+          </FitBox>
         </div>
       ) : (
         <p className="mt-4 pt-3.5 border-t border-line text-[11.5px] text-ink-faint">

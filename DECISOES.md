@@ -56,6 +56,63 @@ Registro das decisões tomadas onde a especificação deixou eixos livres.
   invariante — menta e coral nos quatro. A leitura "entrou/saiu" nunca muda; o
   que muda é só o encaixe no subtom.
 
+### PADRÃO PERMANENTE: nenhum número transborda seu container, em nenhuma magnitude
+
+O app tem de suportar um patrimônio de R$ 100.000.000,00 sem quebrar em lugar
+nenhum. Isto vale para todo componente novo, para sempre — não é uma correção
+pontual de um bug de rosca.
+
+**A largura útil dentro de um anel não é o diâmetro.** Para um bloco de texto de
+altura `h` centrado num círculo de raio interno `r`, a largura máxima é a corda:
+`2·√(r² − (h/2)²)`, com 4px de margem. Uma fração chutada do diâmetro faz o texto
+"caber na largura" e mesmo assim encostar no anel nas quebras de cima e de baixo,
+onde o círculo é mais estreito.
+
+**`h` é o PIOR CASO, não o estado atual.** Foi exatamente daqui que veio o
+vazamento original: o Donut dimensionava pelo repouso (2 linhas, corda de
+142,7px) e desenhava no hover (3 linhas, corda de ~136px), com uma caixa fixa de
+142px. Por isso quem monta um miolo RESERVA sempre o conteúdo mais alto que ele
+pode assumir — as linhas do hover ficam no DOM desde o repouso, invisíveis. A
+altura medida já é o pior caso, a fórmula fica correta por construção e o layout
+não muda de tamanho entre estados.
+
+**Cascata de adaptação, nesta ordem:** (a) some o rótulo secundário → (b) `R$`
+vira prefixo de 0.6em → (c) fonte encolhe até o piso de 13px → (d) anel afina
+até o mínimo de 14px → (e) só então notação compacta. A ordem existe porque
+compactar é a única etapa que PERDE informação; reduzir a fonte não mente sobre o
+número, "R$ 10,4 mi" mente sobre os centavos.
+
+**Onde compactar é PROIBIDO:** campos de formulário e `MoneyInput`, listas de
+lançamentos, histórico da conta, saldo em edição, faturas, valores de parcela —
+qualquer lugar onde o usuário confere um centavo. Ali o número encolhe até o piso
+e para. Compacto só em miolo de rosca, badges, contadores da sidebar, rótulos de
+eixo e mini-cards, **sempre** com o valor exato no `title` e no `aria-label`.
+
+**Largura fixa é o antipadrão.** `w-24` numa coluna de valor alinha bonito e corta
+qualquer coisa acima de ~R$ 999.999,99. O certo é largura MÍNIMA (`min-w-24`), que
+alinha a coluna nos valores comuns e cede quando precisa.
+
+**A máscara de privacidade também tem largura.** `R$ ••••••` passa pela mesma
+cascata — senão é ela que transborda.
+
+Ferramentas: `design/ringGeometry.ts` (fórmula, medição por canvas e cascata),
+`<RingCenter>`/`<FitValue>` (dentro de anel) e `<FitBox>` (fora dele).
+Verificação: `scripts/stress-magnitude.mjs`.
+
+### Tamanho de fonte em SVG vai por `style`, nunca por atributo
+
+`.tnum` traz `font-size: 0.95em`, e **CSS vence atributo de apresentação**: todo
+`fontSize="10.5"` dos gráficos vinha sendo renderizado a ~13,3 unidades, 27%
+maior que o pretendido. Além de engordar as etiquetas, isso fazia qualquer
+cálculo de gutter baseado no 10.5 subestimar a largura real — que é como os
+rótulos de milhão passaram a sair para fora do gráfico.
+
+### O gutter do eixo Y é medido, não constante
+
+`PAD_L = 56` fixo funcionava até o eixo precisar dizer "R$ 187,5 mi". Agora o
+gutter é a maior etiqueta realmente formatada, medida na fonte real, com folga —
+e nunca menor que os 56 originais.
+
 ### Duas famílias de forma: pílula é ESTADO, retângulo é AÇÃO
 
 Regra permanente do Allan, para o "nunca bordas ovais" do §6 não ser aplicado

@@ -436,7 +436,19 @@ export function ExpensesPage(): ReactNode {
                   >
                     {e.essential ? 'Necessário' : 'Supérfluo'}
                   </button>
-                  <span className="text-[13.5px] font-semibold text-ink tnum w-24 text-right">
+                  {/**
+                   * Coluna de valor com largura MÍNIMA, não fixa.
+                   *
+                   * Era `w-24` (96px): alinhava bonito e cortava qualquer valor
+                   * acima de ~R$ 999.999,99 — o teste de estresse pegou isso em
+                   * milhão. `min-w-24` mantém as colunas alinhadas nos valores
+                   * do dia a dia e deixa a coluna crescer quando precisa; quem
+                   * cede é a descrição ao lado, que já trunca.
+                   *
+                   * Sem cascata aqui de propósito: isto é LISTA DE LANÇAMENTO,
+                   * onde o §3 proíbe compactar — o usuário confere centavo.
+                   */}
+                  <span className="text-[13.5px] font-semibold text-ink tnum min-w-24 shrink-0 text-right">
                     {brl(e.amount)}
                   </span>
                   <span className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

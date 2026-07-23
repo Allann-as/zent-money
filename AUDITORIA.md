@@ -1,5 +1,121 @@
 # AUDITORIA.md — Zent Money
 
+## R10 — ROBUSTEZ DE MAGNITUDE (23/07/2026)
+
+Regra permanente registrada em `DECISOES.md`: **nenhum número pode transbordar
+seu container em nenhuma magnitude**. O app tem de aguentar R$ 100.000.000,00 em
+qualquer lugar.
+
+### O defeito, medido antes de corrigido
+
+O relato era "os números vazam por cima da rosca". A causa não era da rosca:
+
+- `Donut.tsx` centralizava o miolo com `px-6` — uma largura CHUTADA de 142px.
+  Com `size=190`/`thickness=22`, o raio interno é 74,1px. Pela corda
+  `2·√(r² − (h/2)²)`, um bloco de **2 linhas** (repouso) permite 142,7px: passava
+  raspando. No **hover** o bloco vira 3 linhas, o limite cai para ~136px e a
+  caixa continuava com 142. **O bug só existia na interação** — é por isso que
+  sobreviveu a todas as suítes anteriores.
+- `ProgressRing.tsx` centralizava com `inset-0` e margem **nenhuma**: a área útil
+  declarada era o quadrado que contém o círculo.
+- O anel de **Hoje** não usava `ProgressRing` — era uma cópia local em
+  `TodayPage.tsx` com o mesmo defeito. Foram três lugares, não um.
+
+### Defeitos sistêmicos que o teste de estresse revelou
+
+1. **`.tnum` sobrescrevia o `fontSize` dos SVGs.** `font-size: 0.95em` numa
+   classe vence atributo de apresentação: todo `fontSize="10.5"` dos gráficos
+   renderizava a ~13,3 unidades — 27% maior que o pretendido, em todas as
+   etiquetas de eixo do app, desde sempre.
+2. **Gutter do eixo Y era constante.** `PAD_L = 56` fixo, com as etiquetas
+   desenhadas a partir de `PAD_L − 8`: "R$ 187,5 mi" (54px) sobrava −6px e
+   **saía pela esquerda do gráfico**. Em `Bars` o vazamento chegava a 19px.
+3. **Coluna de valor com largura fixa.** `w-24` (96px) na lista de gastos cortava
+   qualquer valor acima de ~R$ 999.999,99.
+4. **Mini-cards da Carteira** transbordavam a partir de milhão.
+5. **`formatBRLCompact` escolhia a unidade pelo valor BRUTO.** R$ 999.999.999,99
+   virava "R$ 1.000 mi" — mais largo que o necessário e lendo como mil milhões.
+   A unidade passou a ser escolhida depois de arredondar, e ganhou o degrau de
+   bilhão.
+
+### O que foi construído
+
+- `design/ringGeometry.ts` — a fórmula da corda, medição de texto por canvas
+  (sem reflow) e a cascata de adaptação como função pura.
+- `<RingCenter>` + `<FitValue>` + `<RingLabel>` — miolo que reserva o pior caso e
+  aplica a cascata; `<FitBox>` leva a mesma cascata para fora dos anéis.
+- Cascata na ordem da spec: rótulo secundário → prefixo 0.6em → fonte até o piso
+  de 13px → anel até 14px → compacto com valor exato no `title`/`aria-label`.
+
+### Teste de estresse (`scripts/stress-magnitude.mjs`)
+
+Roda o app de verdade em 7 magnitudes (×1 a ×1.000.000 sobre o dataset demo, o
+que leva o maior valor a ~R$ 5 bilhões) × positivos e negativos × 2 temas ×
+1366×768 e 1920×1080 × 10 seções, e em cada combinação verifica **estados de
+interação**, não só o render estático: hover em cada fatia da rosca, tooltip
+aberto, modo privacidade e **durante o count-up**, quando o número passa por
+larguras intermediárias.
+
+Asserções: `scrollWidth > clientWidth`, texto cortado por ellipsis, rótulo de SVG
+vazando para fora da área do gráfico, os quatro cantos do miolo dentro do círculo
+(verificação geométrica, não só de largura) e valor exato presente no
+`title`/`aria` sempre que houve compactação.
+
+**Progressão da correção:** 574 → 306 → 64 → 50 → **0 violações**.
+
+**Resultado final: 2.296 varreduras, zero violações.**
+
+### Estado da suíte depois da robustez de magnitude
+
+typecheck estrito · lint · **249 unit** (11 novos: fórmula da corda, degraus da
+notação compacta, afinamento de anel) · **40 E2E** · smoke · céu (6/6) · ilha
+(303/303) · mono · **estresse de magnitude (2.296/2.296)** — todos verdes.
+
+**Perf 50k:** 130–134ms/clique em três medições limpas (baseline v2.1 ~124,
+faixa histórica desta sessão 115–134). A primeira medição deu 159ms e foi
+**descartada**: a varredura de magnitude tinha acabado de terminar e ainda havia
+instâncias do Electron encerrando — medir com a máquina disputada mede a
+máquina, não o app.
+
+### A fórmula conferida no app rodando
+
+Anel de Hoje: raio interno **73,5px**, altura do bloco no pior caso **67px**,
+corda calculada **122,8px** — e o `maxWidth` efetivamente aplicado ao miolo é
+**122,843px**. A geometria não é uma intenção no comentário: é o número que está
+no DOM.
+
+### Regressões que a própria correção causou (e como apareceram)
+
+Corrigir isto quebrou o E2E duas vezes, e vale registrar porque as duas eram do
+mesmo tipo:
+
+1. **A cascata era agressiva demais.** Pedir espaço a QUALQUER encolhimento fazia
+   o rótulo "gasto hoje" sumir já em R$ 150,00 — porque os 30px do anel de Hoje
+   **nunca** couberam ali (a corda útil é ~123px e o valor mede ~162px). O
+   tamanho antigo só não parecia quebrado porque o texto transbordava por cima do
+   anel. Agora a base é 22px e o rótulo só cede quando o valor chega perto do
+   piso ou precisa compactar.
+2. **`FitBox` embutia `w-full`** e um chamador passou `w-auto`: conflito de
+   utilitárias do Tailwind resolvido pela ordem no CSS gerado — a coluna de valor
+   virou a linha inteira e empurrou a descrição do gasto para fora da tela.
+   **Quarta ocorrência** dessa mesma classe de erro nesta release (as outras
+   três: `.tnum`×`.font-display`, `relative`×`absolute`, `opacity`×`opacity`).
+
+### Duas vezes o teste estava errado, não o app
+
+Vale registrar, porque é o tipo de coisa que corrompe uma suíte:
+
+1. A sonda media `<text>` de SVG com `scrollWidth`/`clientWidth`, que são
+   propriedades de caixa de HTML e não significam nada ali — centenas de falsos
+   positivos. Rótulo de eixo se mede pela caixa geométrica contra a do `<svg>`.
+2. O harness zerava TODOS os campos de dinheiro para exercitar a magnitude 0, e
+   produzia `monthlyLimit: 0` e `salaryHistory.amount: 0` — estados que o schema
+   **recusa**, e com razão. O app não abria e estava certo. O fator 0 saiu: a
+   magnitude R$ 0,00 já é exercitada em toda corrida, porque o dataset demo tem
+   três bancos com saldo zero.
+
+---
+
 ## R10 "Céu de Galáxia" — milestones ①–④ (23/07/2026)
 
 Sessão parada no milestone ④, como combinado. Entregues: quatro blocos de cor,

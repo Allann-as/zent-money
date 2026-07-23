@@ -3,6 +3,8 @@ import { useChartColors } from './useChartColors'
 import { formatPercent } from '@/engine/money'
 import { useBRL } from '@/design/money'
 import { cn } from '@/lib/cn'
+import { RingCenter, FitValue } from '@/design/RingCenter'
+import { innerRadiusPx } from '@/design/ringGeometry'
 
 export interface DonutSlice {
   id: string
@@ -82,19 +84,38 @@ export function Donut({
               return el
             })}
         </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none px-6">
-          <span className="text-[11px] text-ink-faint leading-tight">
+        {/**
+         * ── O MIOLO É DIMENSIONADO PELO PIOR CASO, NÃO PELO REPOUSO ────────
+         * Aqui morava um `px-6`: uma largura chutada de 142px que, por acaso,
+         * cabia no limite de 142,7px de um bloco de DUAS linhas. No hover o
+         * bloco vira TRÊS (rótulo + valor + %), o limite cai para ~136px e a
+         * caixa continuava com 142 — era exatamente aí que o número vazava por
+         * cima do anel.
+         *
+         * Agora quem manda é `<RingCenter>`, que mede a altura real e aplica a
+         * corda `2·√(r² − (h/2)²)`. E a linha da porcentagem existe SEMPRE,
+         * apenas invisível no repouso: assim a altura medida já é a do pior
+         * caso, e passar o mouse não muda o tamanho de nada.
+         */}
+        <RingCenter innerRadius={innerRadiusPx(size, thickness / 2)}>
+          <span className="text-[11px] text-ink-faint leading-tight max-w-full truncate">
             {hovered ? hovered.label : centerTitle}
           </span>
-          <span className="font-display text-[15px] font-bold text-ink tnum leading-tight mt-0.5">
-            {hovered ? brl(hovered.value) : centerValue}
-          </span>
-          {hovered && total > 0 && (
-            <span className="text-[11px] text-ink-soft tnum">
-              {formatPercent(hovered.value / total, 1)}
+          {hovered ? (
+            <FitValue cents={hovered.value} fontPx={15} weight={700} className="text-ink mt-0.5" />
+          ) : (
+            <span className="font-display text-[15px] font-bold text-ink tnum leading-tight mt-0.5">
+              {centerValue}
             </span>
           )}
-        </div>
+          {/* Reserva permanente da 3ª linha — ver o comentário acima. */}
+          <span
+            className={cn('text-[11px] text-ink-soft tnum', !(hovered && total > 0) && 'invisible')}
+            aria-hidden={!(hovered && total > 0)}
+          >
+            {hovered && total > 0 ? formatPercent(hovered.value / total, 1) : '0%'}
+          </span>
+        </RingCenter>
       </div>
 
       {/* Legenda: valor e % */}

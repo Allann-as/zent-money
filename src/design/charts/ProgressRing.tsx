@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
 import { useChartColors } from './useChartColors'
+import { RingCenter } from '@/design/RingCenter'
+import { innerRadiusPx } from '@/design/ringGeometry'
 
 /** Anel de progresso animado — assinatura visual das Caixinhas. */
 export function ProgressRing({
@@ -40,7 +42,14 @@ export function ProgressRing({
           style={{ transition: 'stroke-dashoffset 600ms cubic-bezier(0.16, 1, 0.3, 1)' }}
         />
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">{children}</div>
+      {/**
+       * O miolo passou a ser um <RingCenter>: antes era `inset-0` com margem
+       * NENHUMA, ou seja, a área útil declarada era o quadrado inteiro que
+       * contém o círculo. Qualquer conteúdo um pouco largo encostava no anel
+       * — e nas quebras de cima e de baixo, onde o círculo é mais estreito,
+       * encostava muito antes de "encher" a largura.
+       */}
+      <RingCenter innerRadius={innerRadiusPx(size, thickness)}>{children}</RingCenter>
     </div>
   )
 }

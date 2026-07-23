@@ -1,8 +1,20 @@
 import { useState, type ReactNode } from 'react'
 import { useChartColors } from './useChartColors'
+import { measureText } from '@/design/ringGeometry'
 import { ChartTip, niceMax, type TipState } from './ChartTip'
 import { formatBRLCompact } from '@/engine/money'
 import { usePrivacy } from '@/design/money'
+
+/**
+ * Tamanho de fonte por STYLE, e não por atributo (robustez de magnitude).
+ *
+ * `.tnum` traz `font-size: 0.95em`, e CSS vence atributo de apresentação: todo
+ * `fontSize="10.5"` destes gráficos vinha sendo renderizado a ~13,3 unidades —
+ * 27% maior que o pretendido. Isso não só engordava as etiquetas do eixo como
+ * fazia qualquer cálculo de gutter baseado no 10.5 subestimar a largura real,
+ * que é como os rótulos de milhão passaram a sair para fora do gráfico.
+ */
+const AXIS_FONT = 10.5
 
 export interface BarGroup {
   label: string
@@ -37,7 +49,6 @@ export function Bars({
 
   const W = 800
   const H = height
-  const PAD_L = 56
   const PAD_R = 12
   const PAD_T = 14
   const PAD_B = 26
@@ -48,6 +59,21 @@ export function Bars({
   const maxPos = niceMax(Math.max(...allValues, 0, 1))
   const minNegRaw = Math.min(...allValues, 0)
   const maxNeg = minNegRaw < 0 ? niceMax(-minNegRaw) : 0
+  const gridLines = [0.5, 1]
+
+  /**
+   * Gutter do eixo Y MEDIDO — mesma correção do LineArea. Com `PAD_L` fixo em
+   * 56, "R$ 25 mi" (82px na fonte real) era desenhado a partir de `PAD_L − 8` e
+   * saía 19px pela esquerda do gráfico. O eixo negativo conta junto: ele tem as
+   * mesmas etiquetas com um sinal a mais, que é o caso mais largo.
+   */
+  const PAD_L = Math.max(
+    56,
+    ...gridLines.flatMap((g) => [
+      measureText(formatValue(maxPos * g), AXIS_FONT, 400) + 16,
+      maxNeg > 0 ? measureText(formatValue(-maxNeg * g), AXIS_FONT, 400) + 16 : 0,
+    ]),
+  )
 
   const innerW = W - PAD_L - PAD_R
   const innerH = H - PAD_T - PAD_B
@@ -84,7 +110,6 @@ export function Bars({
   }
 
   const labelEvery = Math.max(1, Math.ceil(data.length / 12))
-  const gridLines = [0.5, 1]
 
   return (
     <div className="relative w-full">
@@ -113,7 +138,7 @@ export function Bars({
               x={PAD_L - 8}
               y={zeroY - maxPos * g * scale + 3.5}
               textAnchor="end"
-              fontSize="10.5"
+              style={{ fontSize: AXIS_FONT }}
               fill={theme.inkFaint}
               className="tnum"
             >
@@ -137,7 +162,7 @@ export function Bars({
                 x={PAD_L - 8}
                 y={zeroY + maxNeg * g * scale + 3.5}
                 textAnchor="end"
-                fontSize="10.5"
+                style={{ fontSize: AXIS_FONT }}
                 fill={theme.inkFaint}
                 className="tnum"
               >
@@ -202,7 +227,7 @@ export function Bars({
               x={PAD_L + gi * groupW + groupW / 2}
               y={H - 8}
               textAnchor="middle"
-              fontSize="10.5"
+              style={{ fontSize: AXIS_FONT }}
               fill={theme.inkFaint}
             >
               {g.label}
