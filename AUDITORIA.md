@@ -68,6 +68,14 @@ typecheck · lint · **299 unit** (+5 de concordância) · **43 E2E** (23j agora
 prova a privacidade antes do PIN) · smoke · ilha 303/303 · mono ·
 **verify:tooltip 6/6** — verdes. Capturas em `screenshots/r10-lock2/`.
 
+### Release v2.2.1 (patch de privacidade)
+
+A v2.2.0 saiu **com a regressão**: o instalador daquela versão mostra o nome do
+dono antes do PIN. Por isso o patch foi publicado logo em seguida —
+`ZentMoney-Setup-2.2.1.exe`, tag `v2.2.1` + GitHub Release, e o instalador
+antigo foi **removido da Área de Trabalho** para não ser instalado por engano.
+Quem já instalou a 2.2.0 deve atualizar: é correção de privacidade, não cosmética.
+
 ---
 
 ## R10 ⑩ — AUTO-REVISÃO VISUAL + RELEASE v2.2.0 (23/07/2026)
