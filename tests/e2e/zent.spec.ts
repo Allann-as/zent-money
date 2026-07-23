@@ -839,6 +839,60 @@ test('22b. caixinhas: Guardar/Resgatar com BankPicker, conta zerada bloqueada (�
 })
 
 /**
+ * Adendo R10 — SUFICIÊNCIA DE SALDO. Os três estados que o Allan pediu para
+ * conferir com os próprios olhos: bloqueado (Família A), avisado-e-confirmado
+ * (Família B) e negativo exibido em coral. Usa o Santander (intocado pelos
+ * outros testes), conciliado a R$ 10,00.
+ */
+test('22c. suficiência de saldo: Família A bloqueia, Família B avisa, negativo em coral', async () => {
+  // Concilia o Santander a exatamente R$ 10,00 (parte de 0 no seed).
+  await goTo('Bancos & Cartões')
+  await page.getByRole('button', { name: 'Abrir Santander' }).click()
+  await page.getByRole('button', { name: 'Editar saldo em conta' }).click()
+  const field = page.getByRole('textbox', { name: 'Saldo em conta' })
+  await field.click()
+  await page.keyboard.press('Control+a')
+  await page.keyboard.type('10', { delay: 30 })
+  await page.getByRole('button', { name: 'OK' }).click()
+  await expect(page.getByText('R$ 10,00').first()).toBeVisible()
+  await page.getByRole('button', { name: 'Voltar para Bancos & Cartões' }).click()
+
+  // FAMÍLIA A — Guardar R$ 11,00 pelo Santander é BLOQUEADO (só tem R$ 10,00).
+  await goTo('Caixinhas')
+  await page.getByRole('button', { name: 'Guardar', exact: true }).first().click()
+  let dialog = page.getByRole('dialog')
+  await dialog.getByRole('textbox', { name: 'Valor a guardar' }).fill('11')
+  const santander = dialog.getByRole('radio', { name: /Santander/ })
+  await expect(santander).toBeDisabled() // insuficiente para o valor digitado
+  await expect(dialog.getByText('disponível R$ 10,00')).toBeVisible() // o motivo à mostra
+
+  // R$ 10,00 (= saldo) é ACEITO — zera a conta, não é erro.
+  await dialog.getByRole('textbox', { name: 'Valor a guardar' }).fill('10')
+  await expect(santander).toBeEnabled()
+  await santander.click()
+  await dialog.getByRole('button', { name: /^Guardar R\$/ }).click()
+  await expect(page.getByText('Guardado', { exact: true })).toBeVisible()
+
+  // FAMÍLIA B — gasto de R$ 5,00 pela conta zerada: AVISA, não bloqueia.
+  await goTo('Gastos')
+  await page.getByRole('button', { name: 'Novo gasto' }).click()
+  dialog = page.getByRole('dialog')
+  await dialog.getByLabel('Categoria').selectOption({ label: 'Mercado' })
+  await dialog.getByPlaceholder('Ex.: Compras da semana').fill('Gasto no vermelho')
+  await dialog.getByRole('textbox', { name: 'Valor do gasto' }).fill('5')
+  await dialog.getByRole('radio', { name: /Santander/ }).click()
+  // o aviso aparece com o saldo projetado, e o botão vira "Lançar mesmo assim"
+  await expect(dialog.getByText(/deixa o.*Santander.*em/)).toBeVisible()
+  await expect(dialog.getByText('-R$ 5,00').first()).toBeVisible()
+  await dialog.getByRole('button', { name: 'Lançar mesmo assim' }).click()
+  await expect(page.getByText('Gasto registrado')).toBeVisible()
+
+  // NEGATIVO EXIBIDO — o Santander aparece em −R$ 5,00 (coral) nos Bancos.
+  await goTo('Bancos & Cartões')
+  await expect(page.getByText('-R$ 5,00').first()).toBeVisible()
+})
+
+/**
  * R4 §2 — taxas. O app roda o E2E inteiro com `ZENT_OFFLINE=1`: nenhuma
  * requisição sai daqui. Este teste prova que, sem rede, o app abre, funciona e
  * mantém as taxas que já tinha — o caminho de falha é um caminho testado.

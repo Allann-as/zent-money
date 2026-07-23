@@ -9,7 +9,7 @@ import { toast } from '@/design/components/toast'
 import { useDataStore, useZentData } from '@/store/dataStore'
 import { useBRL } from '@/design/money'
 import { bankBalances, boxStoredAmount } from '@/engine/ledger'
-import { addBoxTransfer } from '@/store/mutations'
+import { addBoxTransfer, InsufficientBalanceError } from '@/store/mutations'
 import { todayIso } from '@/engine/dates'
 import { newId } from '@/lib/id'
 import { cn } from '@/lib/cn'
@@ -53,12 +53,14 @@ export function BoxTransferDialog({
   const balances = useMemo(() => bankBalances(data), [data])
   const stored = box ? boxStoredAmount(box.id, box.manualAmount, data.boxTransfers) : 0
 
-  // Opções do BankPicker: no Guardar, conta zerada fica desabilitada ("sem
-  // saldo") — não se cede o que não se tem; no Resgatar, todas as contas servem
-  // de destino.
+  // Opções do BankPicker: no Guardar, a conta é desabilitada por INSUFICIÊNCIA
+  // para o valor digitado (não só por saldo zero — adendo R10), com o motivo à
+  // mostra ("sem saldo" / "disponível R$ X"). No Resgatar, toda conta serve de
+  // destino (o dinheiro entra nela).
   const options: BankPickerOption[] = data.banks.map((b) => {
     const bal = balances.get(b.id) ?? 0
-    const disabled = mode === 'in' && bal <= 0
+    const insufficient = amount !== null && amount > 0 ? bal < amount : bal <= 0
+    const disabled = mode === 'in' && insufficient
     return {
       id: b.id,
       name: b.name,
@@ -67,7 +69,7 @@ export function BoxTransferDialog({
       subtitle: `saldo ${brl(bal)}`,
       danger: bal <= 0,
       disabled,
-      ...(disabled ? { reason: 'sem saldo' } : {}),
+      ...(disabled ? { reason: bal <= 0 ? 'sem saldo' : `disponível ${brl(bal)}` } : {}),
     }
   })
 
@@ -79,9 +81,20 @@ export function BoxTransferDialog({
 
   function save(): void {
     if (!valid || amount === null || bankId === null || !box) return
-    mutate((d) => {
-      addBoxTransfer(d, { id: newId(), boxId: box.id, bankId, amount, date: todayIso(), direction: mode })
-    })
+    try {
+      mutate((d) => {
+        addBoxTransfer(d, { id: newId(), boxId: box.id, bankId, amount, date: todayIso(), direction: mode })
+      })
+    } catch (e) {
+      // Rede de segurança: a mutação é a fonte da verdade (adendo R10). O botão
+      // já desabilita antes de chegar aqui; se ainda assim barrar, o motivo vai
+      // ao usuário em vez de um erro silencioso.
+      if (e instanceof InsufficientBalanceError) {
+        toast.error(mode === 'in' ? 'Saldo insuficiente' : 'Resgate maior que o guardado', e.message)
+        return
+      }
+      throw e
+    }
     if (mode === 'in') toast.success('Guardado', `${brl(amount)} em ${box.name}`)
     else toast.success('Resgatado', `${brl(amount)} de ${box.name}`)
     onClose()

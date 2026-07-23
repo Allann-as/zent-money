@@ -7,6 +7,7 @@ import { Select } from '@/design/components/Select'
 import { toast } from '@/design/components/toast'
 import { useZentData } from '@/store/dataStore'
 import { createTransfer, payInvoice } from '@/store/ledgerActions'
+import { InsufficientBalanceError } from '@/store/mutations'
 import { bankBalances } from '@/engine/ledger'
 import { useBRL } from '@/design/money'
 import { todayIso } from '@/engine/dates'
@@ -48,12 +49,23 @@ export function TransferDialog({
 
   const fromBank = data.banks.find((b) => b.id === from)
   const toBank = data.banks.find((b) => b.id === to)
-  const valid = from !== '' && to !== '' && from !== to && amount !== null && amount > 0 && date !== ''
   const fromBalance = balances.get(from) ?? 0
+  // Família A: transferir é mover o próprio dinheiro → não se transfere o que a
+  // conta de origem não tem (adendo R10). A trava faltava por completo aqui.
+  const insufficient = amount !== null && amount > 0 && amount > fromBalance
+  const valid = from !== '' && to !== '' && from !== to && amount !== null && amount > 0 && date !== '' && !insufficient
 
   function save(): void {
     if (!valid || amount === null) return
-    createTransfer(from, to, amount, date)
+    try {
+      createTransfer(from, to, amount, date)
+    } catch (e) {
+      if (e instanceof InsufficientBalanceError) {
+        toast.error('Saldo insuficiente', e.message)
+        return
+      }
+      throw e
+    }
     toast.success(
       'Transferência registrada',
       `${brl(amount)} de ${fromBank?.name ?? '—'} para ${toBank?.name ?? '—'}.`,
@@ -103,6 +115,11 @@ export function TransferDialog({
         <div className="flex flex-col gap-3">
           <Field label="Valor">
             <MoneyInput value={amount} onChange={setAmount} autoFocus aria-label="Valor da transferência" />
+            {insufficient && (
+              <p className="text-[12px] text-neg mt-1.5 tnum">
+                saldo insuficiente — disponível {brl(fromBalance)}
+              </p>
+            )}
           </Field>
           <Field label="Data">
             <DateField value={date} onChange={setDate} />

@@ -11,6 +11,7 @@ import { toast } from '@/design/components/toast'
 import { useDataStore, useZentData } from '@/store/dataStore'
 import { useBRL } from '@/design/money'
 import { bankBalances } from '@/engine/ledger'
+import { saldoDisponivel } from '@/engine/balance'
 import { todayIso, ymOfDate } from '@/engine/dates'
 import { effectiveLimit } from '@/engine/budget'
 import { newId } from '@/lib/id'
@@ -147,6 +148,24 @@ export function ExpenseDialog({
   /** Estoura o orçamento se, com este gasto, o mês passa do limite efetivo. */
   const overflow = effLimit !== null && amount !== null && amount > 0 && spentAfter > effLimit
 
+  // ── Suficiência de saldo, FAMÍLIA B (adendo R10) ──────────────────────────
+  // Um gasto pela conta PODE deixá-la negativa — a vida real permite (cheque
+  // especial, saldo desatualizado), e bloquear forçaria o usuário a NÃO
+  // registrar o que aconteceu. Então aqui é AVISO com confirmação, nunca
+  // bloqueio; o saldo negativo aparece em coral no card do banco depois.
+  const originBankId = origin.startsWith('bank:') ? origin.slice(5) : null
+  // Ao EDITAR um gasto que já debitava esta conta, o débito antigo já está no
+  // saldo — conta-se só o acréscimo, senão o aviso dispararia sozinho.
+  const oldBankDebit =
+    editing?.origin?.kind === 'bank' && editing.origin.bankId === originBankId ? editing.amount : 0
+  const projectedBalance =
+    originBankId !== null
+      ? saldoDisponivel(data, originBankId, date || todayIso()) - ((amount ?? 0) - oldBankDebit)
+      : 0
+  const wouldNegative =
+    originBankId !== null && amount !== null && amount > 0 && projectedBalance < 0
+  const originBankName = originBankId ? data.banks.find((b) => b.id === originBankId)?.name : null
+
   /** Aviso âmbar ao cruzar 80% sem estourar (o estouro é barrado no rodapé). */
   function checkNearLimit(): void {
     if (effLimit === null || amount === null) return
@@ -251,6 +270,16 @@ export function ExpenseDialog({
               Lançar mesmo assim
             </Button>
           </>
+        ) : wouldNegative ? (
+          // Família B: deixa a conta negativa → confirmação explícita, nunca bloqueio.
+          <>
+            <Button variant="ghost" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button variant="danger" disabled={!valid} onClick={save}>
+              Lançar mesmo assim
+            </Button>
+          </>
         ) : (
           <>
             <Button variant="ghost" onClick={onClose}>
@@ -290,6 +319,14 @@ export function ExpenseDialog({
             <strong className="tnum">{brl(effLimit)}</strong>{' '}
             (<strong className="tnum">{brl(spentAfter - effLimit)}</strong> acima).{' '}
             {onReallocate ? 'Lance mesmo assim ou realoque orçamento de outra categoria.' : 'Lance mesmo assim se quiser.'}
+          </p>
+        )}
+        {/* Família B: aviso de conta negativa (não bloqueia — adendo R10). */}
+        {wouldNegative && (
+          <p className="text-[12.5px] text-neg bg-neg-soft border border-neg/25 rounded-[10px] px-3 py-2.5 leading-relaxed">
+            Este gasto deixa o <strong>{originBankName ?? 'banco'}</strong> em{' '}
+            <strong className="tnum">{brl(projectedBalance)}</strong>. Você pode registrar mesmo
+            assim — o saldo negativo aparece em coral no histórico da conta.
           </p>
         )}
         <div className="flex flex-col gap-3">

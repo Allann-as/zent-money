@@ -190,6 +190,41 @@ Registro das decisões tomadas onde a especificação deixou eixos livres.
   explícita e tirar um ícone que alguém usa é uma perda silenciosa. O "antigo
   investir" pedido para remover **não existia** no set — nada a fazer.
 
+## R10 — suficiência de saldo (adendo)
+
+### Duas famílias, e por que a B não bloqueia
+
+- **Família A** (guardar · aportar-com-conta · transferir · resgatar) = mover o
+  PRÓPRIO dinheiro → **bloqueio duro**. Não existe mover o que não há. A trava
+  vive em `store/mutations.ts` (as `add*` lançam `InsufficientBalanceError`) — não
+  na UI, senão a bandeja, um import ou código futuro furariam a regra. A UI
+  desabilita o botão com o mesmo dado; o throw é a rede de segurança.
+- **Família B** (gasto com origem-conta · pagamento de fatura) = registrar um
+  FATO → **aviso com confirmação, nunca bloqueio**. A vida real permite ficar
+  negativo (cheque especial, saldo desatualizado). Bloquear forçaria o usuário a
+  NÃO registrar o que aconteceu — o pior resultado num app de finanças. Então
+  avisa ("deixa o Santander em −R$ 5,00"), permite com "Lançar mesmo assim", e o
+  negativo aparece em **coral** no card do banco (já existia — só faltava a trava
+  da Família A e o aviso da B). **Registrar a realidade vale mais que proteger o
+  número.**
+
+### `saldoDisponivel` é DERIVADO e DATADO
+
+- `engine/balance.ts` deriva tudo do ledger (`bankMovements`), nunca um campo
+  gravado — a mesma disciplina do saldo. E o saldo é DATADO: um débito de Família
+  A valida contra `menorSaldoDesde(bankId, date)` — o menor saldo em qualquer dia
+  ≥ a data da operação. Para uma operação de hoje isso colapsa no saldo atual (o
+  caso comum); para um lançamento retroativo, é o que impede negativar um dia
+  intermediário que o histórico já mostra fechado (o histórico corrido não pode
+  passar a mentir). `valor = saldo` é permitido (zerar não é erro).
+
+### O invariante é o teste que importa
+
+- Teste de propriedade: para QUALQUER sequência de operações de Família A,
+  nenhum saldo de conta em nenhuma data fica negativo (200 sequências × 30 ops).
+  Se ele falhar, existe um caminho de mutação sem validação — é o guarda que
+  prova que a regra vive na camada certa. Ver [[ledger-hibrido]].
+
 ## R10 "Céu de Galáxia" — ①–④
 
 ### A travessia de 450ms é das VARIÁVEIS, não dos elementos

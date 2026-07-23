@@ -11,6 +11,43 @@ import type {
   Transfer,
   ZentData,
 } from '@/data/schema'
+import { podeDebitar, saldoDisponivel } from '@/engine/balance'
+import { boxStoredAmount } from '@/engine/ledger'
+import { formatBRL } from '@/engine/money'
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════
+ * SUFICIÊNCIA DE SALDO — bloqueio duro da Família A (adendo R10)
+ * ═══════════════════════════════════════════════════════════════════════
+ *
+ * A checagem mora AQUI, na fonte única das mutações — não na UI. Se vivesse só
+ * no formulário, a bandeja, um import ou qualquer código futuro furariam a
+ * regra. As `add*` das operações de Família A (guardar, aportar-com-conta,
+ * transferir, resgatar) validam contra o saldo DERIVADO e lançam
+ * `InsufficientBalanceError` quando o dinheiro não existe; o immer descarta o
+ * rascunho e nada muda. A UI já desabilita o botão com o mesmo dado, então o
+ * throw é a rede de segurança, não o caminho normal.
+ *
+ * A Família B (gasto/fatura) NÃO passa por aqui: ela pode ficar negativa de
+ * propósito (ver DECISOES) — o aviso e a confirmação são da UI.
+ */
+export class InsufficientBalanceError extends Error {
+  /** Saldo que de fato havia disponível na data (centavos). */
+  readonly available: number
+  constructor(available: number, message: string) {
+    super(message)
+    this.name = 'InsufficientBalanceError'
+    this.available = available
+  }
+}
+
+/** Recusa um débito de Família A que exceda o saldo disponível na data. */
+function assertCanDebit(d: ZentData, bankId: string, valor: number, date: string): void {
+  if (!podeDebitar(d, bankId, valor, date)) {
+    const disp = saldoDisponivel(d, bankId, date)
+    throw new InsufficientBalanceError(disp, `Saldo insuficiente — disponível ${formatBRL(disp)}.`)
+  }
+}
 
 /**
  * Fonte única das mutações de LANÇAMENTO reversíveis (M1 §a).
@@ -56,6 +93,9 @@ export function removeExtraIncome(d: ZentData, id: string): void {
 
 // ── Aporte ───────────────────────────────────────────────────────────────────
 export function addContribution(d: ZentData, c: Contribution): void {
+  // Família A: aporte COM conta de origem debita a conta — bloqueio duro.
+  // Aporte antigo (fromBankId null) não debita nada e não é validado.
+  if (c.fromBankId !== null) assertCanDebit(d, c.fromBankId, c.amount, c.date)
   d.contributions.push(c)
 }
 export function removeContribution(d: ZentData, id: string): void {
@@ -70,6 +110,19 @@ export function removeContribution(d: ZentData, id: string): void {
  * construção: apagar o movimento devolve conta e caixinha ao estado anterior.
  */
 export function addBoxTransfer(d: ZentData, t: BoxTransfer): void {
+  if (t.direction === 'in') {
+    // Guardar debita a CONTA — bloqueio duro por saldo.
+    assertCanDebit(d, t.bankId, t.amount, t.date)
+  } else {
+    // Resgatar debita a CAIXINHA (credita a conta) — não se resgata mais do que
+    // há guardado (o guardado REAL, não valor de mercado; Guardar/Resgatar só
+    // existe em caixinha manual — ver DECISOES §4).
+    const box = d.boxes.find((b) => b.id === t.boxId)
+    const stored = box ? boxStoredAmount(box.id, box.manualAmount, d.boxTransfers) : 0
+    if (t.amount > stored) {
+      throw new InsufficientBalanceError(stored, `Resgate maior que o guardado — disponível ${formatBRL(stored)}.`)
+    }
+  }
   d.boxTransfers.push(t)
 }
 export function removeBoxTransfer(d: ZentData, id: string): void {
@@ -117,6 +170,8 @@ export function unpayInstallment(d: ZentData, purchaseId: string): void {
 
 // ── Transferência entre contas ────────────────────────────────────────────────
 export function addTransfer(d: ZentData, t: Transfer): void {
+  // Família A: a conta de ORIGEM é debitada — bloqueio duro.
+  assertCanDebit(d, t.fromBankId, t.amount, t.date)
   d.transfers.push(t)
 }
 export function removeTransfer(d: ZentData, id: string): void {

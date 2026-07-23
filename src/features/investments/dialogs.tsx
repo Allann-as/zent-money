@@ -11,7 +11,7 @@ import { BankPicker, type BankPickerOption } from '@/design/components/BankPicke
 import { toast } from '@/design/components/toast'
 import { confirmDialog } from '@/design/components/confirm'
 import { useDataStore, useZentData } from '@/store/dataStore'
-import { addContribution } from '@/store/mutations'
+import { addContribution, InsufficientBalanceError } from '@/store/mutations'
 import { bankBalances } from '@/engine/ledger'
 import { formatDateBR, todayIso } from '@/engine/dates'
 import { useBRL } from '@/design/money'
@@ -289,7 +289,9 @@ export function ContributionDialog({
     { id: NONE, name: 'Não debitar conta', logoName: '', logoColor: '#000', neutral: true, subtitle: 'só registrar o aporte' },
     ...data.banks.map((b) => {
       const bal = balances.get(b.id) ?? 0
-      const disabled = bal <= 0
+      // Desabilita por INSUFICIÊNCIA para o valor digitado (adendo R10), não só
+      // por saldo zero — não se aporta dinheiro que a conta não tem.
+      const disabled = amount !== null && amount > 0 ? bal < amount : bal <= 0
       return {
         id: b.id,
         name: b.name,
@@ -298,7 +300,7 @@ export function ContributionDialog({
         subtitle: `saldo ${brl(bal)}`,
         danger: bal <= 0,
         disabled,
-        ...(disabled ? { reason: 'sem saldo' } : {}),
+        ...(disabled ? { reason: bal <= 0 ? 'sem saldo' : `disponível ${brl(bal)}` } : {}),
       }
     }),
   ]
@@ -308,9 +310,17 @@ export function ContributionDialog({
 
   function save(): void {
     if (!valid || amount === null || !investment) return
-    mutate((d) => {
-      addContribution(d, { id: newId(), investmentId: investment.id, date, amount, fromBankId })
-    })
+    try {
+      mutate((d) => {
+        addContribution(d, { id: newId(), investmentId: investment.id, date, amount, fromBankId })
+      })
+    } catch (e) {
+      if (e instanceof InsufficientBalanceError) {
+        toast.error('Saldo insuficiente', e.message)
+        return
+      }
+      throw e
+    }
     toast.success('Aporte registrado', `${brl(amount)} em ${investment.name}`)
     onClose()
   }

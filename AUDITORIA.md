@@ -1,5 +1,59 @@
 # AUDITORIA.md — Zent Money
 
+## R10 — SUFICIÊNCIA DE SALDO (23/07/2026)
+
+O relato do adendo: com R$ 10,00 na conta, guardar R$ 11,00 era aceito e o saldo
+ia a −R$ 1,00. A única proteção era "conta zerada aparece desabilitada" — não
+cobria a insuficiência PARA O VALOR. Corrigido, com a distinção de duas famílias.
+
+### Onde estava o furo, medido
+
+- **Guardar/Resgatar** (`BoxTransferDialog`): tinha trava só na UI e só por saldo
+  zero — nada na camada de mutações.
+- **Aporte com conta** (`investments/dialogs`): idem, só desabilitava conta zerada.
+- **Transferir** (`TransferDialog`): **nenhuma** trava de saldo — transferia mais
+  do que a conta tinha, sem aviso nenhum.
+- **Gasto/fatura** (Família B): sem aviso de conta negativa (o negativo em coral
+  já existia no card do banco, mas nada avisava antes de salvar).
+
+### O que foi construído
+
+- `engine/balance.ts` — `saldoDisponivel(bankId, date)`, `menorSaldoDesde` e
+  `podeDebitar`, tudo DERIVADO do ledger. O saldo é datado: a Família A valida
+  contra o menor saldo em qualquer dia ≥ a data da operação (cobre o retroativo).
+- `InsufficientBalanceError` + guardas nas quatro `add*` de Família A em
+  `store/mutations.ts` — **a trava mora na mutação, não na UI**. As três formas
+  (guardar, aportar, transferir) desabilitam o botão e mostram o motivo
+  ("sem saldo" / "disponível R$ 10,00"); o throw é a rede de segurança.
+- Família B: aviso pré-salvar no `ExpenseDialog` ("deixa o {banco} em −R$ X") com
+  "Lançar mesmo assim", nunca bloqueio.
+
+### Os três estados, conferidos com os próprios olhos
+
+`screenshots/r10-saldo/`: (1) Guardar R$ 11,00 com R$ 10,00 na conta → Santander
+desabilitado com "disponível R$ 10,00", botão travado; (2) gasto R$ 5,00 pela
+conta zerada → aviso + "Lançar mesmo assim"; (3) Santander em **−R$ 5,00 coral**
+no card do banco.
+
+### Testes
+
+- **Unit (`balance.test.ts`, 10):** `saldoDisponivel` datado; `menorSaldoDesde` vê
+  o débito futuro; bloqueio nas 4 operações de Família A (incluindo **valor =
+  saldo permitido** e **+1 centavo recusado**); duas operações no mesmo dia; o
+  retroativo que negativaria um dia intermediário; a Família B que NÃO bloqueia.
+- **Invariante de propriedade:** 200 sequências × 30 operações de Família A —
+  **nenhum saldo negativo em nenhuma data**, nunca. Se falhasse, haveria um
+  caminho de mutação sem validação.
+- **E2E (novo 22c):** os três estados no app rodando, na sessão real.
+
+### Estado da suíte (suficiência de saldo)
+
+typecheck · lint · **303 unit** (+10 de `balance`) · **43 E2E** (+1: 22c) · smoke
+— verdes. Perf e estresse inalterados (a checagem só roda em operações
+pontuais do usuário, fora do caminho quente).
+
+---
+
 ## R10 — RESPIRO NO MIOLO DOS ANÉIS (23/07/2026)
 
 O relato: na Carteira → Composição por classe, o número do miolo cabia
