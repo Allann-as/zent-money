@@ -1,5 +1,90 @@
 # AUDITORIA.md — Zent Money
 
+## R10 ⑦ — PRIMEIRA EXECUÇÃO COM NOME (23/07/2026)
+
+A auditoria da tela de bloqueio (feita no ⑤) apontou quatro ausências: linha
+viva, passo do nome, cursor de terminal e a saudação personalizada. O ⑦ fecha
+as quatro. O fundo (bloco, marca, céu, layout único) já estava conforme e
+continua intocado.
+
+### Primeira execução em três passos, mesmo layout do bloqueio
+
+Criar senha → confirmar senha → **"Como você quer ser chamado?"**. Não há card
+centralizado: é o mesmo `LockScreen`, só com um passo a mais. A senha só vai ao
+disco no FIM, junto do nome — um commit só da primeira execução; se algo falhar
+antes, o app não fica "com senha e sem nome" num estado meio-configurado.
+
+O **nome já existia no schema** (`profile.name`, editável no perfil, usado no
+"Olá, {nome}" da sidebar), então **não houve migração** — o passo 3 só passou a
+preencher um campo que já era do modelo. Confirmado na auditoria antes de codar.
+
+### O cursor de terminal e o campo do nome
+
+- **Cursor de terminal piscando** (`.anim-caret`, `steps(1)`) segue o subtítulo
+  de TODOS os passos — a impressão de "o sistema está digitando ao vivo" não se
+  interrompe entre um passo e outro. Base opaca, para que sob
+  `prefers-reduced-motion` (que congela animações) ele fique sólido, não some.
+- **Campo do nome com o cursor à ESQUERDA do placeholder** (`NameField`): o
+  `placeholder` nativo não faz isso (o caret nativo fica colado na 1ª letra do
+  fantasma). Então o input real fica com caret e texto transparentes, e a camada
+  visível é desenhada por nós: `[digitado][cursor][fantasma, só quando vazio]`.
+  Continua sendo um `<input>` de verdade — foco, teclado, colar e acessibilidade
+  nativos; só o caret é pintado à mão. Conferido nos screenshots (vazio: cursor
+  antes de "insira seu nome"; digitando: fantasma some e o cursor segue o texto).
+- **Botão "Entrar no Zent" em retângulo arredondado (raio 11)**, da família de
+  AÇÃO — jamais oval (`<Button size="lg">`).
+
+### A linha viva do desbloqueio, e a privacidade
+
+`engine/lockInsight.ts` monta a frase rotativa sob a saudação
+("Seja bem-vindo de volta, {nome}") com **dado real** derivado dos motores
+existentes: marco/sequência no azul, meta mais próxima, score, e um total
+guardado como último recurso. Cada linha tem `full` (com número) e `masked`
+(**sem dígito algum**).
+
+**A variante de privacidade não é cosmética.** A tela de bloqueio aparece ANTES
+da autenticação e é uma captura fácil; um valor ali seria o mesmo vazamento que
+a máscara do M2 fecha no resto do app. Com a privacidade ligada, a linha usa a
+`masked`, e um teste (unit + E2E) assere que **nenhum `R$ <dígito>` chega ao DOM
+da tela** — o mesmo regex `/R\$\s*\d/` do E2E de privacidade. Confirmado no
+screenshot: "Marco de 12 meses no azul…" vira "Você bateu um novo marco de
+constância no azul."
+
+### Segurança intocada
+
+O hash **scrypt + salt** e o **throttling** seguem no MAIN (`electron/pin.ts`);
+o renderer nunca vê o hash. A única refatoração foi extrair a MATEMÁTICA do
+atraso para `electron/throttle.ts` (pura, sem Electron nem relógio), para poder
+testá-la — a lógica de verificação e o estado não mudaram. `ZENT_NO_LOCK`
+continua inerte no build empacotado (a guarda do M3). **Nenhum PIN em arquivo,
+log, teste ou screenshot**: a senha de teste ("1234" no E2E, "2468" no
+screenshot) é descartável e some com o `userData` temporário; o nome, sim, pode
+ir ao teste — não é segredo.
+
+### Uma decisão de wording
+
+A spec pediu os títulos "Crie sua senha" / "Confirme sua senha". O mecanismo
+continua sendo o PIN numérico (pad de dígitos, scrypt) — e "senha" para um código
+numérico é idiomático em pt-BR (a senha do cartão é numérica). Nenhum "PIN"
+VISÍVEL aparece na tela (o teclado mostra "OK"; "PIN" só no `aria-label` do botão
+e nos modais de perfil, fora do escopo do ⑦). A tecla "OK" do teclado segue
+redonda: é tecla de teclado numérico (um dispositivo de entrada), não um botão de
+ação solto — a regra de famílias vale para os botões de ação, e o do passo do
+nome a honra.
+
+### Estado da suíte (⑦)
+
+typecheck estrito · lint · **280 unit** (+8: 4 de `lockInsight` incluindo a prova
+de privacidade, 4 da curva do throttling) · **42 E2E** (o **beforeAll** agora
+percorre os três passos incluindo o nome; novo **23j**: reabrir → saudação pelo
+nome, linha viva, cursor e a variante sem número sob privacidade) · smoke — todos
+verdes, zero erros de console.
+
+Screenshots em `screenshots/r10-m7/` (3 passos + desbloqueio + privacidade, 2
+temas).
+
+---
+
 ## R10 ⑥ — LINHA DO TEMPO, O PAINEL DOS ANOS (23/07/2026)
 
 A Linha do tempo era uma janela FIXA de 12 meses com um gráfico de barras.

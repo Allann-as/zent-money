@@ -787,6 +787,15 @@ textarea {
   75% { transform: translateX(-2px); }
 }
 
+/* Cursor de terminal da tela de bloqueio (R10 §⑦): pisca "duro" (steps), como
+   um terminal de verdade. Base opaca, para que sob prefers-reduced-motion (que
+   congela a animação) ele fique SÓLIDO em vez de invisível. */
+@keyframes zent-caret {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.anim-caret { animation: zent-caret 1.05s steps(1) infinite; }
 .anim-shake { animation: zent-shake 380ms ease-in-out both; }
 .anim-fade-in { animation: zent-fade-in 180ms ease-out both; }
 .anim-pop-in { animation: zent-pop-in 200ms var(--ease-out-quint) both; }

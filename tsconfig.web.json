@@ -23,5 +23,5 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "tests/unit", "electron/ipc-api.ts", "electron/seam.ts"]
+  "include": ["src", "tests/unit", "electron/ipc-api.ts", "electron/seam.ts", "electron/throttle.ts"]
 }

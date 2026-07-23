@@ -44,15 +44,24 @@ test.beforeAll(async () => {
   })
   mini.on('pageerror', (err) => consoleErrors.push(`[quick] pageerror: ${String(err)}`))
 
-  // Primeira execução (M2 §b): o app nasce pedindo para DEFINIR um PIN. O E2E
-  // NÃO usa o bypass (ZENT_NO_LOCK) — exercita o fluxo real. PIN de teste "1234",
-  // descartável e isolado (nunca o PIN do usuário; some com o userData temporário).
-  await page.getByRole('heading', { name: 'Bem-vindo ao Zent Money' }).waitFor({ timeout: 20_000 })
+  // Primeira execução (M2 §b + R10 §⑦): o app nasce pedindo para criar a senha,
+  // confirmar e escolher o nome — três passos, mesmo layout do bloqueio. O E2E
+  // NÃO usa o bypass (ZENT_NO_LOCK): exercita o fluxo real. Senha de teste "1234",
+  // descartável e isolada (nunca a do usuário; some com o userData temporário).
+  // O NOME não é segredo — pode ir ao teste (só o PIN não pode).
+  await page.getByRole('heading', { name: 'Crie sua senha' }).waitFor({ timeout: 20_000 })
   await enterPin('1234') // definir
-  await page.getByRole('heading', { name: 'Confirme seu PIN' }).waitFor({ timeout: 5_000 })
+  await page.getByRole('heading', { name: 'Confirme sua senha' }).waitFor({ timeout: 5_000 })
   await enterPin('1234') // confirmar
+  // passo 3: o nome, com o campo de cursor à esquerda do placeholder
+  await page.getByRole('heading', { name: 'Como você quer ser chamado?' }).waitFor({ timeout: 5_000 })
+  await page.getByLabel('insira seu nome').fill('Alex')
+  await page.getByRole('button', { name: 'Entrar no Zent' }).click()
   await page.waitForSelector('aside', { timeout: 20_000 })
 })
+
+/** A saudação de desbloqueio (R10 §⑦), agora personalizada pelo nome do passo 3. */
+const UNLOCK_GREETING = 'Seja bem-vindo de volta, Alex'
 
 /** A janela PRINCIPAL do app (sem `#quick` no URL) — não a mini da bandeja. */
 async function mainWindow(): Promise<Page> {
@@ -114,7 +123,7 @@ test('1. visão geral abre com o seed (hero + saudação + balão)', async () =>
   // A seção inicial padrão passou a ser "Hoje" (v2.1 §2, o loop diário); a Visão
   // geral agora se alcança pela navegação.
   await goTo('Visão geral')
-  await expect(page.getByText('Olá, Allan')).toBeVisible()
+  await expect(page.getByText('Olá, Alex')).toBeVisible()
   await expect(page.getByText('Patrimônio total')).toBeVisible()
   await expect(page.getByText(/^Resumo de/)).toBeVisible() // balão inteligente
 })
@@ -130,7 +139,7 @@ test('2. sidebar recolhe e expande (hambúrguer e Ctrl+B)', async () => {
 })
 
 test('3. tema alterna para claro e volta', async () => {
-  await page.getByText('Olá, Allan').click()
+  await page.getByText('Olá, Alex').click()
   const switchEl = page.getByRole('switch', { name: 'Alternar tema escuro' })
   await switchEl.click()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
@@ -714,7 +723,7 @@ test('20. campos monetários aceitam digitação natural (2000 · 1.234,56 · 12
  * PIN atual errado sendo recusado (verifyPin + feedback), depois o caminho certo.
  */
 test('21. segurança: alterar PIN recusa o atual errado e aceita o certo', async () => {
-  await page.getByText('Olá, Allan').click()
+  await page.getByText('Olá, Alex').click()
   await page.getByRole('button', { name: 'Alterar PIN' }).click()
   const dialog = page.getByRole('dialog', { name: 'Alterar PIN' })
   await expect(dialog).toBeVisible()
@@ -835,7 +844,7 @@ test('22b. caixinhas: Guardar/Resgatar com BankPicker, conta zerada bloqueada (�
  * mantém as taxas que já tinha — o caminho de falha é um caminho testado.
  */
 test('23. sem rede: app funciona, taxas antigas seguem valendo e o manual vira override', async () => {
-  await page.getByText('Olá, Allan').click()
+  await page.getByText('Olá, Alex').click()
   const menu = page.getByRole('dialog', { name: 'Menu de perfil' })
   await expect(menu.getByText('Taxas de referência')).toBeVisible()
   // as taxas do seed continuam de pé, com a data delas
@@ -875,7 +884,7 @@ test('23b. persistência: reabrir volta à última seção, ainda bloqueado (M3)
   // LevelDB/pin. O `securityStore` NÃO é persistido, então o app renasce
   // BLOQUEADO (auto-bloqueio ao abrir), exatamente como num restart real.
   await page.reload()
-  await page.getByRole('heading', { name: 'Zent Money', exact: true }).waitFor({ timeout: 20_000 })
+  await page.getByRole('heading', { name: UNLOCK_GREETING }).waitFor({ timeout: 20_000 })
   await enterPin('5678') // o teste 21 já alterou o PIN de 1234 para 5678
   await page.waitForSelector('aside', { timeout: 20_000 })
 
@@ -904,7 +913,7 @@ test('23c. gamificação: score no hero, detalhamento, desafio e estante (M4)', 
   await expect(page.getByText(/Máx R\$\s+300,00 em/)).toBeVisible()
 
   // Estante de conquistas no perfil
-  await page.getByText('Olá, Allan').click()
+  await page.getByText('Olá, Alex').click()
   await page.getByRole('button', { name: /^Conquistas/ }).click()
   const shelf = page.getByRole('dialog', { name: 'Conquistas' })
   await expect(shelf).toBeVisible()
@@ -943,7 +952,7 @@ test('23d. bandeja: lançamento rápido reflete no mês e no saldo da origem (M5
 test('23e. bandeja: com PIN, a mini exige o PIN antes de exibir (não fura o bloqueio) (M5)', async () => {
   // Reinicia o app: renasce BLOQUEADO (como um restart). NÃO desbloqueio o app.
   await page.reload()
-  await page.getByRole('heading', { name: 'Zent Money', exact: true }).waitFor({ timeout: 20_000 })
+  await page.getByRole('heading', { name: UNLOCK_GREETING }).waitFor({ timeout: 20_000 })
 
   // Abre a mini com o app bloqueado: ela precisa pedir o PIN, não o form.
   await page.evaluate(() => (globalThis as unknown as { zent: { showQuickEntry(): void } }).zent.showQuickEntry())
@@ -970,7 +979,7 @@ test('23f. bandeja + inatividade: trancar oculto exige PIN ao reabrir (M6)', asy
     localStorage.setItem('zent-ui', JSON.stringify(parsed))
   })
   await page.reload()
-  await page.getByRole('heading', { name: 'Zent Money', exact: true }).waitFor({ timeout: 20_000 })
+  await page.getByRole('heading', { name: UNLOCK_GREETING }).waitFor({ timeout: 20_000 })
   await enterPin('5678')
   await page.waitForSelector('aside', { timeout: 20_000 })
 
@@ -994,14 +1003,14 @@ test('23f. bandeja + inatividade: trancar oculto exige PIN ao reabrir (M6)', asy
       if (!w.webContents.getURL().includes('#quick')) w.show()
     }
   })
-  await expect(page.getByRole('heading', { name: 'Zent Money', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: UNLOCK_GREETING })).toBeVisible()
 
   // Cleanup: desliga o auto-bloqueio, desbloqueia e fecha a mini.
   for (const d of '5678') await mini.getByRole('button', { name: d, exact: true }).click()
   await mini.getByRole('button', { name: 'Confirmar PIN' }).click()
   await mini.evaluate(() => (globalThis as unknown as { zent: { closeQuick(): void } }).zent.closeQuick())
   await page.waitForSelector('aside', { timeout: 20_000 })
-  await page.getByText('Olá, Allan').click()
+  await page.getByText('Olá, Alex').click()
   await page.getByLabel('Bloquear por inatividade').selectOption('off')
   await page.keyboard.press('Escape')
 })
@@ -1145,6 +1154,40 @@ test('23i. calendário próprio: digitação direta, popover, atalhos e teclado 
 
   await page.keyboard.press('Escape')
   await expect(dialog).toBeHidden()
+})
+
+/**
+ * R10 §⑦ — a tela de desbloqueio: saudação pelo nome, linha viva com dado real,
+ * cursor de terminal piscando e a variante SEM número sob privacidade.
+ * (O fluxo de definir→confirmar→nomear→entrar já foi exercitado no beforeAll, em
+ * userData limpo; aqui é a volta: fechar → reabrir → saudação.)
+ */
+test('23j. desbloqueio: saudação pelo nome, linha viva e privacidade (R10 §⑦)', async () => {
+  // 1) Sem privacidade: reabre → saudação com o nome + linha viva + cursor.
+  await goTo('Visão geral')
+  await page.reload()
+  await page.getByRole('heading', { name: UNLOCK_GREETING }).waitFor({ timeout: 20_000 })
+  // linha viva presente (frase rotativa) e o cursor de terminal piscando
+  await expect(page.getByTestId('lock-insight')).toBeVisible()
+  await expect(page.locator('.anim-caret').first()).toBeVisible()
+  await enterPin('5678')
+  await page.waitForSelector('aside', { timeout: 20_000 })
+
+  // 2) Com privacidade ligada, reabre → a linha viva NÃO leva nenhum R$ <dígito>
+  //    à tela (a mesma garantia da máscara do M2, aqui no primeiro contato).
+  await page.getByRole('button', { name: 'Ocultar valores (modo privacidade)' }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-privacy', 'on')
+  await page.reload()
+  await page.getByRole('heading', { name: UNLOCK_GREETING }).waitFor({ timeout: 20_000 })
+  await expect(page.getByTestId('lock-insight')).toBeVisible()
+  const lockHtml = await page.content()
+  expect(lockHtml).not.toMatch(/R\$\s*\d/)
+  await enterPin('5678')
+  await page.waitForSelector('aside', { timeout: 20_000 })
+
+  // desliga a privacidade para não vazar estado para os testes seguintes
+  await page.getByRole('button', { name: 'Mostrar valores' }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-privacy', 'off')
 })
 
 test('24. zero erros de console/runtime em toda a sessão', () => {

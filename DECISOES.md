@@ -2,6 +2,71 @@
 
 Registro das decisões tomadas onde a especificação deixou eixos livres.
 
+## R10 ⑦ — primeira execução com nome
+
+### A senha vai ao disco no FIM, junto do nome
+
+- A primeira execução é criar → confirmar → nomear, e o `setPin` só acontece no
+  último passo, depois de gravar o nome. Se a senha fosse persistida no passo 2
+  e o app fechasse antes do nome, o próximo boot acharia `hasPin === true`,
+  entraria em modo desbloqueio e o usuário nunca daria o nome — ficaria com o
+  padrão do seed. Comprometer os dois juntos no fim mantém a primeira execução
+  atômica na prática.
+
+### O nome NÃO precisou de migração
+
+- `profile.name` já existia no schema (v1), editável no perfil e usado no "Olá,
+  {nome}" da sidebar. O ⑦ só passou a PREENCHÊ-LO na primeira execução, em vez de
+  deixá-lo no default do seed. Verificado antes de codar — nenhum schema novo,
+  nenhuma migração. Um passo do produto que já tinha o dado esperando.
+
+### O caret à esquerda do placeholder é pintado à mão
+
+- O `placeholder` nativo não coloca o cursor ANTES do texto-fantasma; o caret
+  nativo fica colado na primeira letra dele. Para cumprir "cursor à esquerda do
+  placeholder", o `<input>` real fica com caret e texto transparentes e a camada
+  visível é desenhada por cima (`[digitado][caret][fantasma]`). Continua sendo um
+  input de verdade — só o caret é nosso, o resto (foco, teclado, colar, leitor de
+  tela) é nativo. Trocar o input inteiro por uma div contentEditable perderia
+  acessibilidade por um detalhe visual; pintar só o caret é o mínimo necessário.
+
+### O cursor de terminal nasce OPACO (por causa do reduced-motion)
+
+- `prefers-reduced-motion` congela toda animação globalmente (tokens.css). Se o
+  caret começasse invisível e a animação o acendesse, sob reduced-motion ele
+  sumiria de vez. Base `opacity: 1` + keyframe que apaga: com a animação
+  congelada, fica sólido; com ela, pisca. A acessibilidade não pode apagar a
+  única pista de "campo ativo".
+
+### A linha viva do bloqueio tem variante SEM número — e isso é segurança
+
+- A tela aparece antes da autenticação e é fácil de fotografar. Mostrar
+  sequência/score/meta ali é intencional (o Allan pediu a linha viva), mas com a
+  privacidade ligada cada linha usa a variante `masked`, **sem dígito algum** —
+  senão a máscara que o M2 garante no app teria um furo bem no primeiro contato.
+  Um teste unit e o E2E 23j asseram que, sob privacidade, nenhum `R$ <dígito>`
+  chega ao DOM da tela. Ver [[pin-de-bloqueio]] e a máscara do M2.
+
+### "Senha" (numérica) na primeira execução, "PIN" nos bastidores
+
+- A spec pediu "Crie sua senha". O mecanismo segue sendo o PIN numérico (pad de
+  dígitos + scrypt) — e "senha" para um código numérico é idiomático em pt-BR
+  (senha do cartão). Nenhum "PIN" VISÍVEL aparece na tela: o teclado mostra "OK",
+  e "PIN" só sobrevive no `aria-label` do botão e nos modais de perfil (fora do
+  escopo do ⑦). Não renomeei esses últimos para evitar mexer em superfícies de
+  segurança já testadas sem o ⑦ pedir. A tecla "OK" continua redonda: é tecla de
+  um teclado numérico (dispositivo de entrada), não um botão de ação avulso — a
+  regra "retângulo é AÇÃO" vale para os botões soltos, e o do passo do nome a
+  cumpre.
+
+### O throttling virou pura para ser testável (como o seam)
+
+- A matemática do atraso (5 livres, dobra até 30s) saiu de `pin.ts` para
+  `electron/throttle.ts`, sem Electron nem `Date.now`, do mesmo jeito que
+  `seam.ts` isolou a guarda de produção. O estado (contagem, `lockedUntil`) e a
+  verificação scrypt continuam no `pin.ts`; só a curva pura mudou de casa, e
+  agora tem teste. Refatoração sem mudança de comportamento.
+
 ## R10 ⑥ — linha do tempo, o painel dos anos
 
 ### A área com sinal fecha na LINHA DO ZERO, não no rodapé

@@ -2,6 +2,7 @@ import { app } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
+import { attemptsLeftFor, delayForFails, FREE_ATTEMPTS } from './throttle'
 
 /**
  * PIN de bloqueio (M2 §b) — barreira contra olhares casuais, NÃO criptografia.
@@ -21,7 +22,6 @@ import crypto from 'node:crypto'
 const PIN_FILE = 'pin.json'
 const SCRYPT_KEYLEN = 64
 const SALT_BYTES = 16
-const FREE_ATTEMPTS = 5
 
 interface PinRecord {
   v: 1
@@ -60,15 +60,9 @@ function scryptHash(pin: string, salt: Buffer): Promise<Buffer> {
   })
 }
 
-// ── Throttling progressivo (em memória) ──────────────────────────────────────
+// ── Throttling progressivo (em memória; a matemática pura vive em throttle.ts) ─
 let failCount = 0
 let lockedUntil = 0
-
-/** Atraso após esgotar as tentativas livres: 1s, 2s, 4s… teto de 30s. */
-function delayFor(fails: number): number {
-  if (fails < FREE_ATTEMPTS) return 0
-  return Math.min(30_000, 1000 * 2 ** (fails - FREE_ATTEMPTS))
-}
 
 function resetThrottle(): void {
   failCount = 0
@@ -118,9 +112,9 @@ export async function verifyPin(pin: string): Promise<VerifyResult> {
     return { ok: true, waitMs: 0, attemptsLeft: FREE_ATTEMPTS }
   }
   failCount += 1
-  const wait = delayFor(failCount)
+  const wait = delayForFails(failCount)
   if (wait > 0) lockedUntil = Date.now() + wait
-  return { ok: false, waitMs: wait, attemptsLeft: Math.max(0, FREE_ATTEMPTS - failCount) }
+  return { ok: false, waitMs: wait, attemptsLeft: attemptsLeftFor(failCount) }
 }
 
 /** Troca o PIN exigindo o atual. Retorna false se o atual não confere. */
