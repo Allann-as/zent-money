@@ -1,5 +1,75 @@
 # AUDITORIA.md — Zent Money
 
+## AJUSTES PÓS-v2.2.0 — BLOQUEIO EM DUAS COLUNAS E TOOLTIP (23/07/2026)
+
+### 1. Tela de bloqueio — layout de console
+
+Barra de status no topo (largura total, 38px, mono 10,5px) **datilografada
+caractere a caractere** ao abrir, com cursor no fim, e à direita o ponto pulsante
++ relógio ao vivo. Abaixo, duas colunas divididas por borda vertical sutil, com o
+céu de galáxia (Bloco 1) atrás: **esquerda (55%)** com ícone+halo, `ZENT` em mono
+(letter-spacing .26em), saudação, divisor, linhas de terminal e o rodapé
+"● 100% local · nenhuma rede · autenticação no dispositivo"; **direita (45%)** com
+as bolinhas, o teclado 3×4 e a instrução.
+
+**Os dados da barra são reais**: data, versão e a idade do último backup — esta
+última passou a vir do MAIN (`lastBackupAt`, mtime do arquivo mais novo em
+/backups), porque quem lê "último backup há 13h" decide se está protegido. Sem
+backup ainda, a barra diz isso em vez de inventar um número.
+
+### 1.1 Regressão de privacidade — corrigida
+
+**O ⑦ tinha introduzido um vazamento real**: a tela saudava "Seja bem-vindo de
+volta, {nome}" **antes da autenticação**. Qualquer um que abrisse o notebook lia
+o nome do dono sem saber o PIN. Agora, antes de desbloquear: saudação **genérica
+pelo horário** ("Boa tarde."), sem nome e **sem a linha viva** (que carrega
+sequência/meta/score). O nome e a linha viva entram no **beat de identificação**
+— PIN correto → `> operador identificado ✓` → saudação com o nome → o app abre.
+O E2E **23j** assere que `Alex` não está no DOM antes do PIN.
+
+### 1.2 Concordância — três defeitos, não um
+
+O relatado ("Você está há 1 mês **seguidos** no azul") e mais dois que a varredura
+achou: "não quebre os **1 dias** seguidos" (Hoje) e "**Faltam** 1 parcela"
+(pagamento de parcela). A correção não foi caso a caso: `engine/text.ts` passou a
+receber a **expressão inteira** (`counted(1, 'mês seguido', 'meses seguidos')`) e
+o verbo (`verbFor(1, 'Falta', 'Faltam')`), porque a unidade de concordância é a
+frase, não a palavra — é assim que o erro para de nascer. 5 testes novos.
+
+### 1.3 Primeira execução
+
+Mesmo layout, só os textos mudam ("Crie sua senha." → "Confirme sua senha." →
+"Como você quer ser chamado?"), cursor de terminal piscando do início ao fim,
+campo de nome com cursor à esquerda do placeholder e botão retângulo raio 11.
+
+### 2. Tooltip — a causa era `display: contents`, não o lado
+
+O sintoma era "tooltip do Recolher renderiza fora da janela, colado no topo,
+sobre a marca". **A causa não era o lado escolhido:** o invólucro do `<Tooltip>`
+usa `display: contents` (para não injetar caixa no layout de quem chama), e um
+elemento `contents` **não gera caixa** — `getBoundingClientRect()` devolvia tudo
+zero. **Todo** tooltip do app era posicionado a partir de (0,0) e ia parar no
+canto superior esquerdo.
+
+Corrigido em duas camadas: (1) a medida sai do **primeiro filho** (o botão, que
+tem caixa real); (2) o componente ganhou **detecção de colisão** — vira para o
+lado oposto quando não há espaço e grampeia nas bordas, com 8px de deslocamento.
+A camada (2) sozinha apenas escondia o defeito (mantinha o tooltip dentro da
+janela, no lugar errado) — foi o screenshot que denunciou.
+
+**`npm run verify:tooltip`** afere as DUAS coisas em 1366×768, 1920×1080 e
+1024×640: nenhum tooltip ultrapassa a janela **e** cada um está junto da sua
+âncora (≤24px). A primeira asserção sozinha passava com o tooltip no canto — foi
+preciso a segunda para o teste ter dentes.
+
+### Estado da suíte (ajustes)
+
+typecheck · lint · **299 unit** (+5 de concordância) · **43 E2E** (23j agora
+prova a privacidade antes do PIN) · smoke · ilha 303/303 · mono ·
+**verify:tooltip 6/6** — verdes. Capturas em `screenshots/r10-lock2/`.
+
+---
+
 ## R10 ⑩ — AUTO-REVISÃO VISUAL + RELEASE v2.2.0 (23/07/2026)
 
 ### Auto-revisão visual

@@ -61,6 +61,29 @@ function rotateBackup(): void {
   }
 }
 
+/**
+ * Instante do backup mais recente (ISO), ou null se ainda não há nenhum.
+ *
+ * A barra de status do bloqueio mostra "último backup há Xh" — e esse número
+ * tem de ser MEDIDO, não decorativo: quem lê ali decide se está protegido. Os
+ * backups são domínio do main (ele os cria e poda), então a verdade sai daqui,
+ * do mtime do arquivo mais novo, e não de um palpite do renderer.
+ */
+export function lastBackupAt(): string | null {
+  try {
+    const dir = backupDirPath()
+    const files = fs
+      .readdirSync(dir)
+      .filter((f) => /^zent-\d{4}-\d{2}-\d{2}\.json$/.test(f))
+      .sort()
+    const newest = files[files.length - 1]
+    if (newest === undefined) return null
+    return fs.statSync(path.join(dir, newest)).mtime.toISOString()
+  } catch {
+    return null
+  }
+}
+
 export function saveData(json: string): void {
   const file = dataFilePath()
   fs.mkdirSync(dataDir(), { recursive: true })

@@ -3,7 +3,7 @@ import path from 'node:path'
 import fs from 'node:fs'
 import { IPC, type QuickDataDTO, type QuickExpenseDTO } from './ipc-api'
 import { resolveLockDisabled } from './seam'
-import { listLogos, loadData, saveData, watchLogos } from './storage'
+import { lastBackupAt, listLogos, loadData, saveData, watchLogos } from './storage'
 import { changePin, hasPin, resetPin, setPin, verifyPin } from './pin'
 import { fetchRates, type FetchLike } from '../src/engine/rates-source'
 
@@ -260,6 +260,7 @@ function registerIpc(): void {
   ipcMain.handle(IPC.listLogos, () => listLogos())
 
   ipcMain.handle(IPC.getVersion, () => APP_VERSION)
+  ipcMain.handle(IPC.lastBackupAt, () => lastBackupAt())
 
   /**
    * Taxas oficiais (R4 §2) — a única conexão de rede do app. Fica no main

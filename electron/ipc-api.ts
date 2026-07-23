@@ -24,6 +24,8 @@ export interface ZentBridge {
   onLogosChanged(cb: (logos: Record<string, string>) => void): () => void
   /** Versão do app (package.json). */
   getVersion(): Promise<string>
+  /** Instante ISO do backup mais recente, ou null se ainda não há nenhum. */
+  lastBackupAt(): Promise<string | null>
   /**
    * Repinta os botões nativos da janela nas cores do tema (R3): a barra de
    * título é do sistema, então só o processo main consegue mudá-la.
@@ -126,6 +128,7 @@ export const IPC = {
   listLogos: 'zent:list-logos',
   logosChanged: 'zent:logos-changed',
   getVersion: 'zent:get-version',
+  lastBackupAt: 'zent:last-backup-at',
   setTitleBarTheme: 'zent:set-titlebar-theme',
   fetchRates: 'zent:fetch-rates',
   hasPin: 'zent:has-pin',

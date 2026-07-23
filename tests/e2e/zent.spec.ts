@@ -60,7 +60,13 @@ test.beforeAll(async () => {
   await page.waitForSelector('aside', { timeout: 20_000 })
 })
 
-/** A saudação de desbloqueio (R10 §⑦), agora personalizada pelo nome do passo 3. */
+/**
+ * A tela de bloqueio ANTES da autenticação. O nome do usuário NÃO aparece aqui
+ * (correção de privacidade): quem abre o notebook não pode ler quem é o dono.
+ * Então o marcador da tela é a instrução do teclado, não a saudação.
+ */
+const LOCKED_HINT = 'Digite seu PIN para desbloquear'
+/** A saudação personalizada só existe no beat DEPOIS do PIN correto. */
 const UNLOCK_GREETING = 'Seja bem-vindo de volta, Alex'
 
 /** A janela PRINCIPAL do app (sem `#quick` no URL) — não a mini da bandeja. */
@@ -938,7 +944,7 @@ test('23b. persistência: reabrir volta à última seção, ainda bloqueado (M3)
   // LevelDB/pin. O `securityStore` NÃO é persistido, então o app renasce
   // BLOQUEADO (auto-bloqueio ao abrir), exatamente como num restart real.
   await page.reload()
-  await page.getByRole('heading', { name: UNLOCK_GREETING }).waitFor({ timeout: 20_000 })
+  await page.getByText(LOCKED_HINT).waitFor({ timeout: 20_000 })
   await enterPin('5678') // o teste 21 já alterou o PIN de 1234 para 5678
   await page.waitForSelector('aside', { timeout: 20_000 })
 
@@ -1006,7 +1012,7 @@ test('23d. bandeja: lançamento rápido reflete no mês e no saldo da origem (M5
 test('23e. bandeja: com PIN, a mini exige o PIN antes de exibir (não fura o bloqueio) (M5)', async () => {
   // Reinicia o app: renasce BLOQUEADO (como um restart). NÃO desbloqueio o app.
   await page.reload()
-  await page.getByRole('heading', { name: UNLOCK_GREETING }).waitFor({ timeout: 20_000 })
+  await page.getByText(LOCKED_HINT).waitFor({ timeout: 20_000 })
 
   // Abre a mini com o app bloqueado: ela precisa pedir o PIN, não o form.
   await page.evaluate(() => (globalThis as unknown as { zent: { showQuickEntry(): void } }).zent.showQuickEntry())
@@ -1033,7 +1039,7 @@ test('23f. bandeja + inatividade: trancar oculto exige PIN ao reabrir (M6)', asy
     localStorage.setItem('zent-ui', JSON.stringify(parsed))
   })
   await page.reload()
-  await page.getByRole('heading', { name: UNLOCK_GREETING }).waitFor({ timeout: 20_000 })
+  await page.getByText(LOCKED_HINT).waitFor({ timeout: 20_000 })
   await enterPin('5678')
   await page.waitForSelector('aside', { timeout: 20_000 })
 
@@ -1057,7 +1063,7 @@ test('23f. bandeja + inatividade: trancar oculto exige PIN ao reabrir (M6)', asy
       if (!w.webContents.getURL().includes('#quick')) w.show()
     }
   })
-  await expect(page.getByRole('heading', { name: UNLOCK_GREETING })).toBeVisible()
+  await expect(page.getByText(LOCKED_HINT)).toBeVisible()
 
   // Cleanup: desliga o auto-bloqueio, desbloqueia e fecha a mini.
   for (const d of '5678') await mini.getByRole('button', { name: d, exact: true }).click()
@@ -1211,31 +1217,44 @@ test('23i. calendário próprio: digitação direta, popover, atalhos e teclado 
 })
 
 /**
- * R10 §⑦ — a tela de desbloqueio: saudação pelo nome, linha viva com dado real,
- * cursor de terminal piscando e a variante SEM número sob privacidade.
- * (O fluxo de definir→confirmar→nomear→entrar já foi exercitado no beforeAll, em
- * userData limpo; aqui é a volta: fechar → reabrir → saudação.)
+ * R10 §⑦ — a tela de bloqueio em duas colunas.
+ *
+ * O teste central é de PRIVACIDADE: antes do PIN, NADA de pessoal vai à tela —
+ * nem o nome do dono. Quem abre o notebook vê uma saudação genérica pelo
+ * horário. O nome e a linha viva (sequência/meta/score) entram só no beat de
+ * "operador identificado", depois do PIN correto.
  */
-test('23j. desbloqueio: saudação pelo nome, linha viva e privacidade (R10 §⑦)', async () => {
-  // 1) Sem privacidade: reabre → saudação com o nome + linha viva + cursor.
+test('23j. bloqueio: nada de pessoal antes do PIN, identificação depois (R10 §⑦)', async () => {
   await goTo('Visão geral')
   await page.reload()
-  await page.getByRole('heading', { name: UNLOCK_GREETING }).waitFor({ timeout: 20_000 })
-  // linha viva presente (frase rotativa) e o cursor de terminal piscando
-  await expect(page.getByTestId('lock-insight')).toBeVisible()
+  await page.getByText(LOCKED_HINT).waitFor({ timeout: 20_000 })
+
+  // ── PRIVACIDADE: o nome do dono NÃO pode estar na tela antes da autenticação
+  const lockedHtml = await page.content()
+  expect(lockedHtml).not.toContain('Alex')
+  expect(lockedHtml).not.toContain('Seja bem-vindo de volta')
+  // saudação genérica pelo horário, sem nome
+  await expect(page.getByRole('heading', { name: /^(Bom dia|Boa tarde|Boa noite)\.$/ })).toBeVisible()
+
+  // as duas colunas: barra de status, marca, terminal e o cursor piscando
+  await expect(page.getByText('ZENT', { exact: true })).toBeVisible()
+  await expect(page.getByText(/ledger íntegro/)).toBeVisible()
+  await expect(page.getByText(/aguardando operador/)).toBeVisible()
+  await expect(page.getByText(/100% local · nenhuma rede/)).toBeVisible()
   await expect(page.locator('.anim-caret').first()).toBeVisible()
+
+  // ── DEPOIS DO PIN: identifica, aí sim mostra o nome, e então abre o app
   await enterPin('5678')
+  await expect(page.getByText('> operador identificado ✓')).toBeVisible({ timeout: 3_000 })
+  await expect(page.getByRole('heading', { name: UNLOCK_GREETING })).toBeVisible()
   await page.waitForSelector('aside', { timeout: 20_000 })
 
-  // 2) Com privacidade ligada, reabre → a linha viva NÃO leva nenhum R$ <dígito>
-  //    à tela (a mesma garantia da máscara do M2, aqui no primeiro contato).
+  // ── Com privacidade ligada, nenhum R$ <dígito> chega à tela de bloqueio
   await page.getByRole('button', { name: 'Ocultar valores (modo privacidade)' }).click()
   await expect(page.locator('html')).toHaveAttribute('data-privacy', 'on')
   await page.reload()
-  await page.getByRole('heading', { name: UNLOCK_GREETING }).waitFor({ timeout: 20_000 })
-  await expect(page.getByTestId('lock-insight')).toBeVisible()
-  const lockHtml = await page.content()
-  expect(lockHtml).not.toMatch(/R\$\s*\d/)
+  await page.getByText(LOCKED_HINT).waitFor({ timeout: 20_000 })
+  expect(await page.content()).not.toMatch(/R\$\s*\d/)
   await enterPin('5678')
   await page.waitForSelector('aside', { timeout: 20_000 })
 

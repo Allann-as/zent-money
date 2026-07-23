@@ -4,6 +4,7 @@ import { scoreForMonth } from './score'
 import { boxStoredAmount } from './ledger'
 import { investmentSnapshot } from './investments'
 import { currentYm } from './dates'
+import { counted } from './text'
 import { formatBRL } from './money'
 
 /**
@@ -62,7 +63,7 @@ export function lockInsights(data: ZentData, today = currentYm()): LockInsight[]
   } else if (streak >= 1) {
     out.push({
       key: 'streak',
-      full: `Você está há ${streak} ${streak === 1 ? 'mês' : 'meses'} seguidos no azul.`,
+      full: `Você está há ${counted(streak, 'mês seguido', 'meses seguidos')} no azul.`,
       masked: 'Sua sequência de meses no azul segue firme.',
     })
   }

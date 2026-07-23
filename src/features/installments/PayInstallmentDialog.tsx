@@ -7,6 +7,7 @@ import { useDataStore, useZentData } from '@/store/dataStore'
 import { payInstallment, unpayInstallment } from '@/store/mutations'
 import { availableLimit, isStandalone, remainingAmount, remainingInstallments } from '@/engine/cards'
 import { useBRL } from '@/design/money'
+import { counted, verbFor } from '@/engine/text'
 import { BankLogo } from '@/features/banks/BankLogo'
 import type { Purchase } from '@/data/schema'
 
@@ -94,8 +95,8 @@ export function PayInstallmentDialog({
       toast.success(
         `${nth}ª parcela de "${p.name}" paga`,
         standalone
-          ? `Faltam ${remainingAfter} ${remainingAfter === 1 ? 'parcela' : 'parcelas'} · ${brl(owedAfter)}.`
-          : `${brl(p.installmentAmount)} devolvidos ao limite · faltam ${remainingAfter} ${remainingAfter === 1 ? 'parcela' : 'parcelas'}.`,
+          ? `${verbFor(remainingAfter, 'Falta', 'Faltam')} ${counted(remainingAfter, 'parcela', 'parcelas')} · ${brl(owedAfter)}.`
+          : `${brl(p.installmentAmount)} devolvidos ao limite · ${verbFor(remainingAfter, 'falta', 'faltam')} ${counted(remainingAfter, 'parcela', 'parcelas')}.`,
         { label: 'Desfazer pagamento', onClick: undo },
       )
     }
@@ -149,7 +150,7 @@ export function PayInstallmentDialog({
               <span className="text-pos font-semibold">quitada</span>
             ) : (
               <span className="tnum">
-                faltam {remainingAfter} · {brl(owedAfter)}
+                {verbFor(remainingAfter, 'falta', 'faltam')} {remainingAfter} · {brl(owedAfter)}
               </span>
             )}
           </Row>

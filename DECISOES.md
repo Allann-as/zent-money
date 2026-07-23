@@ -190,6 +190,56 @@ Registro das decisões tomadas onde a especificação deixou eixos livres.
   explícita e tirar um ícone que alguém usa é uma perda silenciosa. O "antigo
   investir" pedido para remover **não existia** no set — nada a fazer.
 
+## Ajustes pós-v2.2.0 — bloqueio em duas colunas e tooltip
+
+### O nome do dono NÃO aparece antes do PIN
+
+- Regressão que o ⑦ introduziu e o Allan pegou: a tela saudava "Seja bem-vindo
+  de volta, {nome}" **antes da autenticação** — quem abrisse o notebook lia o
+  nome sem saber o PIN. Agora, antes de desbloquear, a saudação é **genérica
+  pelo horário** ("Boa tarde.") e nenhum dado pessoal vai à tela: nem nome, nem
+  a linha viva (que carrega sequência/meta/score).
+- O nome e a linha viva entram no **beat de identificação**: PIN correto →
+  `> operador identificado ✓` → saudação com o nome → o app abre (1,1s depois).
+  A tela de bloqueio deixa de ser uma vitrine e passa a ser o que diz ser: um
+  portão. O E2E assere que `Alex` **não** está no DOM antes do PIN.
+
+### Layout de console: duas colunas, não um bloco centrado
+
+- Barra de status no topo (largura total) + esquerda (55%) com identidade e
+  estado, direita (45%) com a ação, separadas por uma borda vertical sutil. A
+  primeira execução usa o MESMO layout — só os textos mudam. Um layout só para
+  os dois momentos evita a tela de cadastro parecer outro produto.
+- **Os dados da barra são medidos, não decorativos:** data real, versão real e a
+  idade do último backup vinda do MAIN (`lastBackupAt`, do mtime do arquivo mais
+  novo em /backups). Quem lê "último backup há 13h" decide se está protegido —
+  esse número não pode ser enfeite. Sem backup ainda, diz isso.
+
+### Concordância por número é do TEMPLATE, não da palavra
+
+- "Você está há 1 mês **seguidos** no azul": o substantivo pluralizava e o
+  adjetivo não. A unidade natural de quem escreve template é a palavra, e é aí
+  que o erro nasce. Por isso `engine/text.ts` recebe a **expressão inteira** —
+  `counted(1, 'mês seguido', 'meses seguidos')` — e `verbFor` cuida do verbo que
+  vem antes do número ("Falta 1 parcela" / "Faltam 3 parcelas"). A varredura
+  achou mais dois: "não quebre os 1 dias seguidos" e "Faltam 1 parcela".
+
+### O tooltip no canto era `display: contents`, não o lado escolhido
+
+- O invólucro do `<Tooltip>` usa `display: contents` para não injetar caixa no
+  layout de quem chama — e um elemento `contents` **não gera caixa**, então o seu
+  `getBoundingClientRect()` devolve tudo zero. TODO tooltip era posicionado a
+  partir de (0,0) e ia para o canto superior esquerdo, sobre a marca. O sintoma
+  parecia "lado errado"; a causa era a âncora não existir.
+- Correção em duas camadas: (1) a medida sai do **primeiro filho** (o botão, que
+  tem caixa) em vez do invólucro; (2) o componente ganhou **detecção de colisão**
+  — vira para o lado oposto quando não cabe e grampeia nas bordas, com 8px de
+  deslocamento. A segunda camada sozinha só escondia o defeito: mantinha o
+  tooltip dentro da janela, no lugar errado.
+- Por isso o verificador (`npm run verify:tooltip`) afere **duas** coisas: que
+  nenhum tooltip ultrapassa a janela E que cada um está **junto da sua âncora**.
+  A primeira asserção sozinha passava com o tooltip no canto.
+
 ## R10 — suficiência de saldo (adendo)
 
 ### Duas famílias, e por que a B não bloqueia

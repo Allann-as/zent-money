@@ -12,6 +12,7 @@ import { useBRL } from '@/design/money'
 import { RingCenter, FitValue, RingLabel } from '@/design/RingCenter'
 import { innerRadiusPx } from '@/design/ringGeometry'
 import { formatTodayLong, todayIso } from '@/engine/dates'
+import { counted } from '@/engine/text'
 import {
   dailyConsumption,
   dailyStreak,
@@ -252,7 +253,11 @@ function LivePhrase({
           <>
             Nada lançado ainda —{' '}
             {streak > 0 ? (
-              <>não quebre os <b className="text-pos font-bold">{streak} dias</b> seguidos.</>
+              <>
+                não quebre {streak === 1 ? 'a sequência de ' : 'os '}
+                <b className="text-pos font-bold">{counted(streak, 'dia', 'dias')}</b>
+                {streak === 1 ? '.' : ' seguidos.'}
+              </>
             ) : (
               <>que tal começar a sequência?</>
             )}

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { ShieldCheck } from 'lucide-react'
 import { ZentMark } from '@/design/ZentLogo'
 import { Backdrop } from '@/design/Backdrop'
 import { Button } from '@/design/components/Button'
@@ -10,93 +9,96 @@ import { usePrivacy } from '@/design/money'
 import { lockInsights } from '@/engine/lockInsight'
 import { PinPad } from './PinPad'
 import { NameField } from './NameField'
+import { cn } from '@/lib/cn'
 
 const MIN = 4
 const MAX = 6
+/** Beat entre "operador identificado" e a abertura do app. */
+const UNLOCK_BEAT_MS = 1100
 
 /**
- * Tela de bloqueio / primeira execução — o primeiro contato com o app, tratada
- * como peça de design final (M3): fundo em camadas via <Backdrop> (base
- * full-bleed + glows + arcos), logo com halo, bolinhas que preenchem.
+ * ═══════════════════════════════════════════════════════════════════════
+ * TELA DE BLOQUEIO — console de duas colunas
+ * ═══════════════════════════════════════════════════════════════════════
  *
- * ── PRIMEIRA EXECUÇÃO EM TRÊS PASSOS (R10 §⑦) ───────────────────────────
- * Mesmo layout do bloqueio (não há card centralizado): criar senha → confirmar
- * senha → escolher o nome. O cursor de terminal na lateral do texto pisca
- * durante todo o fluxo — a impressão de que o sistema está "digitando ao vivo"
- * não se interrompe entre os passos.
+ * Barra de status no topo (largura total), e abaixo duas colunas separadas por
+ * uma borda vertical sutil, com o céu de galáxia (Bloco 1) atrás de tudo:
  *
- * ── DESBLOQUEIO ─────────────────────────────────────────────────────────
- * Saúda pelo nome ("Seja bem-vindo de volta, {nome}") e mostra a LINHA VIVA:
- * uma frase rotativa com dado real (sequência, meta, score, marco), com
- * variante sem número quando a privacidade está ativa.
+ *   ESQUERDA (55%) — identidade e estado: marca, saudação, linhas de terminal.
+ *   DIREITA  (45%) — a ação: bolinhas, teclado e a instrução.
  *
- * Segurança intocada: hash scrypt + salt e throttling vivem no MAIN; o renderer
- * nunca vê o hash. O nome é dado de perfil (não segredo) e é gravado só no fim,
- * junto do PIN.
+ * ── O NOME SÓ APARECE DEPOIS DO PIN (correção de privacidade) ───────────
+ * A versão anterior saudava "Seja bem-vindo de volta, {nome}" ANTES da
+ * autenticação: quem abrisse o notebook lia o nome do dono sem saber o PIN.
+ * Agora, antes de desbloquear, a saudação é genérica pelo horário ("Boa
+ * tarde.") e nenhum dado pessoal vai à tela. O nome — e a linha viva com
+ * sequência/meta/score — entram só depois do PIN correto, no beat de
+ * "operador identificado", antes de o app abrir.
+ *
+ * A primeira execução usa ESTE MESMO layout; só os textos mudam.
+ *
+ * Segurança intocada: hash scrypt + salt e throttling vivem no MAIN.
  */
 export function LockScreen({ mode }: { mode: 'setup' | 'unlock' }): ReactNode {
   const markPinSet = useSecurityStore((s) => s.markPinSet)
   const unlock = useSecurityStore((s) => s.unlock)
   const mutate = useDataStore((s) => s.mutate)
-  // Bloqueio e primeira execução pertencem ao Bloco 1 · Comando (R10 §2).
   useColorBlock('lock')
-  const [version, setVersion] = useState('')
-  useEffect(() => {
-    void window.zent.getVersion().then(setVersion)
-  }, [])
 
-  // setup: 'create' → 'confirm' → 'name'; unlock: sempre 'create' (uma etapa)
   const [step, setStep] = useState<'create' | 'confirm' | 'name'>('create')
   const [firstPin, setFirstPin] = useState('')
   const [name, setName] = useState('')
-  const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [resetNonce, setResetNonce] = useState(0)
   const [shakeNonce, setShakeNonce] = useState(0)
+  /** Linhas extras do terminal (erro, identificação) — em ordem de chegada. */
+  const [lines, setLines] = useState<{ text: string; tone: 'neg' | 'pos' }[]>([])
+  /** true entre o PIN correto e a abertura do app: é quando o nome aparece. */
+  const [identified, setIdentified] = useState(false)
 
-  const fail = (msg: string): void => {
-    setMessage(msg)
+  function fail(msg: string): void {
+    setLines([{ text: msg, tone: 'neg' }])
     setShakeNonce((n) => n + 1)
     setResetNonce((n) => n + 1)
   }
 
   async function handlePinSubmit(pin: string): Promise<void> {
-    if (busy) return
+    if (busy || identified) return
     if (mode === 'setup') {
       if (step === 'create') {
         setFirstPin(pin)
         setStep('confirm')
-        setMessage(null)
+        setLines([])
         setResetNonce((n) => n + 1)
         return
       }
-      // confirm: bate com o primeiro? Se sim, vai ao passo do nome — a senha só
-      // vai ao disco no fim, junto do nome (um commit só da primeira execução).
       if (pin !== firstPin) {
         setStep('create')
         setFirstPin('')
-        fail('As senhas não coincidem. Vamos de novo.')
+        fail('> as senhas não conferem')
         return
       }
       setStep('name')
-      setMessage(null)
+      setLines([])
       return
     }
-    // unlock
     setBusy(true)
     const res = await window.zent.verifyPin(pin)
     setBusy(false)
     if (res.ok) {
-      unlock()
+      // Beat de identificação: a linha do terminal confirma, o nome e a linha
+      // viva aparecem, e SÓ ENTÃO o app abre.
+      setLines([{ text: '> operador identificado ✓', tone: 'pos' }])
+      setIdentified(true)
+      setTimeout(() => unlock(), UNLOCK_BEAT_MS)
       return
     }
     if (res.waitMs > 0) {
-      const secs = Math.ceil(res.waitMs / 1000)
-      fail(`Muitas tentativas. Aguarde ${secs}s antes de tentar de novo.`)
+      fail(`> muitas tentativas · aguarde ${Math.ceil(res.waitMs / 1000)}s`)
     } else if (res.attemptsLeft > 0) {
-      fail(`Senha incorreta. ${res.attemptsLeft} ${res.attemptsLeft === 1 ? 'tentativa' : 'tentativas'} antes de uma pausa.`)
+      fail(`> não confere · ${res.attemptsLeft} ${res.attemptsLeft === 1 ? 'tentativa' : 'tentativas'}`)
     } else {
-      fail('Senha incorreta.')
+      fail('> não confere')
     }
   }
 
@@ -104,13 +106,10 @@ export function LockScreen({ mode }: { mode: 'setup' | 'unlock' }): ReactNode {
     if (busy) return
     const clean = name.trim()
     if (clean === '') {
-      setMessage('Como você quer ser chamado?')
+      fail('> preciso de um nome')
       return
     }
     setBusy(true)
-    // Ordem: grava o nome, depois define a senha e só então libera. A senha ser
-    // a última garante que, se algo falhar antes, o app não fica "com PIN e sem
-    // nome" num estado meio-configurado.
     mutate((d) => {
       d.profile.name = clean
     })
@@ -120,199 +119,225 @@ export function LockScreen({ mode }: { mode: 'setup' | 'unlock' }): ReactNode {
 
   return (
     <div className="fixed inset-0 z-[70] anim-fade-in">
-      {/* Fundo em camadas (M3): base full-bleed + glows + arcos. */}
       <Backdrop section="lock" />
-
-      <div className="relative z-10 h-full flex flex-col items-center">
-        <div className="flex-1 flex flex-col items-center justify-center px-8 w-full max-w-sm pb-[9vh]">
-          {/* Logo com halo no acento */}
-          <div className="relative mb-7">
-            <div
-              aria-hidden="true"
-              className="absolute inset-0 -m-10 rounded-full blur-[42px] opacity-[0.32]"
-              style={{ background: 'var(--primary)' }}
-            />
-            <div
-              aria-hidden="true"
-              className="absolute inset-0 -m-4 rounded-full blur-xl opacity-[0.42]"
-              style={{ background: 'var(--primary)' }}
-            />
-            <div className="relative h-16 w-16 rounded-[18px] bg-surface-2 border border-line-strong inline-flex items-center justify-center shadow-pop">
-              <ZentMark size={30} />
-            </div>
+      <div className="relative z-10 h-full flex flex-col">
+        <HudBar />
+        <div className="flex-1 flex min-h-0">
+          <LeftColumn
+            mode={mode}
+            step={step}
+            lines={lines}
+            identified={identified}
+          />
+          <div className="w-[45%] border-l border-line/60 flex flex-col items-center justify-center px-8">
+            {mode === 'setup' && step === 'name' ? (
+              <div className="flex flex-col items-center gap-6 w-full">
+                <NameField value={name} onChange={setName} onEnter={() => void finishSetup()} />
+                {/* Família de AÇÃO → retângulo arredondado (raio 11), jamais oval. */}
+                <Button size="lg" className="w-full max-w-[17rem]" loading={busy} onClick={() => void finishSetup()}>
+                  Entrar no Zent
+                </Button>
+              </div>
+            ) : (
+              <>
+                <PinPad
+                  min={MIN}
+                  max={MAX}
+                  disabled={busy || identified}
+                  resetNonce={resetNonce}
+                  shakeNonce={shakeNonce}
+                  onSubmit={(p) => void handlePinSubmit(p)}
+                />
+                <p className="mt-7 text-[12px] text-ink-faint text-center">
+                  {mode === 'setup'
+                    ? step === 'create'
+                      ? 'Escolha uma senha de 4 a 6 dígitos'
+                      : 'Digite a mesma senha outra vez'
+                    : 'Digite seu PIN para desbloquear'}
+                </p>
+              </>
+            )}
           </div>
-
-          {mode === 'setup' ? (
-            <SetupBody
-              step={step}
-              name={name}
-              setName={setName}
-              busy={busy}
-              min={MIN}
-              max={MAX}
-              resetNonce={resetNonce}
-              shakeNonce={shakeNonce}
-              onPin={(p) => void handlePinSubmit(p)}
-              onFinish={() => void finishSetup()}
-            />
-          ) : (
-            <UnlockBody
-              busy={busy}
-              min={MIN}
-              max={MAX}
-              resetNonce={resetNonce}
-              shakeNonce={shakeNonce}
-              onPin={(p) => void handlePinSubmit(p)}
-            />
-          )}
-
-          <p className={cnMsg(message)} role={message ? 'alert' : undefined} aria-live="polite">
-            {message ?? ' '}
-          </p>
-
-          {mode === 'setup' && step !== 'name' && (
-            <p className="mt-6 flex items-center gap-1.5 text-[11.5px] text-ink-faint text-center max-w-[19rem] leading-relaxed">
-              <ShieldCheck size={13} className="shrink-0" />
-              A senha protege de olhares casuais; ela não criptografa o arquivo de dados.
-            </p>
-          )}
         </div>
-
-        <footer className="pb-5 text-[11px] text-ink-faint tracking-wide">
-          Zent Money{version ? ` · v${version}` : ''}
-        </footer>
       </div>
     </div>
   )
 }
 
+// ── Barra de status ────────────────────────────────────────────────────────
+
+/** Saudação genérica pelo horário — NUNCA o nome (antes da autenticação). */
+function greetingByHour(h: number): string {
+  if (h < 12) return 'Bom dia.'
+  if (h < 18) return 'Boa tarde.'
+  return 'Boa noite.'
+}
+
+/** "há 13h" / "há 3 dias" / "ainda não" — a idade REAL do último backup. */
+function backupAge(iso: string | null, now: number): string {
+  if (iso === null) return 'sem backup ainda'
+  const ms = now - new Date(iso).getTime()
+  const h = Math.floor(ms / 3_600_000)
+  if (h < 1) return 'último backup agora há pouco'
+  if (h < 24) return `último backup há ${h}h`
+  const d = Math.floor(h / 24)
+  return `último backup há ${d} ${d === 1 ? 'dia' : 'dias'}`
+}
+
 /**
- * Linha de "sistema digitando ao vivo": o texto seguido de um cursor de
- * terminal que pisca. Presente em TODOS os passos, para a impressão não se
- * interromper (R10 §⑦).
+ * Barra de status: a linha da esquerda é DIGITADA caractere a caractere ao
+ * abrir (com cursor no fim), e a da direita traz o ponto pulsante e o relógio
+ * ao vivo. Todo dado é real — data, idade do backup e versão saem do app, não
+ * de constantes decorativas.
  */
-function TypedLine({ children }: { children: ReactNode }): ReactNode {
+function HudBar(): ReactNode {
+  const [version, setVersion] = useState('')
+  const [backup, setBackup] = useState<string | null>(null)
+  const [ready, setReady] = useState(false)
+  const [typed, setTyped] = useState(0)
+  const [clock, setClock] = useState(() => new Date())
+
+  useEffect(() => {
+    void Promise.all([window.zent.getVersion(), window.zent.lastBackupAt()]).then(([v, b]) => {
+      setVersion(v)
+      setBackup(b)
+      setReady(true)
+    })
+  }, [])
+
+  useEffect(() => {
+    const t = setInterval(() => setClock(new Date()), 1000)
+    return () => clearInterval(t)
+  }, [])
+
+  const full = useMemo(() => {
+    const d = new Date()
+    const data = d.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
+    return `> ${data} · ping <1ms · ${backupAge(backup, d.getTime())}${version ? ` · v${version}` : ''}`
+  }, [backup, version])
+
+  // Efeito de digitação: só começa quando os dados reais chegaram, para o texto
+  // não ser reescrito no meio da datilografia.
+  useEffect(() => {
+    if (!ready) return
+    setTyped(0)
+    const t = setInterval(() => {
+      setTyped((n) => {
+        if (n >= full.length) {
+          clearInterval(t)
+          return n
+        }
+        return n + 1
+      })
+    }, 14)
+    return () => clearInterval(t)
+  }, [ready, full])
+
+  const hh = String(clock.getHours()).padStart(2, '0')
+  const mm = String(clock.getMinutes()).padStart(2, '0')
+  const ss = String(clock.getSeconds()).padStart(2, '0')
+
   return (
-    <p className="text-[13px] text-ink-soft text-center leading-relaxed max-w-[19rem] inline-flex items-baseline justify-center gap-1">
-      <span>{children}</span>
-      <span className="anim-caret inline-block w-[7px] h-[1.05em] translate-y-[1px] bg-primary shrink-0" />
-    </p>
+    <header className="h-[38px] shrink-0 border-b border-line/60 flex items-center justify-between px-5 gap-4">
+      <p className="tnum text-[10.5px] text-ink-faint truncate min-w-0">
+        {full.slice(0, typed)}
+        <span className="anim-caret inline-block w-[6px] h-[1.05em] translate-y-[1px] ml-px bg-primary" />
+      </p>
+      <p className="tnum text-[10.5px] text-ink-faint flex items-center gap-2 shrink-0">
+        <span className="relative inline-flex h-1.5 w-1.5 shrink-0">
+          <span className="absolute inset-0 rounded-full bg-primary animate-ping opacity-60" />
+          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
+        </span>
+        {hh}:{mm}:{ss}
+      </p>
+    </header>
   )
 }
 
-function SetupBody({
+// ── Coluna esquerda ────────────────────────────────────────────────────────
+
+function LeftColumn({
+  mode,
   step,
-  name,
-  setName,
-  busy,
-  min,
-  max,
-  resetNonce,
-  shakeNonce,
-  onPin,
-  onFinish,
+  lines,
+  identified,
 }: {
+  mode: 'setup' | 'unlock'
   step: 'create' | 'confirm' | 'name'
-  name: string
-  setName(v: string): void
-  busy: boolean
-  min: number
-  max: number
-  resetNonce: number
-  shakeNonce: number
-  onPin(pin: string): void
-  onFinish(): void
-}): ReactNode {
-  const title =
-    step === 'create' ? 'Crie sua senha' : step === 'confirm' ? 'Confirme sua senha' : 'Como você quer ser chamado?'
-  const subtitle =
-    step === 'create'
-      ? 'Escolha uma senha de 4 a 6 dígitos para proteger seus dados.'
-      : step === 'confirm'
-        ? 'Digite a mesma senha outra vez.'
-        : 'É assim que o Zent vai te receber toda vez.'
-
-  return (
-    <>
-      <h1 className="font-display text-[20px] font-bold text-ink tracking-tight text-center">{title}</h1>
-      <div className="mt-2 mb-8">
-        <TypedLine>{subtitle}</TypedLine>
-      </div>
-
-      {step === 'name' ? (
-        <div className="flex flex-col items-center gap-6 w-full">
-          <NameField value={name} onChange={setName} onEnter={onFinish} />
-          {/* Família de AÇÃO → retângulo arredondado (raio 11), jamais oval. */}
-          <Button size="lg" className="w-full max-w-[17rem]" loading={busy} onClick={onFinish}>
-            Entrar no Zent
-          </Button>
-        </div>
-      ) : (
-        <PinPad
-          min={min}
-          max={max}
-          disabled={busy}
-          resetNonce={resetNonce}
-          shakeNonce={shakeNonce}
-          onSubmit={onPin}
-        />
-      )}
-    </>
-  )
-}
-
-function UnlockBody({
-  busy,
-  min,
-  max,
-  resetNonce,
-  shakeNonce,
-  onPin,
-}: {
-  busy: boolean
-  min: number
-  max: number
-  resetNonce: number
-  shakeNonce: number
-  onPin(pin: string): void
+  lines: { text: string; tone: 'neg' | 'pos' }[]
+  identified: boolean
 }): ReactNode {
   const data = useZentData()
   const privacy = usePrivacy()
   const name = data.profile.name.trim()
 
-  const insights = useMemo(() => lockInsights(data), [data])
-  const [idx, setIdx] = useState(0)
-  useEffect(() => {
-    if (insights.length <= 1) return
-    const t = setInterval(() => setIdx((i) => (i + 1) % insights.length), 4500)
-    return () => clearInterval(t)
-  }, [insights.length])
-  const insight = insights[idx % insights.length]
+  // A linha viva só é montada DEPOIS da identificação — nada de dado pessoal
+  // antes do PIN correto.
+  const insights = useMemo(() => (identified ? lockInsights(data) : []), [identified, data])
+  const insight = insights[0]
+
+  const headline =
+    mode === 'setup'
+      ? step === 'create'
+        ? 'Crie sua senha.'
+        : step === 'confirm'
+          ? 'Confirme sua senha.'
+          : 'Como você quer ser chamado?'
+      : identified && name !== ''
+        ? `Seja bem-vindo de volta, ${name}`
+        : greetingByHour(new Date().getHours())
 
   return (
-    <>
-      <h1 className="font-display text-[20px] font-bold text-ink tracking-tight text-center">
-        {name ? `Seja bem-vindo de volta, ${name}` : 'Zent Money'}
-      </h1>
-      {/* Linha viva: dado real, com variante SEM número sob privacidade (§⑦).
-          `data-testid` fixo para o teste apontar sem depender do texto. */}
-      <div className="mt-2 mb-8 min-h-[2.4rem] flex items-center" data-testid="lock-insight">
-        <TypedLine>{insight ? (privacy ? insight.masked : insight.full) : 'Digite sua senha para desbloquear.'}</TypedLine>
+    <div className="w-[55%] flex flex-col pl-[7vw] pr-8 py-8 min-w-0">
+      <div className="flex-1 flex flex-col justify-center min-w-0">
+        {/* Marca: ícone com halo + wordmark monoespaçado */}
+        <div className="relative w-fit mb-6">
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 -m-8 rounded-full blur-[36px] opacity-[0.30]"
+            style={{ background: 'var(--primary)' }}
+          />
+          <div className="relative h-14 w-14 rounded-[16px] bg-surface-2 border border-line-strong inline-flex items-center justify-center shadow-pop">
+            <ZentMark size={27} />
+          </div>
+        </div>
+        <p className="tnum text-[19px] font-bold text-ink" style={{ letterSpacing: '.26em' }}>
+          ZENT
+        </p>
+
+        <h1 className="font-display text-[26px] font-bold text-ink tracking-tight mt-5">{headline}</h1>
+
+        <div className="h-px bg-line/70 my-6 max-w-[26rem]" />
+
+        {/* Linhas de terminal */}
+        <div className="tnum text-[12px] leading-[1.9] text-ink-soft min-w-0">
+          <p>
+            &gt; ledger íntegro <span className="text-ink-faint">..........</span>{' '}
+            <span className="text-pos font-semibold">OK</span>
+          </p>
+          {lines.map((l) => (
+            <p key={l.text} className={l.tone === 'neg' ? 'text-neg' : 'text-pos'}>
+              {l.text}
+            </p>
+          ))}
+          {/* A linha viva entra só depois do PIN — com a variante sem número
+              quando a privacidade está ligada. */}
+          {identified && insight && (
+            <p className="text-ink-soft">&gt; {privacy ? insight.masked : insight.full}</p>
+          )}
+          {!identified && (
+            <p className="inline-flex items-baseline">
+              <span>&gt; {mode === 'setup' ? 'aguardando cadastro' : 'aguardando operador'}</span>
+              <span className="anim-caret inline-block w-[7px] h-[1.05em] translate-y-[1px] ml-1.5 bg-primary" />
+            </p>
+          )}
+        </div>
       </div>
 
-      <PinPad
-        min={min}
-        max={max}
-        disabled={busy}
-        resetNonce={resetNonce}
-        shakeNonce={shakeNonce}
-        onSubmit={onPin}
-      />
-    </>
+      <p className={cn('tnum text-[10.5px] text-ink-faint flex items-center gap-2 shrink-0')}>
+        <span className="h-1.5 w-1.5 rounded-full bg-pos shrink-0" />
+        100% local · nenhuma rede · autenticação no dispositivo
+      </p>
+    </div>
   )
-}
-
-/** Classe da linha de mensagem — vermelha quando há erro, reservando a altura. */
-function cnMsg(message: string | null): string {
-  return `text-[12.5px] mt-5 h-4 text-center ${message ? 'text-neg' : 'text-transparent'}`
 }

@@ -26,6 +26,7 @@ const bridge: ZentBridge = {
     return () => ipcRenderer.removeListener(IPC.logosChanged, listener)
   },
   getVersion: () => ipcRenderer.invoke(IPC.getVersion) as Promise<string>,
+  lastBackupAt: () => ipcRenderer.invoke(IPC.lastBackupAt) as Promise<string | null>,
   setTitleBarTheme: (color, symbolColor) =>
     ipcRenderer.invoke(IPC.setTitleBarTheme, color, symbolColor) as Promise<void>,
   fetchRates: () => ipcRenderer.invoke(IPC.fetchRates) as Promise<FetchedRatesDTO | null>,

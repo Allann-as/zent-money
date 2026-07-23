@@ -20,6 +20,7 @@
     "test:e2e": "playwright test",
     "test:smoke": "node scripts/smoke-window.mjs",
     "validate:20y": "node scripts/validate-20-years.mjs",
+    "verify:tooltip": "node scripts/verify-tooltip.mjs",
     "dist": "electron-vite build && electron-builder --win"
   },
   "devDependencies": {
