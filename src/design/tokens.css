@@ -1,181 +1,473 @@
 @import 'tailwindcss';
 @import '@fontsource-variable/nunito';
-@import '@fontsource-variable/jetbrains-mono';
+@import '@fontsource-variable/roboto-mono';
 
 /* ═══════════════════════════════════════════════════════════════════
-   ZENT MONEY — DESIGN TOKENS v2.1 "PAINEL DE BORDO"
+   ZENT MONEY — DESIGN TOKENS v3.0 "CÉU DE GALÁXIA"
    Disciplina de cor:
-   · Neutros: escala verde-abissal (fundo, painéis, bordas, texto) —
-     textura de instrumento, não de planilha.
-   · ACENTO PRINCIPAL: âmbar-fósforo --primary (números-herói, destaques,
-     progresso, item ativo, série principal dos gráficos).
-   · SEGUNDO acento: ciano gelo --pos (streaks, entradas, estados "ok").
+   · QUATRO BLOCOS por área do app (R10 §2). A escala neutra é IDÊNTICA
+     nos quatro — é ela que impede a sensação de quatro apps diferentes.
+     Mudam só: cor primária, subtom do fundo/painéis e a cor do céu.
    · Semânticas restritas: --pos/--neg SÓ em valores monetários e
      variações; --warn só em alertas reais.
-   · Multicolor SOMENTE na rosca de gastos por categoria (--cat-1..10,
-     paleta curada e dessaturada — as cores de categoria do usuário
-     saem daqui).
+   · Multicolor SOMENTE na rosca de gastos por categoria (--cat-1..10).
    Exceção documentada (DADOS, não tema): cores oficiais de marca dos
-   bancos. Tema troca via <html data-theme>; tudo lê tokens no render.
+   bancos. Tema troca via <html data-theme>; bloco via <html data-block>.
 
-   ── POR QUE A TROCA É DE *VALOR*, NÃO DE NOME ──────────────────────
-   O reskin do v2.1 reescreve os VALORES destes tokens e não renomeia
-   nenhum: por isso nenhum componente, gráfico ou teste precisou mudar
-   para o app trocar de identidade. `--primary` deixou de ser azul-céu e
-   passou a ser âmbar; `--pos` deixou de ser verde e passou a ser ciano.
-   Quem lê token continua correto por construção.
+   ── POR QUE A TROCA CONTINUA SENDO DE *VALOR*, NÃO DE NOME ─────────
+   Como no reskin do v2.1, o R10 reescreve os VALORES e não renomeia
+   nenhum token: por isso nenhum componente, gráfico ou teste precisou
+   mudar para o app ganhar quatro identidades. Quem lê token continua
+   correto por construção.
 
-   ── --warn NÃO é o âmbar do acento (deliberado) ────────────────────
-   Com o acento agora âmbar, um alerta em âmbar se confundiria com um
-   destaque comum — e o Orçamento 2.0 (M1c) depende de ler "≥80% âmbar"
-   como escalada, não como enfeite. Por isso --warn é um âmbar mais
-   queimado/alaranjado, distinto do --primary a olho nu.
+   ── O QUE **NÃO** MUDA POR BLOCO (decisão do Allan, R10) ───────────
+   · --cat-1..10 — cor de categoria é cor-DADO, como a marca de um
+     banco: a mesma categoria mudando de cor conforme a seção quebraria
+     o mapeamento mental categoria→cor que o usuário constrói. Uma
+     paleta só, recalibrada UMA vez para conviver com os quatro fundos
+     (verificada: pior contraste 6.2 no escuro, 4.5 no claro).
+   · --warn — semântica de alerta não varia por área: um limite
+     estourado tem de ter a mesma cor em qualquer tela.
+   · A escala neutra (--ink/--ink-soft/--ink-faint) e as sombras.
+   --pos/--neg seguem a tabela do §2 (variam por bloco), mas com MATIZ
+   invariante — menta e coral nos quatro —, então a leitura semântica
+   "entrou/saiu" nunca muda; o que muda é só o encaixe no subtom.
    ═══════════════════════════════════════════════════════════════════ */
 
+/**
+ * ── A TRANSIÇÃO DE 450 ms ENTRE BLOCOS É FEITA AQUI, UMA VEZ ────────
+ * Registrar os tokens com @property dá a eles um TIPO (<color>), e é
+ * isso que torna uma custom property animável. Com a transição posta
+ * no :root, trocar `data-block` interpola os valores — e TODO elemento
+ * que lê `var(--surface)`, `var(--primary)` etc. atravessa junto, de
+ * graça, sem nenhum componente saber que existe transição de bloco.
+ *
+ * A alternativa (transição em cada elemento) foi descartada: além de
+ * precisar caçar todo componente, o elemento animaria em 450ms rumo a
+ * uma variável que também anima em 450ms — duas curvas compostas, que
+ * o olho lê como atraso. Por isso `.theme-transition` deixou de
+ * transicionar cor (ver adiante): a variável já faz o trabalho.
+ *
+ * `--sky` entra na MESMA lista de propriedades e no MESMO tempo: o
+ * canvas do céu (design/GalaxyField) lê este token durante a transição
+ * em vez de interpolar por conta própria, então CSS e canvas trocam de
+ * cor pela mesma curva, no mesmo instante — nunca duas trocas.
+ */
+/**
+ * ── O QUE ANIMA E O QUE ESTALA (deliberado) ─────────────────────────
+ * Animam só as camadas que o olho realmente acompanha na troca de área:
+ * o ACENTO, o FUNDO e o CÉU. As superfícies (--surface/--surface-2/
+ * --border) estalam: entre os quatro blocos elas variam num intervalo
+ * quase-preto (#0C1619 → #121614 → #0E1320 → #101422), e a página nova
+ * já entra com fade de 200ms por cima, então o estalo é invisível.
+ *
+ * Não é só economia de recálculo de estilo — é correção. Os gráficos
+ * leem token com getComputedStyle DURANTE O RENDER; se lessem um token
+ * em pleno voo, congelariam numa cor do meio do caminho dentro do SVG.
+ * Mantendo animado só o que gráfico nenhum lê (e dando à primária o
+ * gêmeo `--primary-still`), o gráfico nasce sempre na cor final.
+ */
+@property --bg { syntax: '<color>'; inherits: true; initial-value: #060e10; }
+@property --bg-grad-a { syntax: '<color>'; inherits: true; initial-value: #091518; }
+@property --bg-grad-b { syntax: '<color>'; inherits: true; initial-value: #060e10; }
+@property --titlebar-bg { syntax: '<color>'; inherits: true; initial-value: #0c1619; }
+@property --primary { syntax: '<color>'; inherits: true; initial-value: #86b6c9; }
+@property --primary-hover { syntax: '<color>'; inherits: true; initial-value: #a6c9d7; }
+@property --primary-press { syntax: '<color>'; inherits: true; initial-value: #63a1b9; }
+@property --primary-soft { syntax: '<color>'; inherits: true; initial-value: rgba(134, 182, 201, 0.1); }
+@property --sky { syntax: '<color>'; inherits: true; initial-value: #86b6c9; }
+@property --bg-glow { syntax: '<color>'; inherits: true; initial-value: rgba(134, 182, 201, 0.1); }
+@property --bg-grid { syntax: '<color>'; inherits: true; initial-value: rgba(134, 182, 201, 0.04); }
+@property --bg-vignette { syntax: '<color>'; inherits: true; initial-value: rgba(3, 8, 9, 0.55); }
+
+:root {
+  /* 450ms, a mesma duração do §2 — e a mesma do céu, por construção. */
+  transition:
+    --bg 450ms ease, --bg-grad-a 450ms ease, --bg-grad-b 450ms ease,
+    --titlebar-bg 450ms ease, --primary 450ms ease, --primary-hover 450ms ease,
+    --primary-press 450ms ease, --primary-soft 450ms ease,
+    --sky 450ms ease, --bg-glow 450ms ease, --bg-grid 450ms ease, --bg-vignette 450ms ease;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   INVARIANTES DO TEMA ESCURO — o que é igual nos quatro blocos
+   ═══════════════════════════════════════════════════════════════════ */
 :root,
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  /* Superfícies — verde-abissal quase preto com leve gradiente no fundo */
-  --bg: #08120e;
-  --bg-grad: linear-gradient(180deg, #0b1712 0%, #08120e 100%);
-  /* Faixa de título do app: fundo e cor dos botões nativos da janela.
-     Fonte única — o TitleBar lê estes tokens e os envia ao processo main. */
-  --titlebar-bg: #0b1712;
-  --titlebar-symbol: #879c90;
-  /* Complementos de fundo (§4): glow radial no topo, malha pontilhada,
-     vinheta e o GRID de instrumento. Tokens porque a intensidade muda
-     entre os temas. */
-  --bg-glow: rgba(240, 188, 94, 0.1);
-  --bg-mesh: rgba(135, 156, 144, 0.06);
-  --bg-vignette: rgba(3, 8, 6, 0.55);
-  /* Grid de fundo (v2.1): linhas a ~4% — textura de instrumento, discreta. */
-  --bg-grid: rgba(111, 224, 198, 0.04);
-  --card-lit-line: rgba(224, 240, 230, 0.13);
-  --surface: #0e1b15;
-  --surface-2: #12211a;
-  --surface-3: #16281f;
-  --border: #1d3328;
-  --border-strong: #2a4839;
+  /* Escala neutra IDÊNTICA nos quatro blocos (§2) */
+  --ink: #e9eef0;
+  --ink-soft: #86969c;
+  --ink-faint: #4c5a5f;
 
-  /* ACENTO PRINCIPAL: âmbar-fósforo */
-  --primary: #f0bc5e;
-  --primary-hover: #f5cd84;
-  --primary-press: #d9a445;
-  --primary-soft: rgba(240, 188, 94, 0.1);
-  --on-primary: #08120e;
-
-  /* Texto */
-  --ink: #eaf2ec;
-  --ink-soft: #879c90;
-  --ink-faint: #4e6358;
-
-  /* Semânticas — uso restrito a valores monetários e alertas.
-     --pos é o SEGUNDO acento (ciano gelo): entradas, streaks, "ok". */
-  --pos: #6fe0c6;
-  --pos-soft: rgba(111, 224, 198, 0.12);
-  --neg: #f58374;
-  --neg-soft: rgba(245, 131, 116, 0.12);
-  /* Âmbar queimado — distinto do --primary a olho nu (ver cabeçalho) */
+  /* Alerta: NÃO varia por bloco (ver cabeçalho) */
   --warn: #e8a33c;
   --warn-soft: rgba(232, 163, 60, 0.14);
 
-  /* Gráficos NEUTROS: variações dos DOIS acentos (âmbar ↔ ciano) */
-  --chart-1: #f0bc5e;
-  --chart-2: #6fe0c6;
-  --chart-3: #c79a4a;
-  --chart-4: #356e62;
-  --chart-5: #f5cd84;
-  --chart-6: #6e5628;
-  --chart-7: #9ad3c0;
-  --chart-8: #48705f;
+  /* Categórica DESSATURADA — cor-DADO, NÃO varia por bloco.
+     Recalibrada uma vez para conviver com os quatro fundos. */
+  --cat-1: #6fb6a5;  /* verde-água */
+  --cat-2: #c9a961;  /* areia dourada */
+  --cat-3: #a796e6;  /* violeta */
+  --cat-4: #de8b7b;  /* coral suave */
+  --cat-5: #7fa9d4;  /* azul-gelo */
+  --cat-6: #a9b471;  /* oliva */
+  --cat-7: #c78cac;  /* malva */
+  --cat-8: #85a08c;  /* sálvia */
+  --cat-9: #cd9463;  /* âmbar-terra */
+  --cat-10: #9294bc; /* ardósia-lilás */
 
-  /* Categórica DESSATURADA — só a rosca de gastos (e cores de categoria) */
-  --cat-1: #6fa894;  /* verde-água */
-  --cat-2: #c7a55e;  /* areia dourada */
-  --cat-3: #b598f0;  /* violeta (o da direção v2.1) */
-  --cat-4: #d98f7e;  /* coral suave */
-  --cat-5: #7fa9c0;  /* azul-gelo */
-  --cat-6: #a8b36e;  /* oliva */
-  --cat-7: #c08ba8;  /* malva */
-  --cat-8: #7e9c86;  /* sálvia */
-  --cat-9: #c9925c;  /* âmbar-terra */
-  --cat-10: #8e8fb0; /* ardósia-lilás */
+  --titlebar-symbol: #86969c;
+  --bg-mesh: rgba(134, 150, 156, 0.06);
+  --card-lit-line: rgba(233, 238, 240, 0.13);
 
   /* Sombras em camadas (ambiente + contato) */
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -8px rgba(0, 0, 0, 0.5);
   --shadow-pop: 0 2px 6px rgba(0, 0, 0, 0.45), 0 16px 48px -12px rgba(0, 0, 0, 0.65);
-  --backdrop: rgba(4, 10, 7, 0.68);
+  --backdrop: rgba(2, 6, 8, 0.68);
+
+  /* Fundo dos cards SOBRE o céu (R10 §1.7): translúcido com leve blur.
+     A legibilidade se resolve aqui, NUNCA baixando/subindo o céu. */
+  --card-veil: 0.72;
 
   /* Movimento */
   --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   INVARIANTES DO TEMA CLARO
+   ═══════════════════════════════════════════════════════════════════ */
 :root[data-theme='light'] {
   color-scheme: light;
 
-  /* Mesma família do escuro, clareada: verde-abissal vira papel esverdeado.
-     O âmbar-fósforo do escuro NÃO sobrevive sobre papel (falha contraste),
-     então o --primary claro é o mesmo âmbar QUEIMADO até passar em texto —
-     a identidade vem do matiz, não da luminosidade. */
-  --bg: #edf3ef;
-  --bg-grad: linear-gradient(180deg, #f4f8f5 0%, #e8f0ea 100%);
-  --titlebar-bg: #f4f8f5;
-  --titlebar-symbol: #466052;
-  /* No claro tudo é mais discreto: o mesmo peso do escuro sujaria o papel. */
-  --bg-glow: rgba(200, 140, 30, 0.13);
-  --bg-mesh: rgba(45, 75, 60, 0.05);
-  --bg-vignette: rgba(120, 150, 132, 0.14);
-  --bg-grid: rgba(45, 90, 72, 0.045);
+  --ink: #101a1d;
+  --ink-soft: #4e5c62;
+  --ink-faint: #7e9098;
+
+  --warn: #96610b;
+  --warn-soft: rgba(150, 97, 11, 0.12);
+
+  --cat-1: #35786a;
+  --cat-2: #7e6318;
+  --cat-3: #5e44a0;
+  --cat-4: #a34936;
+  --cat-5: #3b6684;
+  --cat-6: #5c6626;
+  --cat-7: #7d4463;
+  --cat-8: #40634a;
+  --cat-9: #84501d;
+  --cat-10: #4d4e77;
+
+  --titlebar-symbol: #4e5c62;
+  --bg-mesh: rgba(78, 92, 98, 0.05);
   --card-lit-line: rgba(255, 255, 255, 0.9);
-  --surface: #ffffff;
-  --surface-2: #edf4ef;
-  --surface-3: #deeae2;
-  --border: #d3e2d8;
-  --border-strong: #b4cbbd;
 
-  --primary: #96680f;
-  --primary-hover: #b07e1f;
-  --primary-press: #7a5409;
-  --primary-soft: rgba(150, 104, 15, 0.1);
-  --on-primary: #ffffff;
+  --shadow-card: 0 1px 2px rgba(18, 32, 45, 0.06), 0 8px 24px -10px rgba(18, 32, 45, 0.12);
+  --shadow-pop: 0 2px 6px rgba(18, 32, 45, 0.08), 0 16px 48px -12px rgba(18, 32, 45, 0.22);
+  --backdrop: rgba(12, 22, 30, 0.35);
 
-  --ink: #0d1a13;
-  --ink-soft: #466052;
-  --ink-faint: #7f9a8b;
-
-  --pos: #0e8c6e;
-  --pos-soft: rgba(14, 140, 110, 0.1);
-  --neg: #c4483a;
-  --neg-soft: rgba(196, 72, 58, 0.1);
-  --warn: #a86b0e;
-  --warn-soft: rgba(168, 107, 14, 0.12);
-
-  --chart-1: #96680f;
-  --chart-2: #0e8c6e;
-  --chart-3: #b98a2a;
-  --chart-4: #1c5c4c;
-  --chart-5: #7a5409;
-  --chart-6: #3f7a68;
-  --chart-7: #c9a24e;
-  --chart-8: #58806f;
-
-  --cat-1: #3f8073;
-  --cat-2: #9a7a2c;
-  --cat-3: #6f52ab;
-  --cat-4: #b05a48;
-  --cat-5: #4a7891;
-  --cat-6: #6f7a35;
-  --cat-7: #8e5474;
-  --cat-8: #4e7359;
-  --cat-9: #99612c;
-  --cat-10: #5c5d80;
-
-  --shadow-card: 0 1px 2px rgba(18, 45, 32, 0.06), 0 8px 24px -10px rgba(18, 45, 32, 0.12);
-  --shadow-pop: 0 2px 6px rgba(18, 45, 32, 0.08), 0 16px 48px -12px rgba(18, 45, 32, 0.22);
-  --backdrop: rgba(10, 28, 20, 0.35);
+  --card-veil: 0.82;
 
   --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   OS QUATRO BLOCOS (R10 §2) — gerados com verificação de contraste.
+   `--primary-still` é o gêmeo NÃO animado da primária: os gráficos leem
+   token via getComputedStyle no mount (useChartColors) e, se lessem
+   `--primary` durante a transição, congelariam numa cor intermediária.
+   Bloco 1 é também o default (`:root` sem data-block) — cobre o instante
+   entre o primeiro paint e o React aplicar o atributo.
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root,
+:root[data-theme='dark'],
+:root[data-theme='dark'][data-block='1'] {
+  /* Bloco 1 · Petróleo & Aço — Hoje, Visão geral, bloqueio, 1ª execução */
+  --bg: #060e10;
+  --bg-grad-a: #091518;
+  --bg-grad-b: #060e10;
+  --titlebar-bg: #0c1619;
+  --surface: #0c1619;
+  --surface-2: #122226;
+  --surface-3: #172b30;
+  --border: #1b2e33;
+  --border-strong: #2a4148;
+  --primary: #86b6c9;
+  --primary-still: #86b6c9;
+  --primary-hover: #a6c9d7;
+  --primary-press: #63a1b9;
+  --primary-soft: rgba(134, 182, 201, 0.1);
+  --on-primary: #060e10;
+  --pos: #5ec9a8;
+  --pos-soft: rgba(94, 201, 168, 0.12);
+  --neg: #e07a6b;
+  --neg-soft: rgba(224, 122, 107, 0.12);
+  --sky: #86b6c9;
+  --bg-glow: rgba(134, 182, 201, 0.1);
+  --bg-grid: rgba(134, 182, 201, 0.04);
+  --bg-vignette: rgba(3, 8, 9, 0.55);
+  --chart-1: #86b6c9;
+  --chart-2: #5ec9a8;
+  --chart-3: #5b96ad;
+  --chart-4: #397e69;
+  --chart-5: #adcdda;
+  --chart-6: #4d6974;
+  --chart-7: #90cab8;
+  --chart-8: #53927f;
+}
+
+:root[data-theme='dark'][data-block='2'] {
+  /* Bloco 2 · Grafite & Esmeralda — Ganhos, Gastos */
+  --bg: #0a0c0b;
+  --bg-grad-a: #0f1211;
+  --bg-grad-b: #0a0c0b;
+  --titlebar-bg: #121614;
+  --surface: #121614;
+  --surface-2: #181f1b;
+  --surface-3: #1f2823;
+  --border: #232b27;
+  --border-strong: #31423a;
+  --primary: #34c88a;
+  --primary-still: #34c88a;
+  --primary-hover: #57d39f;
+  --primary-press: #29a06e;
+  --primary-soft: rgba(52, 200, 138, 0.1);
+  --on-primary: #0a0c0b;
+  --pos: #5fd6a4;
+  --pos-soft: rgba(95, 214, 164, 0.12);
+  --neg: #e4736a;
+  --neg-soft: rgba(228, 115, 106, 0.12);
+  --sky: #34c88a;
+  --bg-glow: rgba(52, 200, 138, 0.1);
+  --bg-grid: rgba(52, 200, 138, 0.04);
+  --bg-vignette: rgba(5, 6, 6, 0.55);
+  --chart-1: #34c88a;
+  --chart-2: #5fd6a4;
+  --chart-3: #2a8b62;
+  --chart-4: #34916a;
+  --chart-5: #5fd5a4;
+  --chart-6: #204d3a;
+  --chart-7: #92d6b9;
+  --chart-8: #4ca681;
+}
+
+:root[data-theme='dark'][data-block='3'] {
+  /* Bloco 3 · Meia-noite & Prata — Bancos & Cartões, Crédito, Parcelas */
+  --bg: #070a12;
+  --bg-grad-a: #0a0e1a;
+  --bg-grad-b: #070a12;
+  --titlebar-bg: #0e1320;
+  --surface: #0e1320;
+  --surface-2: #141c2e;
+  --surface-3: #192239;
+  --border: #1e2740;
+  --border-strong: #2c3a5c;
+  --primary: #8fa9d8;
+  --primary-still: #8fa9d8;
+  --primary-hover: #b1c3e4;
+  --primary-press: #698ccb;
+  --primary-soft: rgba(143, 169, 216, 0.1);
+  --on-primary: #070a12;
+  --pos: #6fd6b4;
+  --pos-soft: rgba(111, 214, 180, 0.12);
+  --neg: #ec7c74;
+  --neg-soft: rgba(236, 124, 116, 0.12);
+  --sky: #8fa9d8;
+  --bg-glow: rgba(143, 169, 216, 0.1);
+  --bg-grid: rgba(143, 169, 216, 0.04);
+  --bg-vignette: rgba(4, 6, 11, 0.55);
+  --chart-1: #8fa9d8;
+  --chart-2: #6fd6b4;
+  --chart-3: #6082c0;
+  --chart-4: #3c997a;
+  --chart-5: #b9c9e6;
+  --chart-6: #4b638d;
+  --chart-7: #a0d8c5;
+  --chart-8: #57ac90;
+}
+
+:root[data-theme='dark'][data-block='4'] {
+  /* Bloco 4 · Índigo & Gelo — Carteira, Caixinhas, Linha do tempo */
+  --bg: #080a14;
+  --bg-grad-a: #0b0e1c;
+  --bg-grad-b: #080a14;
+  --titlebar-bg: #101422;
+  --surface: #101422;
+  --surface-2: #171d2e;
+  --surface-3: #1c2338;
+  --border: #232a45;
+  --border-strong: #333d63;
+  --primary: #7c9cf0;
+  --primary-still: #7c9cf0;
+  --primary-hover: #a5bbf5;
+  --primary-press: #4e79eb;
+  --primary-soft: rgba(124, 156, 240, 0.1);
+  --on-primary: #080a14;
+  --pos: #63d2c0;
+  --pos-soft: rgba(99, 210, 192, 0.12);
+  --neg: #f0767e;
+  --neg-soft: rgba(240, 118, 126, 0.12);
+  --sky: #7c9cf0;
+  --bg-glow: rgba(124, 156, 240, 0.1);
+  --bg-grid: rgba(124, 156, 240, 0.04);
+  --bg-vignette: rgba(5, 6, 13, 0.55);
+  --chart-1: #7c9cf0;
+  --chart-2: #63d2c0;
+  --chart-3: #416ee3;
+  --chart-4: #388d7f;
+  --chart-5: #aec2f6;
+  --chart-6: #2b50b3;
+  --chart-7: #95d3c9;
+  --chart-8: #51a295;
+}
+
+/* ── Os mesmos quatro blocos no tema claro ──────────────────────────
+   Mesma lógica, família clareada: o papel recebe o SUBTOM do bloco e a
+   primária escurece até passar AA medida contra o papel (que é mais
+   escuro que o card branco, então passar nele garante passar no card).
+   A identidade do bloco vem do MATIZ, não da luminosidade. */
+
+:root[data-theme='light'],
+:root[data-theme='light'][data-block='1'] {
+  /* Bloco 1 · Petróleo & Aço — claro */
+  --bg: #edf3f5;
+  --bg-grad-a: #f7fafb;
+  --bg-grad-b: #edf3f5;
+  --titlebar-bg: #f7fafb;
+  --surface: #ffffff;
+  --surface-2: #ecf1f3;
+  --surface-3: #dde8eb;
+  --border: #d1dce0;
+  --border-strong: #adc4cc;
+  --primary: #3c7685;
+  --primary-still: #3c7685;
+  --primary-hover: #4a8ea1;
+  --primary-press: #325f6b;
+  --primary-soft: rgba(60, 118, 133, 0.1);
+  --on-primary: #ffffff;
+  --pos: #2c7962;
+  --pos-soft: rgba(44, 121, 98, 0.1);
+  --neg: #c53f31;
+  --neg-soft: rgba(197, 63, 49, 0.1);
+  --sky: #3c7685;
+  --bg-glow: rgba(60, 118, 133, 0.13);
+  --bg-grid: rgba(60, 118, 133, 0.045);
+  --bg-vignette: rgba(173, 196, 204, 0.16);
+  --chart-1: #3c7685;
+  --chart-2: #2c7962;
+  --chart-3: #5195a5;
+  --chart-4: #1e5c4a;
+  --chart-5: #2f5c68;
+  --chart-6: #7aa9b5;
+  --chart-7: #3aa384;
+  --chart-8: #4dbd9c;
+}
+
+:root[data-theme='light'][data-block='2'] {
+  /* Bloco 2 · Grafite & Esmeralda — claro */
+  --bg: #edf5f2;
+  --bg-grad-a: #f7fbf9;
+  --bg-grad-b: #edf5f2;
+  --titlebar-bg: #f7fbf9;
+  --surface: #ffffff;
+  --surface-2: #ecf3f0;
+  --surface-3: #ddebe5;
+  --border: #d1e0da;
+  --border-strong: #adccbd;
+  --primary: #277b53;
+  --primary-still: #277b53;
+  --primary-hover: #309766;
+  --primary-press: #1f6142;
+  --primary-soft: rgba(39, 123, 83, 0.1);
+  --on-primary: #ffffff;
+  --pos: #217e55;
+  --pos-soft: rgba(33, 126, 85, 0.1);
+  --neg: #c73a32;
+  --neg-soft: rgba(199, 58, 50, 0.1);
+  --sky: #277b53;
+  --bg-glow: rgba(39, 123, 83, 0.13);
+  --bg-grid: rgba(39, 123, 83, 0.045);
+  --bg-vignette: rgba(173, 204, 189, 0.16);
+  --chart-1: #277b53;
+  --chart-2: #217e55;
+  --chart-3: #37ab74;
+  --chart-4: #175939;
+  --chart-5: #1e6140;
+  --chart-6: #55b98c;
+  --chart-7: #34b077;
+  --chart-8: #4cc48f;
+}
+
+:root[data-theme='light'][data-block='3'] {
+  /* Bloco 3 · Meia-noite & Prata — claro */
+  --bg: #edf0f5;
+  --bg-grad-a: #f7f9fb;
+  --bg-grad-b: #edf0f5;
+  --titlebar-bg: #f7f9fb;
+  --surface: #ffffff;
+  --surface-2: #eceef3;
+  --surface-3: #dde2eb;
+  --border: #d1d7e0;
+  --border-strong: #adb8cc;
+  --primary: #3c6ac2;
+  --primary-still: #3c6ac2;
+  --primary-hover: #5b83cf;
+  --primary-press: #33589f;
+  --primary-soft: rgba(60, 106, 194, 0.1);
+  --on-primary: #ffffff;
+  --pos: #23785c;
+  --pos-soft: rgba(35, 120, 92, 0.1);
+  --neg: #c53832;
+  --neg-soft: rgba(197, 56, 50, 0.1);
+  --sky: #3c6ac2;
+  --bg-glow: rgba(60, 106, 194, 0.13);
+  --bg-grid: rgba(60, 106, 194, 0.045);
+  --bg-vignette: rgba(173, 184, 204, 0.16);
+  --chart-1: #3c6ac2;
+  --chart-2: #23785c;
+  --chart-3: #6a90d4;
+  --chart-4: #19563f;
+  --chart-5: #31589f;
+  --chart-6: #94aed9;
+  --chart-7: #33a97f;
+  --chart-8: #46c294;
+}
+
+:root[data-theme='light'][data-block='4'] {
+  /* Bloco 4 · Índigo & Gelo — claro */
+  --bg: #edeff5;
+  --bg-grad-a: #f7f8fb;
+  --bg-grad-b: #edeff5;
+  --titlebar-bg: #f7f8fb;
+  --surface: #ffffff;
+  --surface-2: #eceef3;
+  --surface-3: #dde0eb;
+  --border: #d1d5e0;
+  --border-strong: #adb3cc;
+  --primary: #3e68ca;
+  --primary-still: #3e68ca;
+  --primary-hover: #5e82d6;
+  --primary-press: #3456a7;
+  --primary-soft: rgba(62, 104, 202, 0.1);
+  --on-primary: #ffffff;
+  --pos: #24766a;
+  --pos-soft: rgba(36, 118, 106, 0.1);
+  --neg: #cb3238;
+  --neg-soft: rgba(203, 50, 56, 0.1);
+  --sky: #3e68ca;
+  --bg-glow: rgba(62, 104, 202, 0.13);
+  --bg-grid: rgba(62, 104, 202, 0.045);
+  --bg-vignette: rgba(173, 179, 204, 0.16);
+  --chart-1: #3e68ca;
+  --chart-2: #24766a;
+  --chart-3: #6c8dda;
+  --chart-4: #1a5750;
+  --chart-5: #3456a7;
+  --chart-6: #96acdf;
+  --chart-7: #33a695;
+  --chart-8: #46bfac;
 }
 
 /* Expõe os tokens como cores/fontes utilitárias do Tailwind */
@@ -201,15 +493,13 @@
   --color-warn: var(--warn);
   --color-warn-soft: var(--warn-soft);
 
-  /* Tipografia v2.1 "Painel de Bordo" — duas vozes, papéis separados:
+  /* Tipografia — duas vozes, papéis separados:
      · Nunito (arredondada, 400–800) para TEXTO e títulos — a voz humana.
-     · JetBrains Mono para TODO número monetário — a voz do instrumento.
-     A separação é o ponto: o dinheiro fica tabular e alinhado em coluna,
-     o texto ao redor fica acolhedor. Ambas empacotadas localmente
-     (@fontsource-variable), sem nenhuma chamada de rede. */
+     · Roboto Mono para TODO número monetário — a voz do instrumento.
+     Ambas empacotadas localmente (@fontsource-variable), sem rede. */
   --font-sans: 'Nunito Variable', 'Segoe UI', system-ui, sans-serif;
   --font-display: 'Nunito Variable', 'Segoe UI', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  --font-mono: 'Roboto Mono Variable', ui-monospace, 'Cascadia Mono', Consolas, monospace;
 
   --radius-card: 16px;
   --radius-control: 10px;
@@ -228,7 +518,7 @@ body,
 
 body {
   background: var(--bg);
-  background-image: var(--bg-grad);
+  background-image: linear-gradient(180deg, var(--bg-grad-a) 0%, var(--bg-grad-b) 100%);
   background-attachment: fixed;
   color: var(--ink);
   font-family: var(--font-sans);
@@ -245,39 +535,7 @@ textarea {
 }
 
 /**
- * Fundo com vida (M3 §Fundo): as camadas ② glows por seção · ③ geometria
- * assinatura · ④ malha/vinheta migraram para o componente <Backdrop> (React),
- * que é full-viewport e conhece a seção ativa. O body ainda pinta a base
- * (--bg + --bg-grad) como rede de segurança antes do React montar; o Backdrop
- * repinta a base por cima para garantir 100% de cobertura em qualquer resolução
- * (a raiz da "faixa preta" da tela de PIN reportada na QA do M2).
- */
-
-/**
- * Valores monetários e numéricos: JetBrains Mono, sempre tabulares (v2.1).
- *
- * `.tnum` já era o marcador universal de "isto é um número do app" — todo
- * valor monetário passa por ele (ver design/money.tsx). Trocar a família AQUI
- * é o que dá voz de instrumento ao dinheiro inteiro do app sem tocar em
- * nenhuma tela, pelo mesmo motivo que a troca de paleta é de valor e não de
- * nome de token.
- *
- * CUIDADO CONHECIDO (lição do M3): mono é mais largo que a sans, então o
- * footprint dos números CRESCE. Componente reutilizado que muda de tamanho já
- * disparou oscilação de layout e corrida de estado no E2E antes. Por isso o
- * `font-size: 0.95em` — relativo, não absoluto: ele devolve a largura ao
- * patamar da Geist em cada contexto (hero, card, tabela) sem que nenhuma tela
- * precise saber que a fonte mudou. Validado rodando a suíte E2E inteira.
- */
-.tnum {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 0.95em;
-  letter-spacing: -0.01em;
-}
-
-/**
- * Microdetalhe (§4): fio de luz de 1px no topo dos cards principais — só o
+ * Microdetalhe: fio de luz de 1px no topo dos cards principais — só o
  * suficiente para dar volume, sem virar borda colorida.
  */
 .card-lit {
@@ -313,6 +571,38 @@ textarea {
   pointer-events: none;
 }
 
+/**
+ * Fio de luz dos BOTÕES (R10 §6) — mesma gramática do `.card-topline`, mas
+ * mais curto e mais brilhante no meio: num alvo de ~38px de altura, um fio que
+ * atravessa a largura inteira parece uma borda; concentrado no centro, parece
+ * luz batendo na quina de cima.
+ */
+.btn-lit {
+  position: relative;
+}
+.btn-lit::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    transparent 12%,
+    color-mix(in srgb, var(--primary) 45%, transparent) 50%,
+    transparent 88%
+  );
+  pointer-events: none;
+}
+
+/* Giro do estado "carregando" dos botões */
+@keyframes zent-spin {
+  to { transform: rotate(360deg); }
+}
+.anim-spin {
+  animation: zent-spin 620ms linear infinite;
+}
+
 /* Chip de ícone com glow radial no acento (M3 §Cards) */
 .chip-glow {
   position: relative;
@@ -338,6 +628,35 @@ textarea {
   letter-spacing: -0.02em;
 }
 
+/**
+ * Valores monetários e numéricos: mono, sempre tabulares.
+ *
+ * `.tnum` é o marcador universal de "isto é um número do app" — todo valor
+ * monetário passa por ele (ver design/money.tsx). Trocar a família AQUI é o que
+ * dá voz de instrumento ao dinheiro inteiro do app sem tocar em nenhuma tela,
+ * pelo mesmo motivo que a troca de paleta é de valor e não de nome de token.
+ *
+ * ── POSIÇÃO NO ARQUIVO É PARTE DA REGRA (não mova para cima) ──────────
+ * Números grandes vêm quase sempre em `font-display tnum` juntos (StatCard,
+ * hero, saldos). As duas classes têm a MESMA especificidade, então quem vence
+ * `font-family` é a que estiver por último no CSS — e enquanto `.tnum` vinha
+ * antes, todo número-herói do app estava saindo em Nunito enquanto os números
+ * pequenos saíam em mono. Passava despercebido porque as duas famílias são
+ * legíveis; o que se perdia era o alinhamento tabular em coluna, justo onde ele
+ * mais importa. Declarando `.tnum` DEPOIS de `.font-display`, o número ganha.
+ *
+ * CUIDADO CONHECIDO (lição do M3): mono é mais largo que a sans, então o
+ * footprint dos números CRESCE. Componente reutilizado que muda de tamanho já
+ * disparou oscilação de layout e corrida de estado no E2E antes. Por isso o
+ * `font-size: 0.95em` — relativo, não absoluto.
+ */
+.tnum {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.95em;
+  letter-spacing: -0.01em;
+}
+
 /* Rótulo editorial em caps pequenas */
 .label-caps {
   font-size: 10.5px;
@@ -348,10 +667,9 @@ textarea {
 }
 
 /* ── Modo privacidade (M2 §a): a MÁSCARA substituiu o blur ──
- * Antes, `.tnum` era borrado por CSS — o valor real continuava no DOM, só
- * escondido de quem olha. Agora os valores monetários são mascarados no React
- * (ver design/money.tsx): sob privacidade renderizam `R$ ••••••` e o número real
- * nunca chega ao DOM. Não há mais regra de blur aqui de propósito. */
+ * Os valores monetários são mascarados no React (ver design/money.tsx): sob
+ * privacidade renderizam `R$ ••••••` e o número real nunca chega ao DOM. Não há
+ * regra de blur aqui de propósito. */
 
 /* Foco visível consistente (acessibilidade) */
 :focus-visible {
@@ -380,11 +698,14 @@ textarea {
   background: transparent;
 }
 
-/* Transições de tema suaves nos containers principais */
-body,
-.theme-transition {
-  transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease;
-}
+/**
+ * `.theme-transition` NÃO transiciona mais cor de propósito (R10 §2).
+ * Quem faz a travessia de 450ms agora são as PRÓPRIAS variáveis, no :root
+ * (ver o bloco @property no topo). Se o elemento também transicionasse, as
+ * duas curvas se compõem e o olho lê como atraso. A classe permanece — está
+ * espalhada pelos componentes e ainda marca "este container acompanha o tema"
+ * — mas o trabalho é da variável.
+ */
 
 /* Cards com elevação sutil no hover (GPU-friendly) */
 .card-hover {
@@ -478,7 +799,9 @@ body,
   border-radius: 8px;
 }
 
-/* Acessibilidade: reduz/remove movimento quando o SO pedir */
+/* Acessibilidade: reduz/remove movimento quando o SO pedir.
+   Cobre também a transição de bloco do :root — sob reduced-motion a troca de
+   paleta é instantânea, como o céu (que desenha um único frame estático). */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

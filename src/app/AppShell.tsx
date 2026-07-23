@@ -16,6 +16,7 @@ import { BoxesPage } from '@/features/boxes/BoxesPage'
 import { TimelinePage } from '@/features/timeline/TimelinePage'
 import { GlobalSearch } from '@/features/search/GlobalSearch'
 import { Backdrop } from '@/design/Backdrop'
+import { useColorBlock } from '@/design/blocks'
 
 const VIEWS: Record<ViewId, () => ReactNode> = {
   today: TodayPage,
@@ -38,6 +39,10 @@ export function AppShell(): ReactNode {
   const searchOpen = useUiStore((s) => s.searchOpen)
   const setSearchOpen = useUiStore((s) => s.setSearchOpen)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
+
+  // Bloco de cor da seção ativa (R10 §2): um atributo no <html>; a travessia
+  // de 450ms é das próprias variáveis (tokens.css), não de código aqui.
+  useColorBlock(activeView)
 
   // Atalhos globais: Ctrl+B sidebar · Ctrl+K busca · ? atalhos
   useEffect(() => {

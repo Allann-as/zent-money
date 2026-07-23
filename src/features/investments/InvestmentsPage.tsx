@@ -253,7 +253,7 @@ export function InvestmentsPage(): ReactNode {
           value={<>{'+'}<AnimatedMoney cents={consolidated.totalYield} /></>}
           label="Rendimento acumulado"
           tone="pos"
-          detail={formatPercent(consolidated.ratio, 2)}
+          detail={<span className="tnum">{formatPercent(consolidated.ratio, 2)}</span>}
         />
         <StatCard icon={CalendarRange} value={<AnimatedMoney cents={consolidated.perMonth} />} label="Rende por mês" />
         <StatCard icon={BadgeDollarSign} value={<AnimatedMoney cents={consolidated.perYear} />} label="Rende por ano" />
@@ -629,9 +629,17 @@ function InvestmentCard({
       ) : (
         <p className="mt-4 pt-3.5 border-t border-line text-[11.5px] text-ink-faint">
           Sem taxa automática — o valor acompanha suas atualizações de mercado
-          {inv.valueUpdates.length > 0
-            ? ` (última em ${formatDateBR([...inv.valueUpdates].sort((a, b) => b.date.localeCompare(a.date))[0]?.date ?? '')})`
-            : ''}
+          {inv.valueUpdates.length > 0 ? (
+            <>
+              {' ('}última em{' '}
+              <span className="tnum">
+                {formatDateBR([...inv.valueUpdates].sort((a, b) => b.date.localeCompare(a.date))[0]?.date ?? '')}
+              </span>
+              {')'}
+            </>
+          ) : (
+            ''
+          )}
           .
         </p>
       )}

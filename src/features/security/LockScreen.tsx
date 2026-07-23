@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { ShieldCheck } from 'lucide-react'
 import { ZentMark } from '@/design/ZentLogo'
 import { Backdrop } from '@/design/Backdrop'
+import { useColorBlock } from '@/design/blocks'
 import { useSecurityStore } from '@/store/securityStore'
 import { PinPad } from './PinPad'
 
@@ -25,6 +26,8 @@ const MAX = 6
 export function LockScreen({ mode }: { mode: 'setup' | 'unlock' }): ReactNode {
   const markPinSet = useSecurityStore((s) => s.markPinSet)
   const unlock = useSecurityStore((s) => s.unlock)
+  // Bloqueio e primeira execução pertencem ao Bloco 1 · Comando (R10 §2).
+  useColorBlock('lock')
   const [version, setVersion] = useState('')
   useEffect(() => {
     void window.zent.getVersion().then(setVersion)

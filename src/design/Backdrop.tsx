@@ -20,7 +20,7 @@ import type { ViewId } from '@/store/uiStore'
  * um só pseudo-elemento com gradientes e "sem blur de área gigante" (DECISOES).
  *
  * Camadas (compostas de baixo para cima), `pointer-events: none`:
- *   ① gradiente base (--bg-grad) + fallback sólido (--bg)
+ *   ① gradiente base (--bg-grad-a → --bg-grad-b) + fallback sólido (--bg)
  *   ② dois glows radiais POR SEÇÃO — acento a ~8% ~900px numa posição distinta
  *      por seção (mapa abaixo) + azul-profundo a ~9% no canto oposto
  *   ③ geometria assinatura por seção — SVG line-art estático, stroke 1px,
@@ -68,8 +68,12 @@ function layersFor(section: BackdropSection): React.CSSProperties {
       // ④ malha pontilhada + vinheta
       `radial-gradient(circle at 1px 1px, var(--bg-mesh) 1px, transparent 0)`,
       `radial-gradient(120% 100% at 50% 50%, transparent 58%, var(--bg-vignette) 100%)`,
-      // ① base
-      `var(--bg-grad)`,
+      // ① base — montada a partir dos DOIS pontos do gradiente, e não de um
+      // token `--bg-grad` pronto: `linear-gradient(...)` não é um <color> e não
+      // poderia ser registrado com @property, então não atravessaria a troca de
+      // bloco. Com as duas paradas como cores registradas, o degradê inteiro
+      // interpola junto com o resto (R10 §2).
+      `linear-gradient(180deg, var(--bg-grad-a) 0%, var(--bg-grad-b) 100%)`,
     ].join(', '),
     backgroundSize: '100% 100%, 100% 100%, 24px 24px, 100% 100%, 100% 100%',
     backgroundRepeat: 'no-repeat, no-repeat, repeat, no-repeat, no-repeat',

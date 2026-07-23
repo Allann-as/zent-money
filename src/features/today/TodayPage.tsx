@@ -204,7 +204,7 @@ function LivePhrase({
   } else if (limit !== null && remaining !== null) {
     body = (
       <>
-        Ainda <b className="text-primary font-bold">cabem {brl(remaining)}</b> hoje.{' '}
+        Ainda <b className="text-primary font-bold">cabem <span className="tnum">{brl(remaining)}</span></b> hoje.{' '}
         {countToday > 0 ? (
           <>
             Você registrou <b className="text-ink font-bold">{countToday} {countToday === 1 ? 'lançamento' : 'lançamentos'}</b> — a sequência segue{' '}

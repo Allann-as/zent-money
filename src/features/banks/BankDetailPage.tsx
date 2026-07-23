@@ -230,7 +230,15 @@ export function BankDetailPage({ bank }: { bank: Bank }): ReactNode {
           value={<AnimatedMoney cents={stats.available} />}
           label="Limite disponível"
           tone="pos"
-          detail={stats.limitTotal > 0 ? `de ${brl(stats.limitTotal)} no total` : 'sem cartões'}
+          detail={
+            stats.limitTotal > 0 ? (
+              <>
+                de <span className="tnum">{brl(stats.limitTotal)}</span> no total
+              </>
+            ) : (
+              'sem cartões'
+            )
+          }
         />
       </div>
 

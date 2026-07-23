@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Check, Zap } from 'lucide-react'
 import { ZentMark } from '@/design/ZentLogo'
+import { useColorBlock } from '@/design/blocks'
 import { Button } from '@/design/components/Button'
 import { Field, Input, MoneyInput } from '@/design/components/Input'
 import { Select } from '@/design/components/Select'
@@ -43,6 +44,8 @@ export function QuickEntryApp(): ReactNode {
   const [pinMsg, setPinMsg] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
+  // A mini-janela herda o Bloco 1 · Comando (R10 §2), como a bandeja.
+  useColorBlock('lock')
   useEffect(() => applyPersistedTheme(), [])
 
   const refresh = useCallback(async () => {
@@ -107,7 +110,7 @@ export function QuickEntryApp(): ReactNode {
   }
 
   return (
-    <div className="h-full w-full flex flex-col bg-bg text-ink" style={{ backgroundImage: 'var(--bg-grad)' }}>
+    <div className="h-full w-full flex flex-col bg-bg text-ink" style={{ backgroundImage: 'linear-gradient(180deg, var(--bg-grad-a) 0%, var(--bg-grad-b) 100%)' }}>
       {/* Cabeçalho (identidade Zent) — também é a área de arrastar a janela */}
       <div
         className="flex items-center gap-2 px-4 py-3 border-b border-line"

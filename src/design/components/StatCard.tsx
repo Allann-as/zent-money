@@ -43,7 +43,16 @@ export function StatCard({
         {value}
       </p>
       <p className="label-caps mt-1">{label}</p>
-      {detail ? <p className="text-[11.5px] text-ink-faint tnum mt-0.5">{detail}</p> : null}
+      {/**
+       * A linha de apoio é PROSA, não valor — por isso NÃO leva `tnum`.
+       * Ela dizia coisas como "cai em Nubank todo dia 5" e "faturas + parcelas
+       * (passe o mouse)" inteiramente em mono; com a Roboto Mono (mais larga que
+       * a JetBrains) a frase passou a quebrar em duas linhas e desalinhar a
+       * altura dos cards da fileira. A §12 pede mono no VALOR, na data, no eixo,
+       * no tooltip e no badge — quem manda um número aqui dentro o marca com
+       * `tnum` no próprio texto (ver <Delta>).
+       */}
+      {detail ? <p className="text-[11.5px] text-ink-faint mt-0.5">{detail}</p> : null}
     </Card>
   )
 }

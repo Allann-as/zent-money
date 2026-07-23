@@ -1,6 +1,7 @@
 import { useEffect, type CSSProperties, type ReactNode } from 'react'
 import { useUiStore } from '@/store/uiStore'
 import { ZentMark } from '@/design/ZentLogo'
+import { BLOCK_OF, BLOCK_TRANSITION_MS } from '@/design/blocks'
 
 /**
  * Faixa de título do app (R3). A barra branca do Windows destoava do produto —
@@ -20,15 +21,29 @@ import { ZentMark } from '@/design/ZentLogo'
  */
 export function TitleBar(): ReactNode {
   const theme = useUiStore((s) => s.theme)
+  const block = BLOCK_OF[useUiStore((s) => s.activeView)]
 
   useEffect(() => {
-    // lê os tokens já aplicados ao <html> e repinta os botões nativos
-    const css = getComputedStyle(document.documentElement)
-    const color = css.getPropertyValue('--titlebar-bg').trim()
-    const symbolColor = css.getPropertyValue('--titlebar-symbol').trim()
-    if (color === '' || symbolColor === '') return
-    void window.zent.setTitleBarTheme(color, symbolColor)
-  }, [theme])
+    function repaint(): void {
+      // lê os tokens já aplicados ao <html> e repinta os botões nativos
+      const css = getComputedStyle(document.documentElement)
+      const color = css.getPropertyValue('--titlebar-bg').trim()
+      const symbolColor = css.getPropertyValue('--titlebar-symbol').trim()
+      if (color === '' || symbolColor === '') return
+      void window.zent.setTitleBarTheme(color, symbolColor)
+    }
+    /**
+     * Duas leituras de propósito. Os botões nativos do Windows são os únicos
+     * pixels do app que o CSS não alcança: eles não têm como atravessar a
+     * transição de bloco, só saltar. A primeira leitura cobre o mount e a troca
+     * de tema (onde já estamos na cor final); a segunda acontece DEPOIS que a
+     * travessia de 450ms terminou, para o salto cair no fim do movimento, não
+     * no começo — e para a cor final ser a definitiva, não uma do meio.
+     */
+    repaint()
+    const t = setTimeout(repaint, BLOCK_TRANSITION_MS + 30)
+    return () => clearTimeout(t)
+  }, [theme, block])
 
   return (
     <div

@@ -70,8 +70,8 @@ function Delta({ now, prev, invert = false }: { now: number; prev: number; inver
   const up = ratio > 0
   const good = invert ? !up : up
   return (
-    <span className={cn('tnum font-medium', good ? 'text-pos' : 'text-neg')}>
-      {up ? '▲' : '▼'} {formatPercent(Math.abs(ratio), 0)} vs mês anterior
+    <span className={cn('font-medium', good ? 'text-pos' : 'text-neg')}>
+      {up ? '▲' : '▼'} <span className="tnum">{formatPercent(Math.abs(ratio), 0)}</span> vs mês anterior
     </span>
   )
 }
@@ -187,7 +187,7 @@ export function OverviewPage(): ReactNode {
     <span className="text-ink-faint">nenhum gasto lançado</span>
   ) : month.savingsRatio === null ? null : (
     <>
-      {formatPercent(month.savingsRatio, 0)} da renda
+      <span className="tnum">{formatPercent(month.savingsRatio, 0)}</span> da renda
       {sobraDelta !== null && <> · {sobraDelta}</>}
     </>
   )

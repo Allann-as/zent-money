@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { currentYm, type Ym } from '@/engine/dates'
+import { applyBlock, BLOCK_OF } from '@/design/blocks'
 
 export type ViewId =
   | 'today'
@@ -82,6 +83,17 @@ function applyPrivacy(on: boolean): void {
   document.documentElement.dataset['privacy'] = on ? 'on' : 'off'
 }
 
+/**
+ * Bloco de cor da seção (R10 §2). Aplicado AQUI, na ação, e não num efeito de
+ * componente: os gráficos leem os tokens com `getComputedStyle` durante o
+ * render, que acontece antes de qualquer efeito — num efeito, a seção nova
+ * nasceria desenhada com a paleta da seção anterior. Mesma disciplina que
+ * `applyTheme`/`applyPrivacy` já seguem neste store.
+ */
+function applyViewBlock(view: ViewId): void {
+  applyBlock(BLOCK_OF[view])
+}
+
 export const useUiStore = create<UiState>()(
   persist(
     (set, get) => ({
@@ -93,7 +105,10 @@ export const useUiStore = create<UiState>()(
       activeView: 'today',
       activeYm: currentYm(),
       bankDetailId: null,
-      openBankDetail: (bankDetailId) => set({ activeView: 'banks', bankDetailId }),
+      openBankDetail: (bankDetailId) => {
+        applyViewBlock('banks')
+        set({ activeView: 'banks', bankDetailId })
+      },
       closeBankDetail: () => set({ bankDetailId: null }),
       searchOpen: false,
       privacy: false,
@@ -120,7 +135,10 @@ export const useUiStore = create<UiState>()(
       toggleTheme: () => get().setTheme(get().theme === 'dark' ? 'light' : 'dark'),
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
       // sair da seção fecha o drill-down: voltar a Bancos mostra a lista
-      setView: (activeView) => set({ activeView, bankDetailId: null }),
+      setView: (activeView) => {
+        applyViewBlock(activeView)
+        set({ activeView, bankDetailId: null })
+      },
       setYm: (activeYm) => set({ activeYm }),
     }),
     {
@@ -143,6 +161,9 @@ export const useUiStore = create<UiState>()(
       onRehydrateStorage: () => (state) => {
         applyTheme(state?.theme ?? 'dark')
         applyPrivacy(state?.privacy ?? false)
+        // Reabrir numa seção do Bloco 4 tem de NASCER no Bloco 4, não chegar
+        // nele animando — a 1ª aplicação é sem transição (ver applyBlock).
+        applyViewBlock(state?.activeView ?? 'today')
       },
     },
   ),
