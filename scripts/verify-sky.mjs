@@ -127,8 +127,10 @@ console.log('\n── regras 2–4: pausa sem foco · canvas único · cor sincr
     }
     const out = []
     // Dispara a travessia para o Bloco 4 e amostra durante os 450ms.
+    // startsWith, e nao ===: o item do menu agora carrega um contador ao lado
+    // (R10 §4), entao o textContent dele e "Caixinhas27%".
     document.querySelector('aside').querySelectorAll('button').forEach((b) => {
-      if (b.textContent.trim() === 'Caixinhas') b.click()
+      if (b.textContent.trim().startsWith('Caixinhas')) b.click()
     })
     for (let i = 0; i < 14; i++) {
       await new Promise((r) => requestAnimationFrame(() => r()))

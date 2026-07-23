@@ -595,6 +595,22 @@ textarea {
   pointer-events: none;
 }
 
+/**
+ * Fio vivo da borda do menu (R10 §4) — pulsa em 2,6s entre .35 e .95 de
+ * opacidade, com uma leve escala horizontal. É `opacity` + `transform`, as duas
+ * propriedades que o compositor anima sem repintar: um loop infinito na borda
+ * da tela não pode custar nada, e sob `prefers-reduced-motion` ele congela
+ * aceso (a regra global zera a duração), continuando visível como affordance.
+ */
+@keyframes zent-thread {
+  0%, 100% { opacity: 0.35; transform: scaleX(1); }
+  50% { opacity: 0.95; transform: scaleX(1.6); }
+}
+.anim-thread {
+  animation: zent-thread 2600ms ease-in-out infinite;
+  transform-origin: left center;
+}
+
 /* Giro do estado "carregando" dos botões */
 @keyframes zent-spin {
   to { transform: rotate(360deg); }

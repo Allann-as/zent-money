@@ -87,6 +87,24 @@ test.afterAll(async () => {
   fs.rmSync(userDataDir, { recursive: true, force: true })
 })
 
+/**
+ * Opacidade computada da ilha de ações (§5).
+ *
+ * Vai por `page.evaluate` com cast de `globalThis`, e não pelos tipos do DOM,
+ * porque o tsconfig do E2E roda com `lib: ["ES2022"]` — sem DOM de propósito.
+ * É a mesma saída que os testes da bandeja já usavam para falar com `zent`.
+ */
+async function islandOpacity(): Promise<number> {
+  return page.evaluate(() => {
+    const g = globalThis as unknown as {
+      document: { querySelector(s: string): unknown }
+      getComputedStyle(el: unknown): { opacity: string }
+    }
+    const el = g.document.querySelector('[role="group"][aria-label="Ações rápidas"]')
+    return el === null ? -1 : Number(g.getComputedStyle(el).opacity)
+  })
+}
+
 async function goTo(label: string): Promise<void> {
   await page.click(`aside >> text="${label}"`)
   await page.waitForTimeout(250)
@@ -905,6 +923,83 @@ test('23f. bandeja + inatividade: trancar oculto exige PIN ao reabrir (M6)', asy
   await page.getByText('Olá, Allan').click()
   await page.getByLabel('Bloquear por inatividade').selectOption('off')
   await page.keyboard.press('Escape')
+})
+
+test('23g. menu borda viva: solto vira fio, espiar revela, Ctrl+B trava (R10 §4)', async () => {
+  const aside = page.locator('aside')
+  // Pelo TEXTO, e não pelo nome acessível: é o mesmo seletor que o `goTo` da
+  // suíte usa, e não depende de o item ter (ou não) um contador ao lado.
+  const item = page.locator('aside >> text="Gastos"')
+
+  // Solta o menu: o <aside> vira o fio de 3px e o painel sai da viewport.
+  await page.getByRole('button', { name: 'Recolher menu' }).click()
+  await page.waitForTimeout(400)
+  expect((await aside.boundingBox())?.width ?? 99).toBeLessThan(10)
+  const hidden = await item.boundingBox()
+  expect(hidden === null || hidden.x + hidden.width < 0).toBe(true)
+
+  // Espiar: encostar na zona quente da borda desliza o painel para dentro.
+  await page.mouse.move(2, 400)
+  await page.waitForTimeout(450)
+  const peeked = await item.boundingBox()
+  expect(peeked?.x ?? -1).toBeGreaterThanOrEqual(0)
+  // …e o <aside> continua com 3px: o painel FLUTUA, não empurra o conteúdo.
+  expect((await aside.boundingBox())?.width ?? 99).toBeLessThan(10)
+
+  // Navegar pelo painel espiado funciona.
+  await item.click()
+  await page.waitForTimeout(300)
+  await expect(page.locator('aside button[aria-current="page"]')).toContainText('Gastos')
+
+  // Afastar o cursor recolhe de volta.
+  await page.mouse.move(700, 400)
+  await page.waitForTimeout(450)
+  const retracted = await item.boundingBox()
+  expect(retracted === null || retracted.x + retracted.width < 0).toBe(true)
+
+  // Ctrl+B trava aberto: aí sim o <aside> volta a medir a largura do painel.
+  await page.keyboard.press('Control+b')
+  await page.waitForTimeout(450)
+  expect((await aside.boundingBox())?.width ?? 0).toBeGreaterThan(200)
+})
+
+test('23h. ilha de ações: age no app e some com diálogo por cima (R10 §5)', async () => {
+  const island = page.getByRole('group', { name: 'Ações rápidas' })
+
+  // Rola até o fim antes de medir: a ilha se ESCONDE quando há conteúdo atrás
+  // dela (§5), e o rodapé da página é onde ela tem folga garantida. Medir a
+  // opacidade de repouso no meio de uma lista mediria o outro estado.
+  await page.evaluate(() => {
+    const g = globalThis as unknown as { document: { querySelector(s: string): { scrollTop: number; scrollHeight: number } | null } }
+    const m = g.document.querySelector('main')
+    if (m) m.scrollTop = m.scrollHeight
+  })
+  await page.waitForTimeout(500)
+
+  // As três ações saíram do menu e vivem na ilha, no canto inferior direito.
+  const box = await island.boundingBox()
+  const size = page.viewportSize() ?? { width: 1280, height: 800 }
+  expect(box).not.toBeNull()
+  expect((box?.y ?? 0) + (box?.height ?? 0)).toBeGreaterThan(size.height * 0.8)
+  expect((box?.x ?? 0) + (box?.width ?? 0)).toBeGreaterThan(size.width * 0.8)
+
+  // Em repouso ela é discreta (42%) — nem invisível, nem opaca.
+  const rest = await islandOpacity()
+  expect(rest).toBeGreaterThan(0.3)
+  expect(rest).toBeLessThan(0.6)
+
+  // A privacidade continua funcionando a partir da ilha.
+  await page.getByRole('button', { name: 'Ocultar valores (modo privacidade)' }).click()
+  await expect(page.getByText('R$ ••••••').first()).toBeVisible()
+  await page.getByRole('button', { name: 'Mostrar valores' }).click()
+
+  // Com um diálogo aberto ela desaparece — não fica na frente de nada.
+  await page.keyboard.press('Control+k')
+  await page.waitForTimeout(350)
+  expect(await islandOpacity()).toBe(0)
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(350)
+  expect(await islandOpacity()).toBeGreaterThan(0.3)
 })
 
 test('24. zero erros de console/runtime em toda a sessão', () => {

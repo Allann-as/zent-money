@@ -17,6 +17,7 @@ import { TimelinePage } from '@/features/timeline/TimelinePage'
 import { GlobalSearch } from '@/features/search/GlobalSearch'
 import { Backdrop } from '@/design/Backdrop'
 import { useColorBlock } from '@/design/blocks'
+import { ActionIsland, ISLAND_SAFE_AREA } from '@/design/components/ActionIsland'
 
 const VIEWS: Record<ViewId, () => ReactNode> = {
   today: TodayPage,
@@ -99,13 +100,23 @@ export function AppShell(): ReactNode {
                 entrada com fade+slide e stagger sutil nos blocos (§5) */}
             <div
               key={activeView}
-              className="page-enter stagger-children max-w-[1200px] mx-auto px-7 py-6 min-h-full"
+              className="page-enter stagger-children max-w-[1200px] mx-auto px-7 pt-6 min-h-full"
+              /**
+               * O padding inferior RESERVA a altura da ilha de ações (§5). É o
+               * que garante "não cobre nada" em qualquer resolução: esconder a
+               * ilha quando há modal é reação, mas uma página comprida sem essa
+               * reserva terminaria embaixo dela em qualquer tela pequena.
+               */
+              style={{ paddingBottom: ISLAND_SAFE_AREA }}
             >
               <View />
             </div>
           </main>
         </div>
       </div>
+      {/* Ilha de ações (§5): fora do <main>, então ela flutua sobre a página
+          sem entrar no fluxo — e some sozinha quando há diálogo por cima. */}
+      <ActionIsland />
       <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
       <ShortcutsOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
     </div>
