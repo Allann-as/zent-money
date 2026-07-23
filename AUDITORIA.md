@@ -83,6 +83,17 @@ verdes, zero erros de console.
 Screenshots em `screenshots/r10-m7/` (3 passos + desbloqueio + privacidade, 2
 temas).
 
+### Perf 50k no fecho de ⑤–⑦ (rule 4: medir com a máquina livre)
+
+Medida logo após as suítes, com o Electron ainda esvaziando: **168 → 150 →
+140ms/clique** em três corridas conforme a máquina assentava, boot voltando a
+**847ms** (do 1.125ms da primeira, quente). O número do app é o assentado,
+**~140ms/clique** — dentro do envelope histórico (baseline v2.1 ~124, faixa desta
+release 115–168). Nenhum dos três milestones tocou o caminho quente do "navegar
+12 meses" (é leitura na Visão geral); o trabalho novo da Linha do tempo só roda
+quando a própria seção está aberta. É a mesma lição já registrada na robustez de
+magnitude: medir com a máquina disputada mede a máquina.
+
 ---
 
 ## R10 ⑥ — LINHA DO TEMPO, O PAINEL DOS ANOS (23/07/2026)
