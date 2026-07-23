@@ -59,3 +59,176 @@ Nada aqui é opcional; onde houver número, siga-o. Só `transform`/`opacity`; z
 ---
 
 **Comece agora:** salve este documento como `ROADMAP.md`, commite, e me apresente o plano do **M0 + M1** em até 15 linhas. Aguarde meu OK antes de executar.
+
+---
+
+# R10 "CÉU DE GALÁXIA" — O QUE FALTA (estado em 23/07/2026)
+
+Milestones **①–④ entregues e no GitHub** (blocos de cor, marca Ascensão, Roboto
+Mono, botões fio de luz, céu de galáxia, menu borda viva, ilha de ações, Formato
+A, calendário próprio, indicador de limite). Detalhes e números no `AUDITORIA.md`;
+decisões no `DECISOES.md`. **Sem tag** — a tag pertence ao ⑩.
+
+## Ordem de execução da próxima janela
+
+1. **ROBUSTEZ DE MAGNITUDE** (prioritário, antes de tudo)
+2. **SUFICIÊNCIA DE SALDO** (junto de ⑤–⑩)
+3. ⑤ parcelas em um clique + ícones v2 → ⑥ linha do tempo → ⑦ primeira execução
+   com nome → ⑧ taxa por investimento → ⑨ validação de 20 anos → ⑩ auto-revisão
+   visual + Release
+
+---
+
+## PRIORITÁRIO — ROBUSTEZ DE MAGNITUDE
+
+**O app tem de suportar um patrimônio de R$ 100.000.000,00 sem quebrar em lugar
+nenhum.** O problema não é da rosca: é sistêmico — todo container de largura fixa
+quebra quando o valor cresce, e o app tem muitos.
+
+### Diagnóstico já levantado (confirmado no código, ainda NÃO corrigido)
+
+- `src/design/charts/Donut.tsx:85` — o miolo usa `px-6`, um palpite de largura.
+  Com `size=190`/`thickness=22` o raio interno é ~74px; a caixa fica com 142px.
+  Um bloco de 2 linhas cabe em 142,7px pela fórmula — passa raspando. **No hover
+  o bloco vira 3 linhas** (rótulo + valor + %), o limite cai para ~136px e a
+  caixa continua com 142: **é aí que vaza**. O número ainda tem `text-[15px]`
+  fixo, sem piso nem redução, então magnitude grande transborda de qualquer jeito.
+- `src/design/charts/ProgressRing.tsx:43` — centraliza os filhos com `inset-0` e
+  **nenhuma** margem. O anel de Hoje não tem proteção alguma.
+
+### 1. Regra geométrica para texto dentro de anel/rosca
+
+Para um bloco de texto de altura `h` centrado num círculo de raio interno `r`, a
+largura máxima é **`2·√(r² − (h/2)²)`**, com margem de 4px. Usar a fórmula, não
+uma fração chutada do diâmetro — é o que evita o texto "caber na largura" e ainda
+assim tocar o anel nas quebras.
+
+### 2. Cascata de adaptação, nesta ordem exata
+
+Nunca deixar transbordar; nunca quebrar linha no meio de um número.
+
+1. reduzir/ocultar o **rótulo secundário** (ex.: "gasto hoje") antes de tocar no número;
+2. **`R$` vira prefixo menor** (0.6em) — já ganha ~15% de largura;
+3. **auto-ajuste do tamanho da fonte** até um piso legível (**nunca abaixo de 13px**);
+4. **engrossar menos o anel** para abrir o miolo, respeitando espessura mínima de **14px**;
+5. só então **notação compacta**: `R$ 250,5 mil` · `R$ 10,4 mi` · `R$ 1,2 bi` —
+   **sempre** com o valor exato no tooltip e no `aria-label`.
+
+### 3. Onde a notação compacta é PROIBIDA
+
+Precisão importa mais que espaço: campos de formulário e `MoneyInput`, listas de
+lançamentos, histórico da conta, saldo em edição, faturas, valores de parcela e
+qualquer lugar onde o usuário confere um centavo.
+
+**Compacto só em containers realmente apertados:** miolo de rosca, badges,
+contadores da sidebar, rótulos de eixo e mini-cards.
+
+### 4. Teste de estresse de magnitude (automatizado)
+
+Renderizar todas as telas e todos os componentes de valor com a série
+`0 · 9,99 · 999,99 · 9.999,99 · 99.999,99 · 999.999,99 · 9.999.999,99 ·
+99.999.999,99 · 999.999.999,99` **e os negativos correspondentes**, assertando
+para cada um:
+
+- sem `scrollWidth > clientWidth`;
+- sem texto cortado;
+- sem sobreposição com o anel/borda;
+- valor exato presente no tooltip/`aria` quando houver compactação.
+
+Nos **dois temas** e em **1366×768 e 1920×1080**.
+
+### 5. Varredura obrigatória
+
+Hero de patrimônio · cards de estatística · contadores do menu · eixos e tooltips
+de **todos** os gráficos · miolo das roscas · indicador de limite · cards de
+parcela · régua de marcos · linha viva do bloqueio · **e a máscara de privacidade**
+(`R$ ••••••` também tem largura e precisa caber).
+
+### Registro
+
+Regra em `DECISOES.md` como padrão permanente: **"nenhum número pode transbordar
+seu container em nenhuma magnitude"**. Resultado do teste no `AUDITORIA.md`.
+
+---
+
+## ADENDO — SUFICIÊNCIA DE SALDO (executar junto de ⑤–⑩)
+
+### O problema
+
+Hoje a única proteção é "conta com saldo R$ 0 aparece desabilitada". Isso **não
+cobre** o caso real: com R$ 10,00 na conta, guardar R$ 11,00 é aceito e o saldo
+vai a −R$ 1,00. **Verificar no código e corrigir.** Se alguma regra já existir,
+provar apontando o teste.
+
+### Regra central — duas famílias de operação
+
+**Família A — movimentação do próprio dinheiro: BLOQUEIO DURO.**
+Guardar em caixinha · aportar em investimento · transferir entre contas ·
+resgatar caixinha/investimento.
+
+Não existe "mover dinheiro que não existe". Se `valor > saldo disponível na
+data`, a operação é **recusada**: botão desabilitado, motivo visível no campo
+(`saldo insuficiente — disponível R$ 10,00`) e mutação rejeitada. Idem para
+resgate maior que o guardado.
+
+**Família B — gasto real e pagamento de fatura: AVISO COM CONFIRMAÇÃO, nunca bloqueio.**
+Gasto com origem em conta · pagamento de fatura.
+
+A vida real permite ficar negativo (cheque especial, saldo desatualizado).
+Bloquear forçaria o usuário a **não registrar** o que aconteceu — o pior
+resultado possível para um app de finanças. Portanto: avisar antes de salvar
+(`este gasto deixa o Itaú em −R$ 1,00 · continuar?`), permitir com confirmação
+explícita, e depois **exibir o saldo negativo em coral** no card do banco, no
+drill-down e no histórico, com rótulo honesto ("conta negativa").
+
+### Onde a checagem tem de morar
+
+- **Na camada de mutações (`src/store/mutations.ts`), não na UI.** A UI apenas
+  reflete. Se a validação viver só no formulário, a bandeja/quick-add,
+  importações e qualquer código futuro furam a regra.
+- Uma função única `saldoDisponivel(bankId, data)` **derivada do ledger**
+  existente (nunca um campo gravado), reusada por todos os formulários e por
+  todas as mutações.
+- O `BankPicker` passa a desabilitar conta **por insuficiência para o valor
+  digitado**, não só por saldo zero — e o motivo muda conforme o caso
+  (`sem saldo` / `disponível R$ 10,00`).
+
+### Casos de borda que precisam de teste
+
+1. **Valor exatamente igual ao saldo** → permitido (zera a conta, não é erro).
+2. **Lançamento retroativo.** O saldo é datado: um gasto inserido numa data
+   passada pode deixar o saldo **daquele dia** negativo mesmo com saldo positivo
+   hoje. Verificar contra o saldo **na data da operação**, e avisar se a inserção
+   joga qualquer dia posterior no negativo (o histórico já mostra saldo corrido —
+   ele não pode passar a mentir).
+3. **Edição de lançamento existente** (aumentar o valor de um gasto/transferência
+   antigo) passa pela mesma validação da criação.
+4. **Ajuste de conciliação** pode gerar saldo negativo — é declaração de fato,
+   não movimentação: permitido, com o rótulo de negativo.
+5. **Excluir um crédito** (ex.: reverter salário) pode deixar a conta negativa
+   retroativamente: permitido, mas com aviso.
+6. **Resgate parcial** de caixinha vinculada a investimento respeita o **guardado
+   real**, não o valor de mercado estimado.
+7. **Duas operações no mesmo dia** consumindo o mesmo saldo: a segunda vê o saldo
+   já debitado pela primeira.
+
+### Testes exigidos
+
+- **Unit:** `saldoDisponivel` em conta com movimentos em várias datas; bloqueio
+  duro nas 4 operações da Família A (incluindo **valor = saldo permitido** e
+  **valor = saldo + 1 centavo recusado**); aviso-com-confirmação nas 2 da Família
+  B; retroativo que negativa um dia intermediário; edição que aumenta valor.
+- **Teste de propriedade:** para qualquer sequência de operações da Família A,
+  **nenhum saldo de conta em nenhuma data pode ficar negativo**. Este é o
+  invariante — se ele falhar, existe um caminho de mutação sem validação.
+- **E2E:** conta com R$ 10,00 → tentar guardar R$ 11,00 (botão desabilitado +
+  motivo) → guardar R$ 10,00 (aceito, conta zera) → lançar gasto de R$ 5,00 pela
+  conta (aviso, confirmar, conta em −R$ 5,00 exibida em coral).
+- **Rodar o app** e conferir com os próprios olhos os três estados: bloqueado,
+  avisado-e-confirmado, negativo exibido.
+
+### Registro
+
+Documentar em `DECISOES.md` a distinção entre as duas famílias e **por que** a
+Família B não bloqueia (registrar a realidade vale mais que proteger o número).
+Resultado dos testes e do invariante no `AUDITORIA.md`.

@@ -56,6 +56,23 @@ Registro das decisões tomadas onde a especificação deixou eixos livres.
   invariante — menta e coral nos quatro. A leitura "entrou/saiu" nunca muda; o
   que muda é só o encaixe no subtom.
 
+### Duas famílias de forma: pílula é ESTADO, retângulo é AÇÃO
+
+Regra permanente do Allan, para o "nunca bordas ovais" do §6 não ser aplicado
+onde não cabe:
+
+- **Pílula (raio total)** — filtro e estado: chips de banco e de classe na
+  Carteira, chips de categoria, seletor de período, badges. São coisas que o
+  usuário LIGA e DESLIGA; o formato de cápsula é o que diz "isto alterna" sem
+  precisar de rótulo explicando.
+- **Retângulo arredondado (raio 11)** — ação: tudo que EXECUTA alguma coisa.
+  Botões primário, secundário, fantasma, destrutivo, de ícone; itens de menu.
+
+O "nunca ovais" do §6 vale só para a família de AÇÃO. Um filtro em formato de
+botão e um botão em formato de filtro embaralham a única pista que o usuário
+tem para saber o que vai acontecer ao clicar — e essa pista é a forma, não a
+cor, que muda de bloco em bloco.
+
 ### O destrutivo é a exceção do "fio de luz"
 
 - Todos os botões viraram superfície elevada com o acento no texto. O destrutivo
