@@ -140,7 +140,6 @@ function DayRing({
   over: boolean
   hasLimit: boolean
 }): ReactNode {
-  const brlPlain = useBRL()
   const size = 210
   const thickness = 15
   const R = 50 - thickness / 2
@@ -188,6 +187,7 @@ function DayRing({
           cents={spentCents}
           fontPx={22}
           weight={800}
+          hideCurrency
           className={cn('hero-num', over ? 'text-neg' : 'text-primary')}
         />
         {/* "gasto hoje" é o rótulo secundário: é ele que cede espaço primeiro
@@ -195,9 +195,26 @@ function DayRing({
         <RingLabel className="text-[10px] uppercase tracking-[0.14em] text-ink-soft mt-1.5">
           gasto hoje
         </RingLabel>
-        <RingLabel className="tnum text-[12px] text-ink-faint mt-1">
-          {limitCents === null ? 'sem teto' : `de ${brlPlain(limitCents)}`}
-        </RingLabel>
+        {limitCents === null ? (
+          <RingLabel className="tnum text-[12px] text-ink-faint mt-1">sem teto</RingLabel>
+        ) : (
+          /**
+           * O teto também passa pela cascata (§⑦-fix). Antes era texto fixo com
+           * `R$` cheio: com gasto pequeno e teto gigante (ex.: R$ 94 mi), o valor
+           * não pedia espaço, o rótulo não encolhia, e "de R$ 94.333.333,33"
+           * furava o anel. Agora ele compacta ("de 94,3 mi") e some com o R$,
+           * como o valor principal.
+           */
+          <FitValue
+            cents={limitCents}
+            fontPx={12}
+            weight={400}
+            hideCurrency
+            secondary
+            prefix="de "
+            className="text-ink-faint mt-1"
+          />
+        )}
       </RingCenter>
     </div>
   )

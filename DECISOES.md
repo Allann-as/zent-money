@@ -244,6 +244,32 @@ Registro das decisões tomadas onde a especificação deixou eixos livres.
   invariante — menta e coral nos quatro. A leitura "entrou/saiu" nunca muda; o
   que muda é só o encaixe no subtom.
 
+### O respiro do miolo é RADIAL e proporcional; o teste mede distância
+
+Refinamento permanente do padrão de magnitude, depois que o número da Carteira
+"cabia mas encostava":
+
+- **Folga proporcional, não fixa.** A margem de 4px continha o texto mas o
+  deixava rente à curva. A folga passou a ser `ringBreathing(r) = max(10px, 8%
+  do raio)`: junto de uma curva o olho pede mais espaço do que a matemática
+  exige, e num anel grande esse respiro tem de crescer com ele.
+- **A folga reduz o RAIO, não a largura.** `2·√((r−folga)² − (h/2)²)`. Subtrair
+  da largura dava folga só na horizontal; o canto do bloco (no topo, onde o
+  círculo é estreito) ficava mais perto do anel do que a margem. Reduzindo o
+  raio, todo canto mora em `r−folga` e a distância RADIAL de qualquer canto à
+  borda interna é ≥ folga por construção.
+- **O teste afere distância, não pertencimento.** Medir "o canto está dentro do
+  raio?" deixava passar o texto rente. Agora mede a distância radial de cada
+  canto e de cada extremidade de linha e exige ≥ folga, reportando a MENOR folga
+  vista ("folga mínima 10,1px"). Foi essa régua que pegou, na hora, o teto
+  gigante furando o anel de Hoje — um defeito que a checagem de contenção não
+  via. Um teste que só diz "0 violações" não protege a próxima magnitude nova.
+- **`R$` não vai ao miolo de anel.** Redundante (o rótulo e o app já dizem
+  "reais") e é o glifo que encosta; tirá-lo libera ~15% de largura. Fora do anel
+  (cards, listas, formulários) o `R$` fica. Todo valor de miolo — inclusive
+  rótulos secundários como o teto de Hoje — passa pela cascata (`FitValue`), com
+  o `prefix` medido junto, senão um "de " solto empurra a linha para fora.
+
 ### PADRÃO PERMANENTE: nenhum número transborda seu container, em nenhuma magnitude
 
 O app tem de suportar um patrimônio de R$ 100.000.000,00 sem quebrar em lugar

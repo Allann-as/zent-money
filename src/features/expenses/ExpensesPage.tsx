@@ -215,7 +215,7 @@ export function ExpensesPage(): ReactNode {
               <Donut
                 slices={summary.slices}
                 centerTitle="Total do mês"
-                centerValue={brl(monthTotal)}
+                centerCents={monthTotal}
               />
             </div>
           ) : (

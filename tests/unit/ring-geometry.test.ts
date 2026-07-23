@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   MIN_RING_THICKNESS,
   innerRadiusPx,
+  ringBreathing,
   ringSafeWidth,
   thinnedThickness,
 } from '@/design/ringGeometry'
@@ -48,6 +49,40 @@ describe('ringSafeWidth — a corda, não o diâmetro', () => {
   it('devolve 0 quando o bloco é mais alto que o círculo', () => {
     expect(ringSafeWidth(30, 80)).toBe(0)
     expect(ringSafeWidth(30, 60)).toBe(0)
+  })
+})
+
+describe('folga proporcional — respiro, não contenção (fix do miolo)', () => {
+  it('a folga é 8% do raio, com piso de 10px', () => {
+    expect(ringBreathing(50)).toBe(10) // 8% de 50 = 4 → piso 10
+    expect(ringBreathing(125)).toBe(10) // 8% de 125 = 10 → limiar
+    expect(ringBreathing(200)).toBeCloseTo(16, 5) // 8% de 200
+  })
+
+  it('TODO canto do bloco dista ≥ folga da borda interna, radialmente', () => {
+    // É a garantia que o teste de estresse afere. Com a largura no máximo, o
+    // canto (largura/2, altura/2) tem de morar na circunferência r−folga.
+    for (const [r, h] of [
+      [74, 58],
+      [74, 40],
+      [46.8, 30],
+      [73.5, 67],
+    ] as const) {
+      const b = ringBreathing(r)
+      const w = ringSafeWidth(r, h)
+      const cornerDist = Math.hypot(w / 2, h / 2)
+      const clearance = r - cornerDist
+      expect(clearance).toBeGreaterThanOrEqual(b - 1e-6)
+      // e é JUSTO a folga (não desperdiça espaço): o canto encosta em r−folga
+      expect(clearance).toBeCloseTo(b, 5)
+    }
+  })
+
+  it('a folga proporcional aperta a largura mais que a margem simbólica antiga', () => {
+    const r = innerRadiusPx(190, 11) // ~74px
+    const comFolga = ringSafeWidth(r, 40) // folga = 8%·74 ≈ 5,9 → piso 10
+    const antigo4px = ringSafeWidth(r, 40, 4)
+    expect(comFolga).toBeLessThan(antigo4px)
   })
 })
 

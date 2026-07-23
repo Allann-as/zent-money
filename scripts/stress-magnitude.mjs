@@ -183,25 +183,45 @@ const PROBE = `(() => {
     }
   }
 
-  // ── 2. Geometria: o bloco do miolo cabe DENTRO do círculo? ──
+  // ── 2. Geometria: o texto do miolo tem RESPIRO até o anel? ──
+  // Não basta o bloco "caber dentro" (pertencimento): medimos a DISTÂNCIA
+  // radial de cada canto do bloco E das extremidades de cada linha de texto até
+  // a borda interna do anel, e exigimos ≥ folga esperada. Registramos a menor
+  // folga encontrada, para o output dizer "folga mínima X px" em vez de só "0
+  // violações" — sem isso o mesmo defeito volta na próxima magnitude nova.
+  let minClearance = Infinity
+  const TOL = 1.5 // sub-pixel + métricas de fonte
   for (const box of document.querySelectorAll('[data-ring-inner-radius]')) {
     if (!visible(box)) continue
     const r = Number(box.dataset.ringInnerRadius)
-    const rect = box.getBoundingClientRect()
+    const breathing = Number(box.dataset.ringBreathing)
     const ring = box.closest('.relative') || box.parentElement
     const rr = ring.getBoundingClientRect()
     const cx = rr.left + rr.width / 2
     const cy = rr.top + rr.height / 2
-    const corners = [
-      [rect.left, rect.top], [rect.right, rect.top],
-      [rect.left, rect.bottom], [rect.right, rect.bottom],
-    ]
-    for (const [x, y] of corners) {
-      const d = Math.hypot(x - cx, y - cy)
-      if (d > r + 0.5) {
-        push('fora do anel', box, 'canto a ' + d.toFixed(1) + 'px de um raio de ' + r.toFixed(1))
-        break
+
+    // Pontos a medir: os 4 cantos do bloco + os 4 cantos de CADA linha de texto
+    // visível (a extensão real pintada, que pode passar do bloco se algo vazar).
+    const els = [box]
+    for (const d of box.querySelectorAll('*')) {
+      const own = Array.from(d.childNodes).filter((n) => n.nodeType === 3).map((n) => n.nodeValue).join('').trim()
+      if (own !== '' && visible(d)) els.push(d)
+    }
+    let boxMin = Infinity
+    for (const el of els) {
+      const rect = el.getBoundingClientRect()
+      const pts = [
+        [rect.left, rect.top], [rect.right, rect.top],
+        [rect.left, rect.bottom], [rect.right, rect.bottom],
+      ]
+      for (const [x, y] of pts) {
+        const clearance = r - Math.hypot(x - cx, y - cy) // >0 dentro do anel
+        if (clearance < boxMin) boxMin = clearance
       }
+    }
+    if (boxMin < minClearance) minClearance = boxMin
+    if (boxMin < breathing - TOL) {
+      push('sem respiro no anel', box, 'folga ' + boxMin.toFixed(1) + 'px < esperado ' + breathing.toFixed(1) + 'px')
     }
   }
 
@@ -223,16 +243,24 @@ const PROBE = `(() => {
     }
   }
 
-  return problems
+  return { problems, minClearance: Number.isFinite(minClearance) ? minClearance : null }
 })()`
 
 let failures = 0
 let checks = 0
 const report = []
+// Menor folga (texto→anel) vista em toda a varredura, e onde ela ocorreu — é o
+// número que prova que há RESPIRO, não só contenção.
+let globalMinClearance = Infinity
+let minClearanceAt = ''
 
 async function sweep(page, label, ctx) {
   checks++
-  const problems = await page.evaluate(PROBE)
+  const { problems, minClearance } = await page.evaluate(PROBE)
+  if (minClearance !== null && minClearance < globalMinClearance) {
+    globalMinClearance = minClearance
+    minClearanceAt = `${ctx} · ${label}`
+  }
   if (problems.length > 0) {
     failures += problems.length
     report.push({ ctx: `${ctx} · ${label}`, problems })
@@ -314,10 +342,16 @@ for (const factor of SCALES) {
 }
 
 console.log('\n══ ESTRESSE DE MAGNITUDE ══\n')
+const clearanceLine =
+  Number.isFinite(globalMinClearance)
+    ? `Folga mínima texto→anel: ${globalMinClearance.toFixed(1)}px (em ${minClearanceAt}).`
+    : 'Nenhum miolo de anel visível na varredura.'
 if (failures === 0) {
-  console.log(`OK — ${checks} varreduras, nenhum número transbordou em nenhuma magnitude.\n`)
+  console.log(`OK — ${checks} varreduras, nenhum número transbordou em nenhuma magnitude.`)
+  console.log(clearanceLine + '\n')
   process.exit(0)
 }
+console.log(clearanceLine + '\n')
 for (const r of report.slice(0, 40)) {
   console.log(`FALHA ${r.ctx}`)
   for (const p of r.problems.slice(0, 6)) {

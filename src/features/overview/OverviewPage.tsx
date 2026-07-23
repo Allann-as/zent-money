@@ -427,7 +427,7 @@ export function OverviewPage(): ReactNode {
               <Donut
                 slices={donutSlices}
                 centerTitle="Gasto no mês"
-                centerValue={brl(month.spent)}
+                centerCents={month.spent}
                 size={175}
               />
               {split.total > 0 && split.superfluous > 0 && (

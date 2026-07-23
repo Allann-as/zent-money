@@ -22,13 +22,18 @@ export function Donut({
   size = 190,
   thickness = 22,
   centerTitle,
-  centerValue,
+  centerCents,
 }: {
   slices: DonutSlice[]
   size?: number
   thickness?: number
   centerTitle?: string
-  centerValue?: string
+  /**
+   * Valor do miolo em CENTAVOS (não pré-formatado): assim ele passa pela mesma
+   * cascata de magnitude do valor de hover — encolhe/compacta em vez de vazar —
+   * e o glifo `R$` é omitido dentro do anel (ver `FitValue hideCurrency`).
+   */
+  centerCents?: number
 }): ReactNode {
   const colors = useChartColors()
   const brl = useBRL()
@@ -102,12 +107,15 @@ export function Donut({
             {hovered ? hovered.label : centerTitle}
           </span>
           {hovered ? (
-            <FitValue cents={hovered.value} fontPx={15} weight={700} className="text-ink mt-0.5" />
-          ) : (
-            <span className="font-display text-[15px] font-bold text-ink tnum leading-tight mt-0.5">
-              {centerValue}
-            </span>
-          )}
+            <FitValue cents={hovered.value} fontPx={15} weight={700} hideCurrency className="text-ink mt-0.5" />
+          ) : centerCents !== undefined ? (
+            // Antes era um <span> de tamanho fixo — fora da cascata, então um
+            // total grande vazava. Agora é FitValue, igual ao valor de hover
+            // (peso 700 pela prop; a família mono vem do `.tnum` do FitValue —
+            // NÃO passar `font-display` aqui, senão ele briga com o `.tnum` pela
+            // família e o número perde o alinhamento tabular).
+            <FitValue cents={centerCents} fontPx={15} weight={700} hideCurrency className="text-ink mt-0.5" />
+          ) : null}
           {/* Reserva permanente da 3ª linha — ver o comentário acima. */}
           <span
             className={cn('text-[11px] text-ink-soft tnum', !(hovered && total > 0) && 'invisible')}

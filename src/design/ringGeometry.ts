@@ -28,10 +28,22 @@
  * desde o repouso, invisíveis. Assim a altura medida JÁ É o pior caso, a
  * fórmula fica correta por construção, e o layout não muda de tamanho entre
  * estados (nenhum reflow ao passar o mouse).
+ *
+ * ── FOLGA PROPORCIONAL, NÃO MARGEM SIMBÓLICA (refinamento do Allan) ──────
+ * A margem fixa de 4px "continha" o texto mas o deixava RENTE ao anel — cabia
+ * pela matemática e encostava aos olhos. Junto de uma curva o olho precisa de
+ * mais espaço do que a geometria exige, e num anel grande esse respiro tem de
+ * crescer com ele. Por isso a folga passou a ser `max(10px, 8% do raio)` e é
+ * aplicada REDUZINDO O RAIO antes da corda — ver `ringSafeWidth`.
  */
 
-/** Margem de respiro entre o texto e o anel (px). */
-export const RING_MARGIN = 4
+/**
+ * Área de respiro entre o texto e o anel (px): proporcional ao raio, com piso.
+ * Geometricamente correto ≠ opticamente confortável.
+ */
+export function ringBreathing(radius: number): number {
+  return Math.max(10, 0.08 * radius)
+}
 
 /** Piso de legibilidade da cascata: nunca reduzir a fonte abaixo disto (px). */
 export const MIN_FONT_PX = 13
@@ -40,13 +52,28 @@ export const MIN_FONT_PX = 13
 export const MIN_RING_THICKNESS = 14
 
 /**
- * Largura útil para um bloco de altura `h` centrado num círculo de raio `r`.
- * Devolve 0 quando o bloco é mais alto que o próprio círculo.
+ * Largura útil para um bloco de altura `h` centrado num círculo de raio `r`,
+ * com uma área de respiro `folga` até o anel. Devolve 0 quando não sobra espaço.
+ *
+ * ── POR QUE A FOLGA REDUZ O RAIO, E NÃO A LARGURA ───────────────────────
+ * A versão antiga subtraía `2·margem` da corda medida no raio CHEIO. Isso dava
+ * folga só na horizontal, na altura do bloco; o CANTO do bloco (lá em cima,
+ * onde o círculo é mais estreito) ficava mais perto do anel do que a margem
+ * pedida. Reduzindo o raio para `r − folga` ANTES da corda, todo canto do bloco
+ * passa a morar na circunferência de raio `r − folga` — ou seja, a **distância
+ * radial** de qualquer canto até a borda interna do anel é ≥ `folga`, por
+ * construção. É essa a garantia que o teste de estresse afere (distância, não
+ * pertencimento).
  */
-export function ringSafeWidth(radius: number, blockHeight: number, margin = RING_MARGIN): number {
+export function ringSafeWidth(
+  radius: number,
+  blockHeight: number,
+  breathing = ringBreathing(radius),
+): number {
+  const effR = radius - breathing
   const half = blockHeight / 2
-  if (half >= radius) return 0
-  return Math.max(0, 2 * Math.sqrt(radius * radius - half * half) - 2 * margin)
+  if (half >= effR) return 0
+  return 2 * Math.sqrt(effR * effR - half * half)
 }
 
 /**

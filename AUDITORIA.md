@@ -1,5 +1,61 @@
 # AUDITORIA.md — Zent Money
 
+## R10 — RESPIRO NO MIOLO DOS ANÉIS (23/07/2026)
+
+O relato: na Carteira → Composição por classe, o número do miolo cabia
+matematicamente mas ficava RENTE ao anel — e continuava rente quando o valor
+crescia. Causa: a asserção do teste era de **contenção** (o bloco cabe dentro do
+círculo?), não de **folga**. Corrigido nas três frentes pedidas.
+
+### 1. Folga proporcional, não margem simbólica
+
+A margem fixa de 4px continha o texto mas o deixava colado à curva — geometria
+correta, conforto óptico nenhum. Trocada por `ringBreathing(r) = max(10px, 8% do
+raio)`, e aplicada REDUZINDO O RAIO antes da corda (`2·√((r−folga)² − (h/2)²)`),
+não subtraindo da largura. A diferença importa: subtrair da largura dava folga
+só na horizontal, e o CANTO do bloco (no topo, onde o círculo é mais estreito)
+ficava mais perto do anel do que a margem pedida. Reduzindo o raio, todo canto
+passa a morar na circunferência `r−folga` — **distância radial ≥ folga por
+construção**, que é justo o que o teste agora afere.
+
+### 2. O glifo `R$` saiu do miolo dos anéis
+
+Dentro de um anel o `R$` é redundante (o rótulo e o app inteiro já são em reais)
+e é justamente ele que encostava. `<FitValue hideCurrency>` tira o glifo do texto
+medido e renderizado (a máscara de privacidade vira só `••••••`), liberando ~15%
+de largura e a assimetria do glifo pequeno colado na curva. **Só no miolo de
+anel** — em cards, listas e formulários o `R$` continua normal. De quebra, o
+valor de repouso do Donut, que era um `<span>` de tamanho fixo FORA da cascata
+(e por isso vazava com total grande), passou a ser `FitValue`, igual ao de hover.
+Aplicado aos quatro miolos: Donut (classe e banco), ProgressRing, anel de Hoje e
+o das Caixinhas.
+
+### 3. O teste mede DISTÂNCIA, e reporta a menor folga
+
+`stress-magnitude.mjs` deixou de checar "o canto está dentro do raio?" e passou a
+medir, para cada canto do bloco E cada extremidade de cada linha de texto, a
+distância radial até a borda interna do anel, exigindo `≥ folga`. A folga
+esperada vai ao DOM (`data-ring-breathing`), fonte única com o app. O output
+agora diz **"Folga mínima texto→anel: 10,1px"** em vez de só "0 violações".
+
+**E o teste mais forte pegou um defeito latente na hora:** o anel de **Hoje**, com
+gasto pequeno e teto gigante (R$ 94 mi), furava o anel em −8,2px — o rótulo
+secundário "de R$ …" era texto fixo e o pedido-de-espaço da cascata é disparado
+pelo VALOR (aqui ~0), não pelo teto. Corrigido roteando o teto pela cascata
+também (`FitValue` com `prefix="de "` medido + `hideCurrency`): agora compacta
+para "de 94,3 mi" e cabe. Sem a régua de folga, esse caso teria passado
+despercebido — é a prova de que medir distância, não pertencimento, valeu.
+
+### Resultado
+
+**2.296 varreduras, 0 violações, folga mínima 10,1px** (o piso de 10px é honrado
+em toda magnitude; a Carteira rodando com R$ 10.400.000,00 conferida a olho nos
+dois temas em `screenshots/r10-ring/`). Suíte: typecheck · lint · **283 unit**
+(+3 de geometria: folga proporcional e a garantia radial) · mono limpo. E2E
+inalterado (as asserções de rosca miram o RÓTULO do miolo, não o valor).
+
+---
+
 ## R10 ⑦ — PRIMEIRA EXECUÇÃO COM NOME (23/07/2026)
 
 A auditoria da tela de bloqueio (feita no ⑤) apontou quatro ausências: linha

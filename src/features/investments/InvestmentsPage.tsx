@@ -379,7 +379,7 @@ export function InvestmentsPage(): ReactNode {
                 color: banksById.get(x.inv.bankId)?.color ?? colors.primary,
               }))}
             centerTitle="Carteira"
-            centerValue={brl(consolidated.balance)}
+            centerCents={consolidated.balance}
           />
         ) : (
           <Bars
@@ -416,11 +416,11 @@ export function InvestmentsPage(): ReactNode {
         <div className="grid grid-cols-3 gap-4 mb-4">
           <Card className="p-5">
             <CardTitle className="mb-3">Composição por classe</CardTitle>
-            <Donut slices={byClass} size={120} thickness={22} centerTitle="Total" centerValue={brl(consolidated.balance)} />
+            <Donut slices={byClass} size={120} thickness={22} centerTitle="Total" centerCents={consolidated.balance} />
           </Card>
           <Card className="p-5">
             <CardTitle className="mb-3">Composição por banco</CardTitle>
-            <Donut slices={byBank} size={120} thickness={22} centerTitle="Total" centerValue={brl(consolidated.balance)} />
+            <Donut slices={byBank} size={120} thickness={22} centerTitle="Total" centerCents={consolidated.balance} />
           </Card>
           <Card className="p-5">
             <CardTitle className="mb-3 flex items-center gap-2">

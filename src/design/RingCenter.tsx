@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from 'react'
 import { cn } from '@/lib/cn'
-import { MIN_FONT_PX, fitValue, ringSafeWidth } from './ringGeometry'
+import { MIN_FONT_PX, fitValue, ringBreathing, ringSafeWidth } from './ringGeometry'
 import { formatBRL, formatBRLCompact } from '@/engine/money'
 import { MONEY_MASK, usePrivacy } from './money'
 
@@ -112,6 +112,11 @@ export function RingCenter({
            * verificação fraca que deixou o vazamento original passar.
            */
           data-ring-inner-radius={innerRadius}
+          /* A folga esperada vai ao DOM junto do raio: o teste de estresse
+             afere a DISTÂNCIA de cada canto/linha até a borda interna contra
+             este valor — uma fonte só para app e teste (se a fórmula mudar, o
+             teste acompanha). */
+          data-ring-breathing={ringBreathing(innerRadius)}
           className={cn('flex flex-col items-center justify-center text-center whitespace-nowrap', className)}
           style={{ maxWidth: available }}
         >
@@ -194,6 +199,9 @@ export function FitValue({
   fontPx,
   weight = 800,
   allowCompact = true,
+  hideCurrency = false,
+  prefix = '',
+  secondary = false,
   className,
 }: {
   cents: number
@@ -201,20 +209,49 @@ export function FitValue({
   fontPx: number
   weight?: number
   /**
+   * Rótulo SECUNDÁRIO do miolo (ex.: o teto "de …" do anel de Hoje). Ele se
+   * adapta à largura como qualquer valor, mas: (1) NÃO dispara o pedido-de-
+   * espaço — quem manda a etapa (a) da cascata é o valor PRINCIPAL, e um
+   * secundário a 12px vive perto do piso por natureza, não por aperto; (2) some
+   * junto dos demais rótulos quando o principal pede espaço (como um RingLabel).
+   */
+  secondary?: boolean
+  /**
+   * Texto fixo antes do número (ex.: "de "), INCLUÍDO na medição. Sem isso, um
+   * rótulo secundário como "de R$ 94 mi" mediria só o número e o "de " empurraria
+   * a linha para fora do anel — o defeito que a régua de folga pegou no anel de
+   * Hoje quando o gasto é pequeno mas o teto é gigante.
+   */
+  prefix?: string
+  /**
    * Compactar é PROIBIDO onde o usuário confere centavo (formulários, listas,
    * histórico, faturas, parcelas). Nesses lugares, passe `false`: o valor
    * encolhe até o piso e para — nunca vira "R$ 10,4 mi".
    */
   allowCompact?: boolean
+  /**
+   * Omite o glifo `R$` — para o MIOLO DE ANEL (§⑦-fix). Dentro de um anel o
+   * símbolo é redundante (o rótulo e o app inteiro já dizem "reais") e é
+   * justamente ele que encosta na curva; tirá-lo libera ~15% de largura e some
+   * com a assimetria óptica do glifo pequeno colado no anel. Fora dos anéis
+   * (cards, listas, formulários) o `R$` continua normal.
+   */
+  hideCurrency?: boolean
   className?: string
 }): ReactNode {
-  const { available, requestRoom } = useContext(RingFitContext)
+  const { available, requestRoom, labelsHidden } = useContext(RingFitContext)
   const privacy = usePrivacy()
 
   // Sob privacidade o valor real NÃO vai ao DOM (M2 §a) — mas a máscara também
   // tem largura e passa pela mesma cascata, senão ela é que transborda.
-  const exact = privacy ? MONEY_MASK : formatBRL(cents)
-  const compact = privacy || !allowCompact ? null : formatBRLCompact(cents)
+  const exactFull = privacy ? MONEY_MASK : formatBRL(cents)
+  const compactFull = privacy || !allowCompact ? null : formatBRLCompact(cents)
+
+  // No miolo de anel, o "R$ " sai do texto MEDIDO e RENDERIZADO (a máscara vira
+  // só "••••••"). O `title`/`aria` de um compacto guardam a forma cheia, com R$.
+  const strip = (s: string): string => s.replace(/^R\$\s*/, '')
+  const exact = prefix + (hideCurrency ? strip(exactFull) : exactFull)
+  const compact = compactFull === null ? null : prefix + (hideCurrency ? strip(compactFull) : compactFull)
 
   const fit = fitValue({ text: exact, compact, available, fontPx, weight })
 
@@ -232,8 +269,14 @@ export function FitValue({
    * nesse ponto que o espaço vale mais que a decoração.
    */
   useLayoutEffect(() => {
+    // Só o valor PRINCIPAL pede espaço. Um secundário a 12px está sempre perto
+    // do piso — pedir espaço por isso esconderia os rótulos para sempre.
+    if (secondary) return
     if (fit.compacted || fit.overflow || fit.fontPx <= MIN_FONT_PX + 3) requestRoom()
-  }, [fit.compacted, fit.overflow, fit.fontPx, requestRoom])
+  }, [secondary, fit.compacted, fit.overflow, fit.fontPx, requestRoom])
+
+  // Secundário some quando o principal pede espaço — igual a um <RingLabel>.
+  if (secondary && labelsHidden) return null
 
   return (
     <span
@@ -241,7 +284,8 @@ export function FitValue({
       style={{ fontSize: fit.fontPx, fontWeight: weight }}
       // O exato só entra em title/aria quando houve compactação — e nunca sob
       // privacidade, onde o número real não pode existir no DOM de jeito nenhum.
-      {...(fit.compacted && !privacy ? { title: exact, 'aria-label': exact } : {})}
+      // Guarda a forma CHEIA (com R$), que é a leitura humana do valor exato.
+      {...(fit.compacted && !privacy ? { title: exactFull, 'aria-label': exactFull } : {})}
     >
       {/* (b) o prefixo em 0.6em devolve ~15% de largura ao número, que é a
           parte que importa ler. */}
