@@ -1,5 +1,139 @@
 # AUDITORIA.md — Zent Money
 
+## R10 "Céu de Galáxia" — milestones ①–④ (23/07/2026)
+
+Sessão parada no milestone ④, como combinado. Entregues: quatro blocos de cor,
+marca Ascensão, Roboto Mono, botões fio de luz, céu de galáxia global, menu
+borda viva, ilha de ações, Formato A, calendário próprio e indicador de limite.
+Pendentes para a próxima janela: ⑤ parcelas em um clique + ícones v2 · ⑥ linha
+do tempo · ⑦ primeira execução com nome · ⑧ taxa por investimento · ⑨ validação
+de 20 anos · ⑩ auto-revisão visual + Release.
+
+**Nenhuma lógica financeira nova entrou.** Os contadores do menu, o indicador de
+limite e a prévia do gasto são LEITURAS de dados que já existiam; o ledger, as
+mutações e os invariantes não foram tocados.
+
+**Estado da suíte:** typecheck estrito · lint · **238 unit** · **40 E2E** ·
+smoke — todos verdes, zero erros de console nas duas janelas. Mais três
+verificadores novos que rodam o app de verdade (§16): `audit-mono`,
+`verify-sky` e `verify-island`.
+
+**Perf 50k** (quente): navegar 12 meses **115ms/clique** (baseline v2.1 ~124 —
+sem regressão) · boot ~891ms.
+
+### Números medidos, não estimados
+
+| O quê | Onde | Resultado |
+|---|---|---|
+| Custo do céu a 1366×768 (201 estrelas) | `perf-sky.mjs` | **1,05ms/frame** no pior caso |
+| Custo do céu a 1920×1080 (359 estrelas) | `perf-sky.mjs` | **1,74ms/frame** no pior caso |
+| Pares da constelação testados/frame a 1920 | grade espacial | **1.815** (contra 64.261 do laço ingênuo) |
+| Regras de produção do céu | `verify-sky.mjs` | **6/6** comprovadas no app rodando |
+| Sincronia canvas × `--sky` na travessia | `verify-sky.mjs` | diferença **0/255** em 14 amostras |
+| Ilha de ações não cobre nada | `verify-island.mjs` | **303/303** (10 seções × 5 rolagens × menu fixado/solto × 3 resoluções) |
+| Roboto Mono em 100% dos números | `audit-mono.mjs` | **0 ocorrências fora do mono** (10 seções × 2 temas) |
+| Contraste da paleta dos 4 blocos | gerador com verificação | pior caso **AA** (4,51) |
+
+### FPS do céu — as duas resoluções, como o Allan pediu
+
+A densidade é proporcional à ÁREA, então o termo O(N²) da constelação cresce com
+o quadrado: 1366×768 dá N≈201, 1920×1080 dá N≈359 — três vezes mais pares, não
+1,4×. Medido nos dois, com as 10 seções:
+
+| Resolução | Estrelas | Pior seção | Custo do céu | Pior FPS |
+|---|---|---|---|---|
+| 1366×768 | 201 | Crédito | 1,05ms/frame | 178 |
+| 1920×1080 | 359 | Hoje | 1,74ms/frame | 117 |
+
+A grade espacial **foi** necessária a 1920, como previsto. Antes das duas
+otimizações o pior caso era **5,23ms/frame** — quase um terço do orçamento de um
+frame de 60fps.
+
+### Duas correções de desempenho, ambas sem mudar um pixel
+
+1. **Grade espacial na constelação.** Células de exatamente 84px (o limiar do §1):
+   cada estrela só pode ter vizinho dentro do limiar na própria célula ou nas 8
+   ao redor. A saída é idêntica — mesmos pares, mesmos índices `i`/`j` (o `+i+j`
+   do seno depende deles), mesma ordem de pintura. Só somem as comparações que
+   nunca passariam no `if`.
+2. **Névoa pré-renderizada.** Era o item mais caro do céu inteiro: 2 milhões de
+   pixels de degradê radial rasterizados a cada frame. Como ela só muda em ALFA
+   (forma, centro e raio são constantes), passou a ser desenhada uma vez fora de
+   tela e aplicada com `globalAlpha`. Idêntico por construção: num degradê de
+   `rgba(cor, a)` até `rgba(cor, 0)`, o alfa em cada ponto é `a·(1−p)`;
+   multiplicar por `k` dá `a·k·(1−p)`, que é o degradê de `rgba(cor, a·k)`.
+
+O mesmo raciocínio tirou as strings `rgba(...)` montadas por estrela e por linha
+(21 mil por segundo) em favor de `globalAlpha` com a cor sólida definida uma vez.
+
+### O blur dos cards foi medido e REPROVADO
+
+O §1.7 pede "translúcido com leve blur", e a versão com `backdrop-filter:
+blur(6px)` chegou a existir. Com 50 mil lançamentos ela custou **148ms/clique**
+ao navegar meses, contra **120ms** sem ela. A causa é específica desta release:
+`backdrop-filter` obriga o compositor a reamostrar e desfocar o que está ATRÁS
+do elemento sempre que aquilo muda — e o que está atrás agora é um céu que se
+mexe a cada frame. Dezenas de cards × 60 vezes por segundo.
+
+Ficou a translucidez (`--card-veil`), que entrega o efeito procurado (o céu lido
+como contínuo por trás dos cards) e custa zero. Vale a regra aprovada pelo
+Allan: **se custar FPS, o céu perde para o conteúdo**. É a lição do M3 repetida
+num contexto novo.
+
+### Bugs que só apareceram rodando o app
+
+1. **`.tnum` perdia o `font-family` para `.font-display`** — as duas têm a mesma
+   especificidade e a que vinha por último no CSS ganhava. Todo número-herói do
+   app (StatCard, hero, saldos) estava saindo em Nunito **desde a v2.1**.
+   Passava despercebido porque as duas famílias são legíveis; o que se perdia
+   era o alinhamento tabular em coluna, justo onde ele mais importa. Achado pelo
+   `audit-mono.mjs`, que mede a família COMPUTADA em vez de procurar a classe.
+2. **`relative` na base do `<Button>` vencia o `absolute` do chamador** — mesma
+   armadilha de ordem no CSS. O botão "Editar" de Ganhos saiu do canto do card e
+   foi parar embaixo do cabeçalho, quebrando 9 testes E2E. Corrigido empilhando
+   o spinner por grid, sem o botão declarar posição nenhuma.
+3. **`opacity-[0.42]` vencia `opacity-0`** na ilha — ela continuava visível por
+   cima dos modais. Terceira vez que a mesma classe de erro aparece: duas
+   utilitárias da mesma propriedade, decidido pela ordem no CSS gerado.
+4. **A linha de apoio do StatCard era prosa inteira em mono** e passou a quebrar
+   em duas linhas com a Roboto (mais larga que a JetBrains), desalinhando a
+   altura dos cards da fileira. Mono voltou a ser do VALOR, não da frase — que é
+   o que o §12 pede.
+5. **O contador do menu mudava o nome ACESSÍVEL do item** para "Gastos 3":
+   qualquer navegação por nome (leitor de tela ou teste) quebrava sozinha quando
+   o número aparecia. O badge virou decorativo e o significado foi para o
+   `title`.
+6. **`aria-hidden` na ilha recuada** apagava busca, privacidade e tema da árvore
+   de acessibilidade nas páginas compridas.
+7. **`mouseenter` não borbulha entre irmãos** — e o fio de 3px fica por cima da
+   zona quente. Entrando pelo fio (o caminho natural, já que é a única coisa
+   visível), a espiada nunca começava.
+
+### A ilha de ações: "não cobre nada" exigiu três camadas
+
+O screenshot é que denunciou: a reserva de padding protegia o FIM da página, mas
+uma página que rola tem meio. Parada na metade da lista de orçamento, a ilha
+ficava por cima de um valor.
+
+1. **Reserva de 88px** no rodapé das páginas (com 68px o último card da Carteira
+   parava a 10px da ilha a 1366×768 — descoberto, mas espremido).
+2. **A ilha se recolhe** quando há conteúdo atrás dela, remedindo ao rolar, ao
+   trocar de seção e quando a altura da página muda. A versão que só media no
+   scroll deixava 18 casos passando: quem abre uma seção já com conteúdo ali
+   nunca rolou.
+3. **Some e fica inerte** com diálogo por cima.
+
+Recuar por conteúdo NÃO mata o clique nem aplica `aria-hidden` — só o diálogo
+faz isso. Um canto quente de 200×120 traz a ilha de volta antes de o cursor
+chegar nela, e o foco por teclado também.
+
+### Screenshots
+
+`screenshots/r10-m1` (blocos + marca + mono) · `r10-m2` (céu) · `r10-m3` (menu
+borda viva + ilha) · `r10-m4` (Formato A + calendário).
+
+---
+
 ## Resumo executivo — v2.1.0 "Painel de Bordo" (20/07/2026)
 
 **Release v2.1** = reskin visual completo ("Painel de Bordo": verde-abissal +

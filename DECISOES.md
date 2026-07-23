@@ -2,6 +2,123 @@
 
 Registro das decisões tomadas onde a especificação deixou eixos livres.
 
+## R10 "Céu de Galáxia" — ①–④
+
+### A travessia de 450ms é das VARIÁVEIS, não dos elementos
+
+- Os tokens de cor foram registrados com `@property` (tipo `<color>`), o que os
+  torna animáveis, e a `transition` mora no `:root`. Trocar `data-block`
+  interpola os valores e **todo** elemento que lê `var(--surface)` atravessa
+  junto, sem nenhum componente saber que existe transição de bloco.
+- A alternativa (transição em cada elemento) foi descartada: além de exigir
+  caçar todo componente, o elemento animaria em 450ms rumo a uma variável que
+  também anima em 450ms — duas curvas compostas, que o olho lê como atraso. Por
+  isso `.theme-transition` deixou de transicionar cor; a classe ficou porque
+  está espalhada, mas o trabalho é da variável.
+
+### O céu LÊ `--sky`; não interpola por conta própria
+
+- Correção do Allan: se o CSS transiciona em 450ms e o canvas interpola em
+  ~400ms, o olho percebe duas trocas. A solução não foi igualar os tempos e
+  torcer — foi eliminar a segunda interpolação. O canvas amostra o token **já
+  interpolado pelo motor de CSS** durante a janela da travessia, então os dois
+  trocam de cor pela mesma curva, no mesmo instante, por construção.
+- Comprovado: diferença de **0/255** em 14 amostras, com 14 cores distintas
+  (`verify-sky.mjs`). Ver [[o-que-anima-e-o-que-estala]].
+
+### O que anima e o que ESTALA na troca de bloco (deliberado)
+
+- Animam só acento, fundo e céu. As superfícies (`--surface`, `--border`)
+  estalam: entre os quatro blocos elas variam num intervalo quase-preto
+  (#0C1619 → #121614 → #0E1320 → #101422) e a página nova entra com fade de
+  200ms por cima.
+- Não é só economia de recálculo — é **correção**. Os gráficos leem token com
+  `getComputedStyle` DURANTE o render; um token em pleno voo congelaria uma cor
+  do meio do caminho dentro do SVG. Mantendo animado só o que gráfico nenhum lê
+  (e dando à primária o gêmeo `--primary-still`), o gráfico nasce sempre na cor
+  final.
+
+### `data-block` é aplicado na AÇÃO de navegação, não num efeito
+
+- Pelo mesmo motivo: efeito roda depois do render, e a seção nova nasceria
+  desenhada com a paleta da anterior. Segue a disciplina que `applyTheme` e
+  `applyPrivacy` já usavam no `uiStore`.
+
+### `--cat-*` e `--warn` NÃO variam por bloco (decisão do Allan)
+
+- Cor de categoria é cor-DADO, como a marca de um banco: a mesma categoria
+  mudando de cor conforme a seção quebraria o mapeamento mental categoria→cor
+  que o usuário constrói. Uma paleta só, recalibrada UMA vez para conviver com
+  os quatro fundos (pior contraste 6,2 no escuro, 4,5 no claro).
+- `--warn` é semântica de alerta: um limite estourado tem de ter a mesma cor em
+  qualquer tela.
+- `--pos`/`--neg` seguem a tabela do §2 e variam por bloco, mas com MATIZ
+  invariante — menta e coral nos quatro. A leitura "entrou/saiu" nunca muda; o
+  que muda é só o encaixe no subtom.
+
+### O destrutivo é a exceção do "fio de luz"
+
+- Todos os botões viraram superfície elevada com o acento no texto. O destrutivo
+  manteve a área sólida em `--neg`: passá-lo para a mesma superfície discreta
+  deixaria "Excluir" com o MESMO peso visual de "Cancelar", e o único botão do
+  app cujo erro é irreversível não pode ser o mais fácil de clicar por engano.
+
+### O blur dos cards perdeu para o FPS
+
+- O §1.7 pede "translúcido com leve blur". Medido: 148ms/clique contra 120ms sem
+  o blur, com 50k lançamentos. Ficou só a translucidez. Vale a regra aprovada:
+  se custar FPS, o céu — e o enfeite do céu — perde para o conteúdo.
+
+### A ilha recua por conteúdo, mas continua clicável
+
+- Dois "sumiços" diferentes: com diálogo por cima ela some **e** fica inerte;
+  com conteúdo atrás ela some mas continua clicável e presente na árvore de
+  acessibilidade. Invisível-e-morta trocaria um problema por outro pior —
+  privacidade e busca inalcançáveis toda vez que a página parasse numa posição
+  ruim. O canto quente de 200×120 a revela antes de o cursor chegar nela.
+
+### O menu peek reaproveita `sidebarCollapsed`
+
+- "Recolhido" virou "não fixado". Reaproveitar o mesmo estado (em vez de
+  inventar um `pinned`) manteve a persistência, o Ctrl+B e os rótulos de
+  acessibilidade valendo — inclusive o "Recolher menu"/"Expandir menu" de que o
+  E2E depende. O painel vive DENTRO do `<aside>` para que `aside >> text="X"`
+  continue significando "o item X do menu", o seletor que a suíte inteira usa.
+
+### O calendário próprio aceita digitação (exigência do Allan)
+
+- O campo é um texto `dd/mm/aaaa` mascarado — digitável, colável, navegável por
+  teclado — e o popover é um AUXÍLIO ao lado, não o único caminho. Trocar o
+  nativo por um calendário só de clique custaria velocidade e acessibilidade.
+- `value`/`onChange` continuam falando ISO, o que permitiu trocar seis
+  formulários sem tocar em nenhuma lógica de dados.
+- Data impossível (31/02) é recusada e o campo volta ao último valor válido ao
+  perder o foco, em vez de ficar num estado que não é data nenhuma.
+
+### Os atalhos do campo de valor SOMAM; "último valor" SUBSTITUI
+
+- `+10/+50/+100` acumulam sobre o que já está no campo — é como se conta dinheiro
+  na cabeça. "Último valor" repete um lançamento parecido, então substitui.
+  Misturar as duas semânticas no mesmo lugar seria receita para lançamento
+  errado.
+- "Último gasto" é o de maior DATA, não o último do array: a lista é ordem de
+  criação, e quem lança hoje uma conta de ontem inverteria os dois.
+
+### A regra das faixas de limite mudou de casa
+
+- `statusOf` vivia dentro do `BudgetPanel`; virou `limitTone` no
+  `<LimitIndicator>` compartilhado. Meta e compromissos teriam de repetir a
+  regra para combinar, e uma cópia a mais é uma chance a mais de duas telas
+  discordarem sobre o que é "perto do limite".
+
+### Ordem no CSS venceu ordem no atributo — três vezes
+
+- `.tnum` × `.font-display`, `relative` × `absolute` no botão, `opacity-[0.42]`
+  × `opacity-0` na ilha. Duas utilitárias da mesma propriedade com a mesma
+  especificidade: quem ganha é a ordem no CSS GERADO. A defesa adotada é
+  escolher **uma** classe por propriedade em cascata no componente, em vez de
+  empilhar condicionais.
+
 ## Crédito + parcelamento com prévia (v2.1) — ⑤
 
 ### "Pagar fatura devolve o limite" é consequência do modelo, não código novo
