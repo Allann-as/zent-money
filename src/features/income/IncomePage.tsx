@@ -8,6 +8,8 @@ import { StatCard } from '@/design/components/StatCard'
 import { AnimatedMoney } from '@/design/AnimatedMoney'
 import { Button } from '@/design/components/Button'
 import { Field, Input, MoneyInput } from '@/design/components/Input'
+import { MoneyField } from '@/design/components/MoneyField'
+import { DateField } from '@/design/components/DateField'
 import { Select } from '@/design/components/Select'
 import { BankPicker } from '@/design/components/BankPicker'
 import { Modal } from '@/design/components/Modal'
@@ -278,7 +280,7 @@ export function IncomePage(): ReactNode {
           </Field>
 
           <div className="border-t border-line pt-4 flex flex-col gap-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-3">
               <Field label="Cai na conta" hint="Opcional">
                 <Select
                   value={bankDraft}
@@ -447,12 +449,12 @@ function ExtraDialog({
             maxLength={60}
           />
         </Field>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-3">
           <Field label="Data">
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <DateField value={date} onChange={setDate} />
           </Field>
           <Field label="Valor">
-            <MoneyInput value={amount} onChange={setAmount} aria-label="Valor do ganho extra" />
+            <MoneyField value={amount} onChange={setAmount} aria-label="Valor do ganho extra" />
           </Field>
         </div>
         {/* "Recebido em" (R4 §1.2): opcional — sem conta, o extra segue contando

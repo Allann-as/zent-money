@@ -1002,6 +1002,70 @@ test('23h. ilha de ações: age no app e some com diálogo por cima (R10 §5)', 
   expect(await islandOpacity()).toBeGreaterThan(0.3)
 })
 
+test('23i. calendário próprio: digitação direta, popover, atalhos e teclado (R10 §8)', async () => {
+  await goTo('Gastos')
+  await page.getByRole('button', { name: 'Novo gasto' }).click()
+  const dialog = page.getByRole('dialog')
+  const field = dialog.getByRole('textbox', { name: 'Data do gasto' })
+
+  // 1. DIGITAÇÃO DIRETA — o campo nasce em dd/mm/aaaa e aceita só os dígitos,
+  //    sem obrigar ninguém a abrir o calendário para escolher uma data.
+  await expect(field).toHaveValue(/^\d{2}\/\d{2}\/\d{4}$/)
+  await field.fill('')
+  await field.pressSequentially('05072026')
+  await expect(field).toHaveValue('05/07/2026')
+
+  // 2. Data impossível não é aceita: ao sair do campo, volta ao último válido.
+  await field.fill('')
+  await field.pressSequentially('31022026')
+  await expect(field).toHaveValue('31/02/2026')
+  await dialog.getByPlaceholder('Ex.: Compras da semana').click()
+  await expect(field).toHaveValue('05/07/2026')
+
+  // 3. O POPOVER abre, mostra o mês e navega.
+  await dialog.getByRole('button', { name: 'Abrir calendário' }).click()
+  const popover = page.getByRole('dialog', { name: 'Escolher data' })
+  await expect(popover).toBeVisible()
+  await expect(popover.getByText('julho', { exact: false })).toBeVisible()
+  await popover.getByRole('button', { name: 'Mês anterior' }).click()
+  await expect(popover.getByText('junho', { exact: false })).toBeVisible()
+  await popover.getByRole('button', { name: 'Próximo mês' }).click()
+
+  // 4. ATALHO "hoje" preenche o campo e fecha o popover.
+  await popover.getByRole('button', { name: 'hoje', exact: true }).click()
+  await expect(popover).toBeHidden()
+  const hoje = await page.evaluate(() => {
+    const d = new Date()
+    const p = (n: number): string => String(n).padStart(2, '0')
+    return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`
+  })
+  await expect(field).toHaveValue(hoje)
+
+  // 5. TECLADO: setas movem o cursor na grade e Enter escolhe o dia.
+  await dialog.getByRole('button', { name: 'Abrir calendário' }).click()
+  await expect(popover).toBeVisible()
+  await page.keyboard.press('ArrowLeft') // ontem
+  await page.keyboard.press('Enter')
+  await expect(popover).toBeHidden()
+  const ontem = await page.evaluate(() => {
+    const d = new Date()
+    d.setDate(d.getDate() - 1)
+    const p = (n: number): string => String(n).padStart(2, '0')
+    return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`
+  })
+  await expect(field).toHaveValue(ontem)
+
+  // 6. Esc fecha o calendário SEM fechar o formulário por baixo.
+  await dialog.getByRole('button', { name: 'Abrir calendário' }).click()
+  await expect(popover).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(popover).toBeHidden()
+  await expect(dialog).toBeVisible()
+
+  await page.keyboard.press('Escape')
+  await expect(dialog).toBeHidden()
+})
+
 test('24. zero erros de console/runtime em toda a sessão', () => {
   expect(consoleErrors, `Erros de console:\n${consoleErrors.join('\n')}`).toHaveLength(0)
 })

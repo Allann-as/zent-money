@@ -2,7 +2,8 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { Modal } from '@/design/components/Modal'
 import { Button } from '@/design/components/Button'
-import { Field, MoneyInput } from '@/design/components/Input'
+import { Field } from '@/design/components/Input'
+import { MoneyField } from '@/design/components/MoneyField'
 import { BankPicker, type BankPickerOption } from '@/design/components/BankPicker'
 import { toast } from '@/design/components/toast'
 import { useDataStore, useZentData } from '@/store/dataStore'
@@ -131,7 +132,7 @@ export function BoxTransferDialog({
       </div>
 
       <Field label={mode === 'in' ? 'Quanto guardar' : 'Quanto resgatar'}>
-        <MoneyInput value={amount} onChange={setAmount} autoFocus aria-label={mode === 'in' ? 'Valor a guardar' : 'Valor a resgatar'} />
+        <MoneyField value={amount} onChange={setAmount} autoFocus aria-label={mode === 'in' ? 'Valor a guardar' : 'Valor a resgatar'} />
       </Field>
       <p className="tnum text-[12px] text-ink-faint mt-1.5 mb-4">
         {mode === 'in' ? 'guardado na caixinha' : 'disponível na caixinha'}: {brl(stored)}

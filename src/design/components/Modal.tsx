@@ -12,8 +12,21 @@ export interface ModalProps {
   width?: number
 }
 
-/** Modal do design system: portal, backdrop, Esc, focus trap básico. */
-export function Modal({ open, onClose, title, children, footer, width = 440 }: ModalProps): ReactNode {
+/**
+ * Modal do design system: portal, backdrop, Esc, focus trap básico.
+ *
+ * ── FORMATO A (R10 §7): 380px, COLUNA ÚNICA ─────────────────────────────
+ * A largura padrão caiu de 440 para 380 e os formulários de lançamento
+ * perderam as fileiras de dois campos. Um formulário de dinheiro é uma
+ * sequência de decisões — quanto, de quê, quando, de onde — e em duas colunas
+ * o olho tem de escolher por onde ir a cada linha. Em coluna única existe um
+ * caminho só, de cima para baixo.
+ *
+ * Modais que NÃO são formulário de lançamento (conquistas, detalhamento do
+ * score, recorrentes) seguem passando a própria largura: ali o conteúdo é
+ * leitura, não digitação, e espremer não ajuda ninguém.
+ */
+export function Modal({ open, onClose, title, children, footer, width = 380 }: ModalProps): ReactNode {
   const panelRef = useRef<HTMLDivElement>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
 

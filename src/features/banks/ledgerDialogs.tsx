@@ -1,7 +1,8 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { Modal } from '@/design/components/Modal'
 import { Button } from '@/design/components/Button'
-import { Field, MoneyInput, Input } from '@/design/components/Input'
+import { Field, MoneyInput } from '@/design/components/Input'
+import { DateField } from '@/design/components/DateField'
 import { Select } from '@/design/components/Select'
 import { toast } from '@/design/components/toast'
 import { useZentData } from '@/store/dataStore'
@@ -77,7 +78,7 @@ export function TransferDialog({
       }
     >
       <div className="flex flex-col gap-4">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-3">
           <Field label="De" hint={`Saldo: ${brl(fromBalance)}`}>
             <Select value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Conta de origem">
               {data.banks.map((b) => (
@@ -99,12 +100,12 @@ export function TransferDialog({
             </Select>
           </Field>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-3">
           <Field label="Valor">
             <MoneyInput value={amount} onChange={setAmount} autoFocus aria-label="Valor da transferência" />
           </Field>
           <Field label="Data">
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <DateField value={date} onChange={setDate} />
           </Field>
         </div>
         {valid && amount !== null && (
@@ -197,7 +198,7 @@ export function PayInvoiceDialog({
         </p>
       ) : (
         <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-3">
             <Field label="Cartão" hint={`Fatura: ${brl(card?.invoice ?? 0)}`}>
               <Select
                 value={cardId}
@@ -225,12 +226,12 @@ export function PayInvoiceDialog({
               </Select>
             </Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-3">
             <Field label="Valor" hint="Pagamento parcial é permitido">
               <MoneyInput value={amount} onChange={setAmount} aria-label="Valor do pagamento" />
             </Field>
             <Field label="Data">
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <DateField value={date} onChange={setDate} />
             </Field>
           </div>
           {overpaying && card && (

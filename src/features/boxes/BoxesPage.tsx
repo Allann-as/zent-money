@@ -460,7 +460,7 @@ function BoxDialog({
             maxLength={40}
           />
         </Field>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-3">
           <Field label="Valor alvo">
             <MoneyInput value={target} onChange={setTarget} aria-label="Valor alvo da caixinha" />
           </Field>

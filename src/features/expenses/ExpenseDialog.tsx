@@ -1,7 +1,10 @@
-import { useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Modal } from '@/design/components/Modal'
 import { Button } from '@/design/components/Button'
-import { Field, Input, MoneyInput } from '@/design/components/Input'
+import { Field, Input } from '@/design/components/Input'
+import { DateField } from '@/design/components/DateField'
+import { MoneyField } from '@/design/components/MoneyField'
+import { LimitIndicator } from '@/design/components/LimitIndicator'
 import { Select } from '@/design/components/Select'
 import { BankPicker, type BankPickerOption } from '@/design/components/BankPicker'
 import { toast } from '@/design/components/toast'
@@ -45,6 +48,26 @@ export function ExpenseDialog({
   const brl = useBRL()
   const editing = state !== 'closed' && state !== 'new' ? state : null
   const open = state !== 'closed'
+
+  /**
+   * Valor do gasto mais recente — alimenta o atalho "último valor" (§7).
+   * O gasto mais recente é o de maior DATA, e não o último do array: a lista é
+   * ordem de criação, e quem lança hoje uma conta de ontem inverteria os dois.
+   */
+  const lastExpenseAmount = useMemo(() => {
+    let best: { date: string; amount: number } | null = null
+    for (const e of data.expenses) {
+      if (best === null || e.date > best.date) best = { date: e.date, amount: e.amount }
+    }
+    return best?.amount ?? null
+  }, [data.expenses])
+
+  /** Dias que já têm gasto — viram os pontos do calendário (§8). */
+  const datesWithExpense = useMemo(() => {
+    const set = new Set<string>()
+    for (const e of data.expenses) set.add(e.date)
+    return set
+  }, [data.expenses])
 
   const [date, setDate] = useState(todayIso())
   const [categoryId, setCategoryId] = useState('')
@@ -241,6 +264,24 @@ export function ExpenseDialog({
       }
     >
       <div className="flex flex-col gap-4">
+        {/**
+         * O indicador de limite (§9) aparece assim que a categoria escolhida
+         * tem teto — antes de estourar, não depois. A prévia listrada mostra o
+         * que ESTE gasto ainda vai consumir, que é a informação capaz de mudar
+         * a decisão enquanto ela ainda é uma decisão. O aviso vermelho abaixo
+         * continua existindo para o caso em que já estourou.
+         */}
+        {effLimit !== null && budgetCategory && (
+          <div className="rounded-[11px] border border-line bg-surface-2/60 px-3 py-2.5">
+            <LimitIndicator
+              label={budgetCategory.name}
+              dotColor={budgetCategory.color}
+              used={spentBefore}
+              limit={effLimit}
+              preview={amount}
+            />
+          </div>
+        )}
         {overflow && effLimit !== null && (
           <p className="text-[12.5px] text-neg bg-neg-soft border border-neg/25 rounded-[10px] px-3 py-2.5 leading-relaxed">
             Este gasto ultrapassa o orçamento de{' '}
@@ -251,9 +292,18 @@ export function ExpenseDialog({
             {onReallocate ? 'Lance mesmo assim ou realoque orçamento de outra categoria.' : 'Lance mesmo assim se quiser.'}
           </p>
         )}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-3">
           <Field label="Data">
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} autoFocus />
+            {/* Os pontos do calendário (§8) saem dos dias que JÁ têm gasto:
+                é a informação que evita lançar duas vezes no mesmo dia sem
+                perceber, e ela já estava nos dados. */}
+            <DateField
+              value={date}
+              onChange={setDate}
+              markedDates={datesWithExpense}
+              aria-label="Data do gasto"
+              autoFocus
+            />
           </Field>
           <Field label="Categoria">
             <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
@@ -273,9 +323,9 @@ export function ExpenseDialog({
             maxLength={60}
           />
         </Field>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-3">
           <Field label="Valor">
-            <MoneyInput value={amount} onChange={setAmount} aria-label="Valor do gasto" />
+            <MoneyField value={amount} onChange={setAmount} aria-label="Valor do gasto" lastValue={lastExpenseAmount} />
           </Field>
           {/* R3 §3.4 — opcional: habilita as análises por banco */}
           <Field label="Pago com (opcional)">

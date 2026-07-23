@@ -3,6 +3,8 @@ import { Trash2 } from 'lucide-react'
 import { Modal } from '@/design/components/Modal'
 import { Button } from '@/design/components/Button'
 import { Field, Input, MoneyInput } from '@/design/components/Input'
+import { MoneyField } from '@/design/components/MoneyField'
+import { DateField } from '@/design/components/DateField'
 import { Select } from '@/design/components/Select'
 import { BankSelect } from '@/design/components/BankSelect'
 import { BankPicker, type BankPickerOption } from '@/design/components/BankPicker'
@@ -160,7 +162,7 @@ export function InvestmentDialog({
       }
     >
       <div className="flex flex-col gap-4">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-3">
           <Field label="Nome">
             <Input
               value={name}
@@ -195,7 +197,7 @@ export function InvestmentDialog({
         {classInfo && <p className="text-[12px] text-ink-faint -mt-2">{classInfo.hint}</p>}
 
         {assetClassDraft === 'pos' && (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-3">
             <Field label="Rendimento">
               <Select
                 value={posSubtype}
@@ -329,12 +331,12 @@ export function ContributionDialog({
         </>
       }
     >
-      <div className="grid grid-cols-2 gap-3">
+      <div className="flex flex-col gap-3">
         <Field label="Data">
-          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} autoFocus />
+          <DateField value={date} onChange={setDate} autoFocus />
         </Field>
         <Field label="Valor">
-          <MoneyInput value={amount} onChange={setAmount} aria-label="Valor do aporte" />
+          <MoneyField value={amount} onChange={setAmount} aria-label="Valor do aporte" />
         </Field>
       </div>
       <p className="text-[12px] font-semibold text-ink-soft mt-4 mb-2">De qual conta sai</p>
@@ -424,9 +426,9 @@ export function ValueUpdateDialog({
       }
     >
       <div className="flex flex-col gap-4">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-3">
           <Field label="Data">
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <DateField value={date} onChange={setDate} />
           </Field>
           <Field label="Valor de mercado">
             <MoneyInput value={value} onChange={setValue} autoFocus aria-label="Novo valor de mercado" />

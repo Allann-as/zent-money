@@ -218,7 +218,7 @@ export function CardDialog({
             maxLength={32}
           />
         </Field>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-3">
           <Field label="Limite total">
             <MoneyInput value={limit} onChange={setLimit} aria-label="Limite total do cartão" />
           </Field>
@@ -369,7 +369,7 @@ export function PurchaseDialog({
             ]}
           />
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-3">
           <Field label={standalone ? 'Nome da parcela' : 'Nome da compra'}>
             <Input
               value={name}
@@ -401,7 +401,7 @@ export function PurchaseDialog({
             </Field>
           )}
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-3">
           <Field label="Valor da parcela">
             <MoneyInput value={installment} onChange={setInstallment} aria-label="Valor da parcela" />
           </Field>
@@ -416,7 +416,7 @@ export function PurchaseDialog({
             />
           </Field>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-3">
           <Field label="Parcelas já pagas">
             <Input
               type="number"
