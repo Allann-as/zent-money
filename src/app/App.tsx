@@ -9,6 +9,7 @@ import { ConfirmHost } from '@/design/components/confirm'
 import { AppShell } from './AppShell'
 import { LockScreen } from '@/features/security/LockScreen'
 import { ZentLogo } from '@/design/ZentLogo'
+import { GalaxyField } from '@/design/GalaxyField'
 import { currentYm, diffDays, todayIso } from '@/engine/dates'
 import { materializeRecurrences } from '@/engine/recurring'
 import { runSalaryMaterialization } from '@/store/ledgerActions'
@@ -170,20 +171,24 @@ export function App(): ReactNode {
     }
   }, [boot.status, hasPin, locked, lockInactivityMinutes])
 
-  if (boot.status === 'loading') {
-    return (
-      <div className="h-full flex flex-col items-center justify-center gap-4 bg-bg">
+  /**
+   * Portão de segurança (M2 §b): sem PIN → primeira execução; com PIN e
+   * bloqueado → tela de bloqueio; do contrário, o app. Os estados de boot
+   * (carregando/erro) entram aqui também para que o céu (§1) esteja atrás de
+   * TODAS as telas, sem exceção — inclusive das que aparecem antes do gate.
+   * Todas vivem em `relative z-10`: o canvas fica em z-1, acima da base
+   * opaca pintada pelo <Backdrop> e abaixo de qualquer conteúdo.
+   */
+  const screen: ReactNode =
+    boot.status === 'loading' ? (
+      <div className="relative z-10 h-full flex flex-col items-center justify-center gap-4">
         <div className="anim-pop-in">
           <ZentLogo size={56} />
         </div>
         <div className="w-40 h-2 skeleton" aria-label="Carregando" />
       </div>
-    )
-  }
-
-  if (boot.status === 'error') {
-    return (
-      <div className="h-full flex flex-col items-center justify-center gap-3 bg-bg px-8 text-center">
+    ) : boot.status === 'error' ? (
+      <div className="relative z-10 h-full flex flex-col items-center justify-center gap-3 px-8 text-center">
         <div className="h-12 w-12 rounded-[14px] bg-neg-soft flex items-center justify-center">
           <AlertTriangle size={22} className="text-neg" />
         </div>
@@ -194,13 +199,7 @@ export function App(): ReactNode {
           <code>zent-data.json</code>.
         </p>
       </div>
-    )
-  }
-
-  // Portão de segurança (M2 §b): sem PIN → primeira execução; com PIN e
-  // bloqueado → tela de bloqueio; do contrário, o app.
-  const gate: ReactNode =
-    bypassed ? (
+    ) : bypassed ? (
       <AppShell />
     ) : hasPin === false ? (
       <LockScreen mode="setup" />
@@ -212,7 +211,11 @@ export function App(): ReactNode {
 
   return (
     <>
-      {gate}
+      {/* Um céu só para o app inteiro (§1): montado FORA do portão, então
+          bloquear/desbloquear e trocar de seção não recriam o campo de
+          estrelas — a continuidade do fundo é o ponto. */}
+      <GalaxyField />
+      {screen}
       <Toaster />
       <ConfirmHost />
     </>

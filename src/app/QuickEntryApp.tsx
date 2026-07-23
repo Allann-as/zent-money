@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Check, Zap } from 'lucide-react'
 import { ZentMark } from '@/design/ZentLogo'
 import { useColorBlock } from '@/design/blocks'
+import { GalaxyField } from '@/design/GalaxyField'
 import { Button } from '@/design/components/Button'
 import { Field, Input, MoneyInput } from '@/design/components/Input'
 import { Select } from '@/design/components/Select'
@@ -111,9 +112,13 @@ export function QuickEntryApp(): ReactNode {
 
   return (
     <div className="h-full w-full flex flex-col bg-bg text-ink" style={{ backgroundImage: 'linear-gradient(180deg, var(--bg-grad-a) 0%, var(--bg-grad-b) 100%)' }}>
+      {/* O céu (§1) cobre TAMBÉM a mini-janela da bandeja: é outro renderer,
+          mas é a mesma marca — abrir o lançamento rápido não pode parecer
+          outro produto. Herda o Bloco 1, como a bandeja. */}
+      <GalaxyField />
       {/* Cabeçalho (identidade Zent) — também é a área de arrastar a janela */}
       <div
-        className="flex items-center gap-2 px-4 py-3 border-b border-line"
+        className="relative z-10 flex items-center gap-2 px-4 py-3 border-b border-line"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
         <ZentMark size={18} />
@@ -121,10 +126,10 @@ export function QuickEntryApp(): ReactNode {
         <span className="ml-auto text-[11px] text-ink-faint">Esc fecha</span>
       </div>
 
-      {phase === 'loading' && <div className="flex-1" />}
+      {phase === 'loading' && <div className="relative z-10 flex-1" />}
 
       {phase === 'locked' && (
-        <div className="flex-1 flex flex-col items-center justify-center px-6 gap-4">
+        <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 gap-4">
           <p className="text-[12.5px] text-ink-soft text-center">
             Digite seu PIN para lançar pela bandeja.
           </p>
@@ -143,7 +148,7 @@ export function QuickEntryApp(): ReactNode {
       )}
 
       {phase === 'form' && (
-        <div className="flex-1 flex flex-col gap-3 px-4 py-4">
+        <div className="relative z-10 flex-1 flex flex-col gap-3 px-4 py-4">
           <Field label="Valor">
             <MoneyInput value={amount} onChange={setAmount} autoFocus aria-label="Valor do gasto rápido" />
           </Field>
@@ -190,7 +195,7 @@ export function QuickEntryApp(): ReactNode {
       )}
 
       {phase === 'saved' && (
-        <div className="flex-1 flex flex-col items-center justify-center gap-2">
+        <div className="relative z-10 flex-1 flex flex-col items-center justify-center gap-2">
           <span className="h-12 w-12 rounded-full bg-pos-soft inline-flex items-center justify-center">
             <Check size={22} className="text-pos" />
           </span>
