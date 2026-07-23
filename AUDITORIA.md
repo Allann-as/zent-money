@@ -1,5 +1,46 @@
 # AUDITORIA.md — Zent Money
 
+## R10 ⑩ — AUTO-REVISÃO VISUAL + RELEASE v2.2.0 (23/07/2026)
+
+### Auto-revisão visual
+
+`screenshots/r10-final/`: as 10 seções nos 2 temas, sobre o dataset demo, **zero
+erros de console**. Percorridas à procura de tela "tímida" ou quebrada — nenhuma.
+O que sustenta o veredito não é só o olho: os verificadores que rodam o app de
+verdade seguem verdes — `audit-mono` (todo número em mono), `verify-island`
+(303/303), `verify-sky` (6/6), `stress-magnitude` (2.296/2.296, folga mínima
+10,1px) e a **validação de 20 anos**. Os miolos de anel agora respiram (o número
+já não encosta na curva) e o `R$` saiu do centro dos anéis — a única mudança
+visual que o fecho pediu, já entregue e conferida.
+
+### Release v2.2.0 "Céu de Galáxia"
+
+- `package.json` → **2.2.0** (o rodapé e o `.ico` acompanham pelo `__APP_VERSION__`).
+- `npm run dist` → `release/ZentMoney-Setup-2.2.0.exe`, **entregue na Área de
+  Trabalho** do Allan. O instalador **não entra no git** (`release/` no
+  `.gitignore`); vai como asset da GitHub Release, como toda versão.
+- **Tag `v2.2.0` + GitHub Release** com changelog. É a primeira tag da R10 — ela
+  sempre pertenceu ao ⑩.
+- Schema **v11** (ícones v2 das caixinhas): migração v10→v11 invisível, coberta
+  por teste. Sem reset de dados.
+
+### O que a R10 entregou, ponta a ponta
+
+①–④ céu de galáxia (4 blocos de cor, marca Ascensão, Roboto Mono, botões fio de
+luz, menu borda viva, ilha de ações, Formato A, calendário próprio) · robustez
+de magnitude · **⑤** parcela em um clique + ícones v2 · **⑥** linha do tempo
+painel dos anos · **⑦** primeira execução com nome + linha viva · respiro no
+miolo dos anéis · **suficiência de saldo** (Família A bloqueia, B avisa) · **⑧**
+taxa por investimento (provada) · **⑨** validação de 20 anos · **⑩** release.
+
+### Suíte final da R10
+
+typecheck estrito · lint · **294 unit** · **43 E2E** · smoke · céu 6/6 · ilha
+303/303 · mono · **estresse de magnitude 2.296/2.296 (folga mínima 10,1px)** ·
+**validação de 20 anos** — todos verdes. Perf 50k no envelope histórico.
+
+---
+
 ## R10 ⑧ ⑨ — TAXA POR INVESTIMENTO E VALIDAÇÃO DE 20 ANOS (23/07/2026)
 
 ### ⑧ Taxa por investimento — já existia, agora provado explicitamente
