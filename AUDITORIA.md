@@ -1,5 +1,75 @@
 # AUDITORIA.md — Zent Money
 
+## R10 ⑥ — LINHA DO TEMPO, O PAINEL DOS ANOS (23/07/2026)
+
+A Linha do tempo era uma janela FIXA de 12 meses com um gráfico de barras.
+Virou um painel com seletor de período, faixa de estatísticas, balão narrativo e
+seis painéis, com o gráfico principal em área contínua com sinal.
+
+### Nenhuma regra de dinheiro nova (a disciplina da R4)
+
+Todo número vem de `engine/timeline.ts`, que só **lê** as agregações que já
+existiam (`incomeByMonth`, `sumByMonth`, `savingsRatio`). Se um número desta
+página discordasse do resto do app, o defeito seria uma segunda fórmula — o erro
+que a R4 passou uma release caçando. O motor tem 15 testes unitários que provam
+o **recorte** (não a aritmética): tamanho exato de cada janela, "ano a ano"
+começando em janeiro, denominador honesto (mês sem registro não conta), e o
+"sem base de comparação → null" em vez de um zero que mentiria.
+
+### O gráfico principal: área contínua com sinal (`SignedArea`)
+
+Uma linha só, do primeiro ao último mês, preenchida na **cor do lado**: menta
+acima do zero, coral abaixo. A leitura que barras com pastilhas soltas não
+davam é a **travessia** — o mês em que a curva cruza o zero.
+
+Como os dois degradês saem exatos: uma área só, fechada na LINHA DO ZERO (não no
+rodapé), pintada duas vezes, cada passada com um `clipPath` retangular (um acima
+do zero, outro abaixo). **Sem cálculo de interseção com o eixo** — a travessia
+sai por construção, inclusive quando cai no meio de um segmento (quase sempre). O
+degradê de cada lado nasce opaco no zero e some ao se afastar: é o zero que
+precisa de peso, não o extremo.
+
+**Verificado com o zero cruzado de verdade:** o dataset demo nunca fica
+negativo, então nem ele nem o teste de estresse exercitam o coral. Injetei um
+gasto de R$ 9.000 num mês e conferi no app: menta acima, coral abaixo, a linha
+passando pela linha de zero real, os pontos "melhor"/"pior" nas cores certas e o
+balão narrando "gastou R$ 7.285,91 a mais". A régua de magnitude também confirma
+que o eixo negativo ("−R$ 5 mil", "−R$ 10 mil") cabe no gutter medido.
+
+### Os demais painéis
+
+- **Patrimônio acumulado** (`LineArea`): soma corrida de sobra + aportes. É a
+  curva do que se construiu no período, não o saldo do ledger (que não tem
+  histórico — ver o marcador "· hoje" do hero, R4 §3).
+- **Taxa de poupança** com a **linha de meta 30%** tracejada no acento (a mesma
+  nota cheia do score). Mês sem renda entra como 0 no traço, mas o tooltip diz
+  "sem renda registrada" em vez de mentir um "0%" que pareceria mês ruim.
+- **Ano a ano**: barras agrupadas (entrou/saiu/aportado) com legenda.
+- **Maiores categorias**: barras horizontais que somam exatamente o total de
+  gastos do período (asserido no teste).
+- **Quadro de recordes**: melhor/pior mês de sobra, maior entrada, mês mais
+  econômico, maior aporte e o total aportado.
+
+### Um defeito que o `audit-mono` pegou
+
+A linha de apoio do StatCard "Guardado no período" trazia
+`R$ 300,00/mês em média` como **string**, e uma string mistura número e frase
+num nó de texto só — que caiu inteiro em Nunito. O §12 quer o número em mono, a
+frase não; corrigido embrulhando só o valor num `.tnum`. É o mesmo cuidado que a
+v2.1 já aplicou ao valor-herói: mono é do VALOR, não da prosa em volta.
+
+### Estado da suíte (⑥)
+
+typecheck estrito · lint · **272 unit** (+15 de `timeline`) · **41 E2E** (o **14**
+virou o painel dos anos: faixa de estatísticas, área contínua, meta 30%, e o
+seletor de período trocando a janela) · smoke · céu 6/6 · ilha 303/303 · **mono
+0 fora do mono** · **estresse de magnitude 2.296/2.296** — verdes.
+
+Screenshots em `screenshots/r10-m6/` (topo, painéis, fim, janelas 6m/24m/tudo,
+privacidade — 2 temas).
+
+---
+
 ## R10 ⑤ — PARCELAS EM UM CLIQUE + ÍCONES v2 (23/07/2026)
 
 ### Auditoria da tela de bloqueio (feita antes de codar)

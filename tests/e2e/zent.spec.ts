@@ -517,11 +517,34 @@ test('13. caixinhas: seed presente + nova caixinha manual com progresso', async 
   await expect(page.getByText('25%')).toBeVisible()
 })
 
-test('14. linha do tempo: janela de 12 meses com recordes', async () => {
+test('14. linha do tempo: painel dos anos com seletor de período (R10 §⑥)', async () => {
   await goTo('Linha do tempo')
-  await expect(page.getByText('Sobra mês a mês (entradas − saídas)')).toBeVisible()
+
+  // faixa de estatísticas + balão narrativo
+  // `exact`: os mesmos termos aparecem no balão narrativo, em frase
+  await expect(page.getByText('Guardado no período', { exact: true })).toBeVisible()
+  await expect(page.getByText('Taxa de poupança', { exact: true }).first()).toBeVisible()
+  await expect(page.getByText('Meses no azul', { exact: true })).toBeVisible()
+  await expect(page.getByText('Maior gasto', { exact: true })).toBeVisible()
+  await expect(page.getByText('A história do período')).toBeVisible()
+
+  // gráfico principal em ÁREA CONTÍNUA (uma linha só, não barras soltas)
+  await expect(page.getByRole('img', { name: 'Sobra mês a mês' }).first()).toBeVisible()
+  await expect(page.getByText('Patrimônio acumulado')).toBeVisible()
+  await expect(page.getByText('meta 30%')).toBeVisible()
   await expect(page.getByText('Recordes do período')).toBeVisible()
   await expect(page.getByText('Melhor mês de sobra')).toBeVisible()
+  await expect(page.getByText('Pior mês de sobra')).toBeVisible()
+
+  // o seletor de período troca a janela, e o subtítulo diz quantos meses são
+  await expect(page.getByText(/· 12 meses/)).toBeVisible()
+  await page.getByRole('tab', { name: '6m', exact: true }).click()
+  await expect(page.getByText(/· 6 meses/)).toBeVisible()
+  // com a janela "tudo" não existe período anterior para comparar
+  await page.getByRole('tab', { name: 'tudo', exact: true }).click()
+  await expect(page.getByText('sem período anterior para comparar')).toBeVisible()
+  await page.getByRole('tab', { name: '12m', exact: true }).click()
+  await expect(page.getByText(/· 12 meses/)).toBeVisible()
 })
 
 test('15. visão geral consolidada + navegação de mês + balões', async () => {

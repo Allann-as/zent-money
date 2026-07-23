@@ -2,6 +2,56 @@
 
 Registro das decisões tomadas onde a especificação deixou eixos livres.
 
+## R10 ⑥ — linha do tempo, o painel dos anos
+
+### A área com sinal fecha na LINHA DO ZERO, não no rodapé
+
+- O gráfico "Sobra mês a mês" é uma área só, fechada na linha de y=0, pintada
+  duas vezes com dois `clipPath` retangulares (acima e abaixo do zero). A
+  alternativa — calcular onde a linha cruza o eixo e cortar o polígono ali —
+  daria o mesmo resultado com muito mais chance de erro numérico nas travessias
+  (que caem quase sempre no meio de um segmento). Deixar o `clipPath` do SVG
+  fazer o corte é exato por construção. O degradê de cada lado nasce opaco no
+  zero, porque a referência que o olho procura é a linha do zero, não o extremo.
+
+### `niceMax` por lado, e a linha de zero SEMPRE desenhada
+
+- A escala de cima e a de baixo são independentes: uma série que só mergulha um
+  pouquinho não ganha meia tela de vermelho. E a linha de zero é desenhada mesmo
+  quando todos os pontos são positivos — sem ela, "tudo acima do zero" e "tudo
+  abaixo" desenhariam idênticos, e o gráfico perderia justamente a informação
+  que ele existe para dar.
+
+### "Sem base de comparação" é `null`, não zero (de novo)
+
+- A janela "tudo" não tem período anterior, então o "vs. anterior" da taxa é
+  omitido — não um "+0%" que fingiria uma comparação. Mês sem renda não tem taxa
+  de poupança (o traço vai a 0 mas o tooltip diz "sem renda registrada"). É a
+  mesma regra do `Delta`/`savingsRatio` da R4 §3: "não há fração" e "não sobrou
+  nada" são afirmações diferentes.
+
+### Mês sem registro não conta no denominador
+
+- "Meses no azul" é sobre os meses com MOVIMENTAÇÃO, não sobre os 12 da janela.
+  Um mês vazio não é disciplina nem descuido — é ausência de dado. Mesmo
+  critério do streak (M4): zero em mês sem registro seria uma mentira sobre a
+  saúde do período.
+
+### "Ano a ano" começa em janeiro do primeiro ano
+
+- A janela `year` não começa no primeiro mês com registro (maio, digamos): ela
+  recua até janeiro daquele ano, senão o comparativo anual mediria meia laranja
+  (7 meses de um ano) contra uma laranja (12 de outro). `all` mantém o primeiro
+  mês real, porque ali não há comparação entre anos a proteger.
+
+### Patrimônio acumulado é do PERÍODO, não o saldo do ledger
+
+- A curva soma corrida de sobra + aportes desde o início da janela — o que se
+  construiu no período. Não é o saldo em conta (que não tem histórico; é o
+  patrimônio de agora, com o marcador "· hoje" do hero, R4 §3). Duas leituras
+  diferentes de propósito: "quanto acumulei nestes 12 meses" ≠ "quanto tenho
+  hoje". Ver [[ledger-hibrido]].
+
 ## R10 ⑤ — parcelas em um clique + ícones v2
 
 ### Marcar parcela como paga NÃO debita conta (e por quê)
