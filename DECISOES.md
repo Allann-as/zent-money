@@ -2,6 +2,79 @@
 
 Registro das decisões tomadas onde a especificação deixou eixos livres.
 
+## R10 ⑤ — parcelas em um clique + ícones v2
+
+### Marcar parcela como paga NÃO debita conta (e por quê)
+
+- A spec do ⑤ pedia um `BankPicker` de "conta a debitar" na confirmação. Ele não
+  existe, de propósito: numa compra de **cartão** a parcela já está dentro da
+  **fatura**, que neste app é um snapshot manual (R3 §3.4). O dinheiro sai da
+  conta no **pagamento da fatura**; debitar também aqui contaria o mesmo real
+  duas vezes — o furo que a R4 veio fechar. Em vez de um seletor que mentiria, o
+  diálogo diz onde o dinheiro sai e oferece o atalho para pagar a fatura.
+- Em parcela **avulsa** (empréstimo, crediário, boleto) não há fatura nem conta
+  vinculada no modelo. Ligá-la a um débito real é **evento novo + migração**, e
+  isso pertence à etapa de **suficiência de saldo**, não a este milestone.
+- O efeito real de pagar uma parcela é no LIMITE, e ele é **derivado**:
+  `availableLimit = limite − fatura − comprometido`, com o comprometido contando
+  só as parcelas que faltam. Não há "devolver limite" a implementar — é a mesma
+  lição do "pagar fatura devolve o limite" do ⑤ da v2.1. Ver [[ledger-hibrido]].
+
+### A ida pede confirmação; a volta é um clique
+
+- Registrar pagamento abre a confirmação já preenchida; **desfazer** continua
+  sendo um clique direto no card. A assimetria é intencional: marcar dinheiro
+  como pago com um clique cego é fácil demais de errar, e desfazer um engano não
+  pode ter atrito. É a mesma lógica do destrutivo × cancelar.
+
+### Dois botões nunca podem ter o mesmo nome acessível na mesma tela
+
+- O botão "desfazer" do card e a ação "Desfazer" do toast apareciam **juntos**
+  (o toast nasce no mesmo instante em que o card muda) — mesmo nome acessível,
+  dois alvos. O strict mode do Playwright pegou; um leitor de tela leria a mesma
+  ambiguidade. Corrigido na ORIGEM: "Desfazer pagamento" no toast e "Desfazer
+  última parcela paga de {nome}" no card. **Rótulo visível pode ser curto; o
+  nome ACESSÍVEL tem de ser único e específico** — é ele que o teste e o leitor
+  de tela usam. Vale para todo botão novo.
+
+### Rótulo visível segue o espaço; nome acessível é o mesmo nos dois lugares
+
+- O card da parcela aparece em Parcelas (largo) e dentro do cartão em Bancos &
+  Cartões (estreito). O visível é "Registrar pagamento da 3ª" num e "pagar a 3ª"
+  no outro, mas o `aria-label` é idêntico: para o leitor de tela e para o teste é
+  **uma ação só**, vista de dois lugares — não duas parecidas.
+
+### Card quitado tem ESTADO, não opacidade
+
+- Antes, quitada era o card ativo a 55% de opacidade, o que lê como
+  "desligado/indisponível". Agora tem borda e fundo em `pos`, selo "QUITADA" e
+  barra cheia. Quitar uma dívida é conquista; apagá-la visualmente diz o
+  contrário do que aconteceu.
+
+### O set de ícones se aprova AMPLIADO, não na grade
+
+- Três dos cinco desenhos novos passaram na grade de 16px e foram reprovados no
+  zoom: o dardo apontava para fora do alvo ("alvo + seta de alta"), o cofre com
+  spokes cruzados virava uma moldura com losango, e a maleta de dinheiro com um
+  círculo no miolo era uma **câmera**. Regra: todo ícone novo é conferido
+  ampliado antes de entrar (`shot-m5.mjs` clona o grid real e o amplia — são os
+  mesmos SVGs que o app renderizou, não uma prévia à parte).
+- **Peso único** (`SW = 1.6`) para lucide e desenhos próprios: um ícone mais
+  grosso que o vizinho salta na grade.
+- **Chave aposentada não vira buraco.** A migração v10→v11 remapeia
+  (`camera`/`music`→presente, `paw`→saúde, `lock`→cofre) e o `BoxIcon` ainda
+  resolve pelo mapa em runtime, para o arquivo pré-migração não abrir sem nada
+  marcado no seletor. O mapa é **copiado** para dentro da migração: migração
+  descreve o passado e não pode mudar de resultado quando o set evoluir de novo
+  (mesma disciplina dos hex do BTG na v4→v5).
+
+### Ícones que ficaram sem estar na lista de "manter"
+
+- A spec listava o que manter e o que remover. `gem` (joia) e `umbrella` (férias)
+  não estavam em nenhuma das duas listas: ficaram, porque a lista de REMOÇÃO era
+  explícita e tirar um ícone que alguém usa é uma perda silenciosa. O "antigo
+  investir" pedido para remover **não existia** no set — nada a fazer.
+
 ## R10 "Céu de Galáxia" — ①–④
 
 ### A travessia de 450ms é das VARIÁVEIS, não dos elementos

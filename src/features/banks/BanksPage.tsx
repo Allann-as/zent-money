@@ -1,15 +1,17 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import {
   ArrowLeftRight,
+  BadgeCheck,
+  Check,
   ChevronDown,
   ChevronRight,
   CreditCard,
   Landmark,
-  Minus,
   Pencil,
   Plus,
   Receipt,
   Trash2,
+  Undo2,
   Wallet,
 } from 'lucide-react'
 import { PageHeader } from '@/features/common/PageHeader'
@@ -23,7 +25,7 @@ import { EmptyState } from '@/design/components/EmptyState'
 import { toast } from '@/design/components/toast'
 import { confirmDialog } from '@/design/components/confirm'
 import { useDataStore, useZentData } from '@/store/dataStore'
-import { removePurchase as removePurchaseRecipe } from '@/store/mutations'
+import { removePurchase as removePurchaseRecipe, unpayInstallment } from '@/store/mutations'
 import { useUiStore } from '@/store/uiStore'
 import { availableLimit, monthlyCommitment, payoffYm, remainingAmount, remainingInstallments, totalInvoices } from '@/engine/cards'
 import { bankBalances } from '@/engine/ledger'
@@ -42,7 +44,11 @@ import {
   type CardDialogState,
   type PurchaseDialogState,
 } from './dialogs'
-import { TransferDialog } from './ledgerDialogs'
+import { PayInvoiceDialog, TransferDialog } from './ledgerDialogs'
+import {
+  PayInstallmentDialog,
+  type PayInstallmentState,
+} from '@/features/installments/PayInstallmentDialog'
 
 /** Valor monetário editável inline (clique no lápis, Enter salva). */
 export function InlineMoney({
@@ -433,6 +439,8 @@ function CardBlock({
   const mutate = useDataStore((s) => s.mutate)
   const brl = useBRL()
   const [expanded, setExpanded] = useState(true)
+  const [payDialog, setPayDialog] = useState<PayInstallmentState>('closed')
+  const [invoiceOpen, setInvoiceOpen] = useState(false)
 
   const available = availableLimit(card, purchases)
   const committed = purchases.reduce((a, p) => a + remainingAmount(p), 0)
@@ -479,23 +487,18 @@ function CardBlock({
     toast.success('Compra excluída')
   }
 
-  function payInstallment(p: Purchase, delta: 1 | -1): void {
-    mutate((d) => {
-      const x = d.purchases.find((y) => y.id === p.id)
-      if (!x) return
-      x.paidInstallments = Math.min(x.totalInstallments, Math.max(0, x.paidInstallments + delta))
-    })
-    if (delta === 1) {
-      const nowRemaining = remainingInstallments(p) - 1
-      if (nowRemaining === 0) {
-        toast.success(`"${p.name}" quitada!`, 'O limite comprometido foi liberado por completo.')
-      } else {
-        toast.success(
-          `Parcela de "${p.name}" paga`,
-          `${brl(p.installmentAmount)} devolvidos ao limite disponível.`,
-        )
-      }
-    }
+  /**
+   * A IDA saiu daqui: registrar um pagamento abre a confirmação já preenchida
+   * (`PayInstallmentDialog`, R10 §⑤), a mesma da seção Parcelas — uma tela só
+   * para os dois lugares onde o card da parcela aparece. A VOLTA continua sendo
+   * um clique: desfazer um engano não pode ter atrito.
+   */
+  function undoInstallment(p: Purchase): void {
+    mutate((d) => unpayInstallment(d, p.id))
+    toast.info(
+      'Pagamento desfeito',
+      `A ${p.paidInstallments}ª parcela de "${p.name}" voltou a constar como em aberto.`,
+    )
   }
 
   return (
@@ -616,14 +619,21 @@ function CardBlock({
                   <li
                     key={p.id}
                     className={cn(
-                      'rounded-[10px] border border-line bg-surface px-3.5 py-2.5',
-                      remaining === 0 && 'opacity-55',
+                      'rounded-[10px] border px-3.5 py-2.5',
+                      // Quitada tem estado próprio (R10 §⑤) — não é a ativa
+                      // esmaecida, que lê como "desligada".
+                      remaining === 0 ? 'border-pos/30 bg-pos-soft' : 'border-line bg-surface',
                     )}
                   >
                     <div className="flex items-center gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-baseline gap-2">
                           <p className="text-[13px] font-medium text-ink truncate">{p.name}</p>
+                          {remaining === 0 && (
+                            <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-px rounded-[5px] border border-pos/35 text-pos text-[10.5px] font-semibold uppercase tracking-wide">
+                              <BadgeCheck size={11} /> quitada
+                            </span>
+                          )}
                           <span className="text-[11.5px] text-ink-faint tnum shrink-0">
                             {brl(p.installmentAmount)}/mês
                           </span>
@@ -631,7 +641,10 @@ function CardBlock({
                         <div className="flex items-center gap-2.5 mt-1.5">
                           <div className="h-1.5 rounded-full bg-surface-3 overflow-hidden flex-1 max-w-[180px]">
                             <div
-                              className="h-full rounded-full bg-primary transition-[width] duration-300"
+                              className={cn(
+                                'h-full rounded-full transition-[width] duration-300',
+                                remaining === 0 ? 'bg-pos' : 'bg-primary',
+                              )}
                               style={{ width: `${progress * 100}%` }}
                             />
                           </div>
@@ -651,23 +664,32 @@ function CardBlock({
                         </div>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
-                        <Button
-                          size="sm"
-                          variant="soft"
-                          disabled={remaining === 0}
-                          onClick={() => payInstallment(p, 1)}
-                          title="Marcar uma parcela como paga"
-                        >
-                          <Plus size={12} /> 1 paga
-                        </Button>
+                        {remaining > 0 && (
+                          /**
+                           * Aqui o card é estreito (lista dentro do cartão), então o
+                           * rótulo VISÍVEL é curto — mas o nome ACESSÍVEL é o mesmo da
+                           * seção Parcelas, para que leitor de tela e teste enxerguem
+                           * uma ação só, não duas parecidas.
+                           */
+                          <Button
+                            size="sm"
+                            variant="soft"
+                            onClick={() => setPayDialog({ purchase: p })}
+                            aria-label={`Registrar pagamento da ${p.paidInstallments + 1}ª parcela de ${p.name}`}
+                            title={`Registrar pagamento da ${p.paidInstallments + 1}ª parcela`}
+                          >
+                            <Check size={12} /> pagar a {p.paidInstallments + 1}ª
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="ghost"
                           disabled={p.paidInstallments === 0}
-                          onClick={() => payInstallment(p, -1)}
+                          onClick={() => undoInstallment(p)}
+                          aria-label={`Desfazer última parcela paga de ${p.name}`}
                           title="Desfazer última parcela paga"
                         >
-                          <Minus size={12} /> desfazer
+                          <Undo2 size={12} /> desfazer
                         </Button>
                         <button
                           type="button"
@@ -701,6 +723,18 @@ function CardBlock({
           Sem compras parceladas — adicione uma para o limite refletir o compromisso.
         </div>
       )}
+
+      <PayInstallmentDialog
+        state={payDialog}
+        onClose={() => setPayDialog('closed')}
+        onPayInvoice={() => setInvoiceOpen(true)}
+      />
+      <PayInvoiceDialog
+        open={invoiceOpen}
+        onClose={() => setInvoiceOpen(false)}
+        bankId={card.bankId}
+        cardId={card.id}
+      />
     </div>
   )
 }

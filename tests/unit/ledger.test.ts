@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { ZentData } from '@/data/schema'
+import { DATA_VERSION, type ZentData } from '@/data/schema'
 import {
   accountBalanceSeries,
   bankBalance,
@@ -21,7 +21,7 @@ import { standaloneMonthlyCommitment, totalInvoices, totalMonthlyCommitment } fr
 /** Base v7 mínima com dois bancos e um cartão. */
 function baseData(over: Partial<ZentData> = {}): ZentData {
   return {
-    version: 10,
+    version: DATA_VERSION,
     profile: { name: 'Allan' },
     rates: {
       selic: 14.25,

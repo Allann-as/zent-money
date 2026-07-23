@@ -11,12 +11,19 @@ import { cn } from '@/lib/cn'
 
 type ToastType = 'success' | 'error' | 'warning' | 'info'
 
+/** Ação opcional dentro do banner — hoje só "Desfazer". */
+export interface ToastAction {
+  label: string
+  onClick(): void
+}
+
 interface ToastItem {
   id: number
   type: ToastType
   title: string
   description?: string
   duration: number
+  action?: ToastAction
 }
 
 interface ToastStore {
@@ -56,14 +63,27 @@ const useToastStore = create<ToastStore>((set) => ({
   dismiss: (id) => set((s) => ({ toasts: s.toasts.filter((x) => x.id !== id) })),
 }))
 
-function push(type: ToastType, title: string, description?: string, duration = 4500): void {
-  useToastStore.getState().push(
-    description === undefined ? { type, title, duration } : { type, title, description, duration },
-  )
+function push(
+  type: ToastType,
+  title: string,
+  description?: string,
+  duration = 4500,
+  action?: ToastAction,
+): void {
+  // `exactOptionalPropertyTypes`: "não há descrição/ação" é a AUSÊNCIA da prop,
+  // não `undefined` nela — por isso o objeto é montado por partes.
+  useToastStore.getState().push({
+    type,
+    title,
+    duration,
+    ...(description === undefined ? {} : { description }),
+    ...(action === undefined ? {} : { action }),
+  })
 }
 
 export const toast = {
-  success: (title: string, description?: string) => push('success', title, description),
+  success: (title: string, description?: string, action?: ToastAction) =>
+    push('success', title, description, 4500, action),
   error: (title: string, description?: string) => push('error', title, description, 6500),
   warning: (title: string, description?: string) => push('warning', title, description, 6000),
   info: (title: string, description?: string) => push('info', title, description),
@@ -105,6 +125,19 @@ export function Toaster(): ReactNode {
               <p className="text-[13.5px] font-semibold text-ink leading-tight">{t.title}</p>
               {t.description ? (
                 <p className="text-[12.5px] text-ink-soft mt-1 leading-snug">{t.description}</p>
+              ) : null}
+              {t.action ? (
+                // Família de AÇÃO → retângulo arredondado, nunca pílula (DECISOES).
+                <button
+                  type="button"
+                  onClick={() => {
+                    t.action?.onClick()
+                    dismiss(t.id)
+                  }}
+                  className="mt-2 h-7 px-2.5 rounded-[9px] border border-line-strong bg-surface-3 text-[12.5px] font-medium text-primary hover:bg-surface-2 active:brightness-95 transition-colors cursor-pointer"
+                >
+                  {t.action.label}
+                </button>
               ) : null}
             </div>
             <button

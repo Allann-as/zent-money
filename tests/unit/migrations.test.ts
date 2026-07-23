@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { migrate } from '@/data/migrations'
 import { zentDataSchema } from '@/data/schema'
+import { BOX_ICON_KEYS } from '@/design/BoxIcon'
 
 /** Arquivo v1 realista (formato da primeira versão entregue). */
 function v1Data(): Record<string, unknown> {
@@ -29,16 +30,28 @@ function v1Data(): Record<string, unknown> {
         id: 'x1', emoji: '🛟', name: 'Reserva', target: 250000,
         investmentId: null, manualAmount: 0, celebrated: false,
       },
+      {
+        id: 'x2', emoji: '📷', name: 'Câmera', target: 300000,
+        investmentId: null, manualAmount: 0, celebrated: false,
+      },
+      {
+        id: 'x3', emoji: '🐶', name: 'Pet', target: 100000,
+        investmentId: null, manualAmount: 0, celebrated: false,
+      },
     ],
     meta: { createdAt: '2026-07-16', lastManualExport: null, categoriesOnboarded: true },
   }
 }
 
-describe('migração de dados v1 → v10', () => {
+describe('migração de dados v1 → v11', () => {
   it('migra um arquivo v1 completo em cadeia e passa na validação do schema atual', () => {
     const migrated = migrate(v1Data())
     const parsed = zentDataSchema.parse(migrated)
-    expect(parsed.version).toBe(10)
+    expect(parsed.version).toBe(11)
+    // v10→v11: ícones aposentados do set v2 são remapeados (nenhuma caixinha
+    // fica apontando para uma chave que não existe mais)
+    expect(parsed.boxes[1]?.icon).toBe('gift')
+    expect(parsed.boxes[2]?.icon).toBe('health')
     // v9→v10: Guardar/Resgatar nasce vazio e o aporte antigo ganha fromBankId null
     expect(parsed.boxTransfers).toEqual([])
     expect(parsed.contributions[0]?.fromBankId).toBeNull()
@@ -92,6 +105,38 @@ describe('migração de dados v1 → v10', () => {
     ;(raw['boxes'] as Record<string, unknown>[])[0]!['emoji'] = '🦖'
     const parsed = zentDataSchema.parse(migrate(raw))
     expect(parsed.boxes[0]?.icon).toBe('target')
+  })
+
+  /** R10 §⑤ — set de ícones v2: o que saiu do set não pode virar buraco. */
+  describe('v10 → v11: ícones das caixinhas v2', () => {
+    it('remapeia as chaves aposentadas e NÃO toca nas que continuam no set', () => {
+      const raw = v1Data()
+      raw['boxes'] = [
+        { id: 'x1', emoji: '🛟', name: 'Reserva', target: 250000, investmentId: null, manualAmount: 0, celebrated: false },
+        { id: 'x2', emoji: '🎸', name: 'Guitarra', target: 300000, investmentId: null, manualAmount: 0, celebrated: false },
+      ]
+      const parsed = zentDataSchema.parse(migrate(raw))
+      expect(parsed.boxes[0]?.icon).toBe('lifebuoy') // continua no set → intacto
+      expect(parsed.boxes[1]?.icon).toBe('gift') // 'music' saiu → remapeado
+    })
+
+    it('o cadeado vira o cofre novo', () => {
+      const raw = v1Data()
+      raw['boxes'] = [
+        { id: 'x1', emoji: '🛟', name: 'Cofre', target: 250000, investmentId: null, manualAmount: 0, celebrated: false },
+      ]
+      // arquivo v3+ já guarda a CHAVE, não o emoji — é esse o caso do 'lock'
+      const v3ish = migrate(raw) as Record<string, unknown>
+      ;(v3ish['boxes'] as Record<string, unknown>[])[0]!['icon'] = 'lock'
+      ;(v3ish as { version: number }).version = 10
+      const parsed = zentDataSchema.parse(migrate(v3ish))
+      expect(parsed.boxes[0]?.icon).toBe('safe')
+    })
+
+    it('toda chave sobrevivente da migração existe no set atual', () => {
+      const parsed = zentDataSchema.parse(migrate(v1Data()))
+      for (const b of parsed.boxes) expect(BOX_ICON_KEYS).toContain(b.icon)
+    })
   })
 
   it('arquivo já na versão atual passa direto sem alterações', () => {

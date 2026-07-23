@@ -84,6 +84,37 @@ export function removePurchase(d: ZentData, id: string): void {
   d.purchases = dropById(d.purchases, id)
 }
 
+// ── Parcela paga (contador da compra) ────────────────────────────────────────
+/**
+ * Marcar uma parcela como paga é mutação de CONTADOR, não lançamento de
+ * dinheiro — e é de propósito que ela não debite conta nenhuma:
+ *
+ * - **compra de cartão**: a parcela já está dentro da fatura, que é um snapshot
+ *   MANUAL digitado pelo usuário (R3 §3.4). O dinheiro sai quando a fatura é
+ *   paga (`addInvoicePayment`); debitar aqui também contaria o mesmo real duas
+ *   vezes — exatamente o furo que a R4 fechou.
+ * - **parcela avulsa**: não há fatura nem conta vinculada no modelo; o registro
+ *   é de controle do comprometido do mês.
+ *
+ * O efeito real é no LIMITE: `availableLimit = limite − fatura − comprometido`,
+ * e `comprometido` conta só as parcelas que faltam — pagar uma devolve o valor
+ * dela ao disponível, por derivação, sem código de "devolver limite".
+ *
+ * Mora aqui pelo motivo dos demais pares (M1 §a): `pay`/`unpay` são o inverso
+ * EXATO um do outro (clamp nas duas pontas), e a página chama a mesma função
+ * que o teste — não uma reencenação dela.
+ */
+export function payInstallment(d: ZentData, purchaseId: string): void {
+  const p = d.purchases.find((x) => x.id === purchaseId)
+  if (p === undefined) return
+  p.paidInstallments = Math.min(p.totalInstallments, p.paidInstallments + 1)
+}
+export function unpayInstallment(d: ZentData, purchaseId: string): void {
+  const p = d.purchases.find((x) => x.id === purchaseId)
+  if (p === undefined) return
+  p.paidInstallments = Math.max(0, p.paidInstallments - 1)
+}
+
 // ── Transferência entre contas ────────────────────────────────────────────────
 export function addTransfer(d: ZentData, t: Transfer): void {
   d.transfers.push(t)

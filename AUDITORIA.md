@@ -1,5 +1,98 @@
 # AUDITORIA.md — Zent Money
 
+## R10 ⑤ — PARCELAS EM UM CLIQUE + ÍCONES v2 (23/07/2026)
+
+### Auditoria da tela de bloqueio (feita antes de codar)
+
+Verificação item a item do §14.1 contra o código, para saber o que o ⑦ ainda
+precisa construir:
+
+| Item | Status | Onde |
+|---|---|---|
+| Paleta do Bloco 1 | **ok** | `BLOCK_OF.lock = 1` · `useColorBlock('lock')` |
+| Logo Ascensão com halo | **ok** | `LockScreen.tsx` (ZentMark + halo duplo) |
+| Céu galáxia | **ok** | `GalaxyField` montado FORA do portão (`App.tsx`) — bloquear/desbloquear não recria o campo |
+| **Linha viva** | **ausente** | o subtítulo é texto fixo; não há mensagem rotativa, variante de privacidade nem teste de `R$ <dígito>` no bloqueio |
+| 1ª execução: card ou layout do bloqueio? | **ok** | já é o MESMO componente e layout (`mode='setup'`) — não existe card centralizado |
+| Passo do nome / saudação com nome | **ausente** | `profile.name` **já existe** (schema, `ProfileMenu`, "Olá, {nome}" na sidebar), mas a 1ª execução não pergunta e o desbloqueio diz só "Zent Money" |
+| Cursor de terminal piscando | **ausente** | nenhum caret/blink no código |
+| Forma do botão de confirmar do teclado | **divergente** | a tecla OK é `rounded-full` — ação em forma oval, contra a regra de famílias |
+
+Conclusão: o **fundo** do bloqueio está conforme; falta exatamente o que o ⑦
+entrega. E o nome do usuário **não precisa de migração** — o campo já existe.
+
+### Parcela em um clique
+
+- `PayInstallmentDialog`: confirmação **já preenchida** (parcela Nª, valor,
+  quantas faltam depois, limite antes→depois), **sem nenhum campo para digitar**
+  — asserido no E2E (`dialog.locator('input, textarea')` tem contagem 0).
+  Confirmar aplica a mutação e o toast traz **"Desfazer pagamento"**.
+- A mutação saiu da página e virou o par `payInstallment`/`unpayInstallment` em
+  `store/mutations.ts`. Antes ela era um `mutate` inline **duplicado** em
+  Parcelas e em Bancos & Cartões — duas cópias da mesma regra, exatamente o que
+  o M1 §a foi criado para impedir.
+- **Card quitado ganhou estado próprio**: borda e fundo em `pos`, selo "QUITADA",
+  barra cheia em `pos` e nenhuma ação de pagar. Antes era o card ativo a 55% de
+  opacidade, que lê como "desligado" — quitar é conquista, não indisponibilidade.
+
+### Por que NÃO há "conta a debitar" (decisão registrada em DECISOES)
+
+A spec pedia um `BankPicker` de conta a debitar. Em compra de **cartão** isso
+seria dupla contagem: a parcela já está dentro da fatura (snapshot manual, R3
+§3.4) e o dinheiro sai no pagamento da fatura. O diálogo diz isso com todas as
+letras e oferece o atalho "Pagar fatura do {cartão}", que aí sim escolhe a conta
+e debita — via o `PayInvoiceDialog` já testado, que ganhou a prop `cardId` para
+abrir no cartão certo. Em parcela **avulsa** não há fatura nem conta no modelo;
+ligá-la a um débito real é evento novo + migração e pertence à etapa de
+suficiência de saldo. **Prova de que nada de dinheiro se move:** teste unitário
+que assere saldo de todas as contas e fatura total inalterados após pagar.
+
+### Ícones v2
+
+Set de 20, `currentColor`, **stroke 1,6** único, todos conferidos ampliados
+(`screenshots/r10-m5/icones-v2-zoom-*`). Saíram câmera, música e pet; o cadeado
+virou o **cofre** novo; entraram **saco de dinheiro**, **maleta de dinheiro**,
+**desenvolvimento pessoal**, **casamento** e **poupança**; o alvo ganhou o dardo.
+
+**Três desenhos foram REPROVADOS na primeira passada e refeitos** — e só o
+ampliado denunciou:
+1. **Alvo**: o dardo apontava para FORA, e o ícone lia como "alvo + seta de
+   alta". A ponta foi para o centro.
+2. **Cofre**: os spokes cruzados viravam um losango no miolo e o conjunto lia
+   como moldura. Virou segredo + alavanca lateral.
+3. **Maleta de dinheiro**: retângulo com um círculo no meio = **câmera**. O
+   miolo virou cifrão, que é o que a separa da maleta de trabalho (que também
+   está no set).
+
+**Migração v10→v11**: as chaves aposentadas são remapeadas
+(`camera`/`music` → presente, `paw` → saúde, `lock` → cofre). O mapa é copiado
+para dentro da migração de propósito — migração descreve o passado e não pode
+mudar de resultado quando o set evoluir de novo (mesma disciplina dos hex do
+BTG). Um teste assere que **toda** chave sobrevivente existe no set atual.
+
+### Um bug que só o app rodando pegou: dois "desfazer" na tela
+
+O E2E ficou vermelho em 20 testes, todos em cascata a partir do 8. Causa real:
+o botão de desfazer do card chama-se "desfazer" e a ação nova do toast chamava-se
+"Desfazer" — **dois botões com o mesmo nome acessível, visíveis ao mesmo tempo**,
+porque o toast aparece no instante em que o card é atualizado. O strict mode do
+Playwright pegou; um leitor de tela leria a mesma ambiguidade. **Corrigido na
+origem, não no teste**: a ação do toast virou "Desfazer pagamento" e o botão do
+card ganhou o nome acessível "Desfazer última parcela paga de {nome}".
+
+### Estado da suíte (⑤)
+
+typecheck estrito · lint · **257 unit** (+8: pagar→desfazer neutro, limite
+devolvido por derivação, nenhum saldo se move, clamp nas duas pontas, id
+inexistente é no-op, e três da migração de ícones) · **41 E2E** (+1: **9c**
+card quitado; o **9** virou o fluxo de confirmação; o **8** assere o limite
+antes→depois dentro do diálogo) · smoke · céu 6/6 · ilha 303/303 · mono ·
+**estresse de magnitude 2.296/2.296** — todos verdes, zero erros de console.
+
+Screenshots em `screenshots/r10-m5/` (12 arquivos × 2 temas).
+
+---
+
 ## R10 — ROBUSTEZ DE MAGNITUDE (23/07/2026)
 
 Regra permanente registrada em `DECISOES.md`: **nenhum número pode transbordar

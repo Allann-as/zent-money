@@ -1,5 +1,17 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { CalendarCheck, CalendarClock, Layers, Minus, Pencil, Plus, Receipt, Trash2, Wallet } from 'lucide-react'
+import {
+  BadgeCheck,
+  CalendarCheck,
+  CalendarClock,
+  Check,
+  Layers,
+  Pencil,
+  Plus,
+  Receipt,
+  Trash2,
+  Undo2,
+  Wallet,
+} from 'lucide-react'
 import { PageHeader } from '@/features/common/PageHeader'
 import { Card, CardTitle } from '@/design/components/Card'
 import { Button } from '@/design/components/Button'
@@ -25,6 +37,9 @@ import { cn } from '@/lib/cn'
 import type { Purchase } from '@/data/schema'
 import { BankLogo } from '@/features/banks/BankLogo'
 import { PurchaseDialog, type PurchaseDialogState } from '@/features/banks/dialogs'
+import { PayInvoiceDialog } from '@/features/banks/ledgerDialogs'
+import { unpayInstallment } from '@/store/mutations'
+import { PayInstallmentDialog, type PayInstallmentState } from './PayInstallmentDialog'
 
 type StatusFilter = 'active' | 'done' | 'all'
 
@@ -45,6 +60,8 @@ export function InstallmentsPage(): ReactNode {
   const [cardFilter, setCardFilter] = useState('all')
   const [status, setStatus] = useState<StatusFilter>('active')
   const [dialog, setDialog] = useState<PurchaseDialogState>('closed')
+  const [payDialog, setPayDialog] = useState<PayInstallmentState>('closed')
+  const [invoiceCardId, setInvoiceCardId] = useState<string | null>(null)
 
   const banksById = useMemo(() => new Map(data.banks.map((b) => [b.id, b])), [data.banks])
   const cardsById = useMemo(() => new Map(data.cards.map((c) => [c.id, c])), [data.cards])
@@ -126,23 +143,18 @@ export function InstallmentsPage(): ReactNode {
     return segs
   }, [stats, brl])
 
-  function payInstallment(p: Purchase, delta: 1 | -1): void {
-    mutate((d) => {
-      const x = d.purchases.find((y) => y.id === p.id)
-      if (!x) return
-      x.paidInstallments = Math.min(x.totalInstallments, Math.max(0, x.paidInstallments + delta))
-    })
-    if (delta === 1) {
-      const nowRemaining = remainingInstallments(p) - 1
-      if (nowRemaining === 0) {
-        toast.success(`"${p.name}" quitada!`, 'O limite comprometido foi liberado por completo.')
-      } else {
-        toast.success(
-          `Parcela de "${p.name}" paga`,
-          `${brl(p.installmentAmount)} devolvidos ao limite disponível.`,
-        )
-      }
-    }
+  /**
+   * Desfazer a última parcela paga. O caminho de IDA saiu daqui: registrar um
+   * pagamento passou a abrir a confirmação já preenchida (§⑤), porque marcar
+   * dinheiro como pago com um clique cego é fácil demais de errar. A VOLTA
+   * continua sendo um clique — desfazer um engano não pode ter atrito.
+   */
+  function undoInstallment(p: Purchase): void {
+    mutate((d) => unpayInstallment(d, p.id))
+    toast.info(
+      'Pagamento desfeito',
+      `A ${p.paidInstallments}ª parcela de "${p.name}" voltou a constar como em aberto.`,
+    )
   }
 
   async function removePurchase(p: Purchase): Promise<void> {
@@ -266,8 +278,15 @@ export function InstallmentsPage(): ReactNode {
                 <li
                   key={p.id}
                   className={cn(
-                    'rounded-[12px] border border-line bg-surface-2/40 px-4 py-3 flex items-center gap-3.5',
-                    remaining === 0 && 'opacity-55',
+                    'rounded-[12px] border px-4 py-3 flex items-center gap-3.5',
+                    // ── Quitada tem estado PRÓPRIO, não é a ativa esmaecida ──
+                    // Antes ela era o mesmo card a 55% de opacidade, o que lê
+                    // como "desligado/indisponível". Quitar uma compra é uma
+                    // conquista: o card ganha a borda e o selo em `pos` e
+                    // continua perfeitamente legível.
+                    remaining === 0
+                      ? 'border-pos/30 bg-pos-soft'
+                      : 'border-line bg-surface-2/40',
                   )}
                 >
                   {standalone ? (
@@ -284,6 +303,11 @@ export function InstallmentsPage(): ReactNode {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline gap-2">
                       <p className="text-[13.5px] font-semibold text-ink truncate">{p.name}</p>
+                      {remaining === 0 && (
+                        <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-px rounded-[5px] border border-pos/35 text-pos text-[10.5px] font-semibold uppercase tracking-wide">
+                          <BadgeCheck size={11} /> quitada
+                        </span>
+                      )}
                       {standalone ? (
                         <span className="text-[11.5px] text-ink-faint truncate flex items-baseline gap-1.5">
                           <span className="px-1.5 py-px rounded-[5px] border border-line bg-surface-3 text-[10.5px] font-medium uppercase tracking-wide">
@@ -300,7 +324,10 @@ export function InstallmentsPage(): ReactNode {
                     <div className="flex items-center gap-2.5 mt-1.5">
                       <div className="h-1.5 rounded-full bg-surface-3 overflow-hidden flex-1 max-w-[220px]">
                         <div
-                          className="h-full rounded-full bg-primary transition-[width] duration-300"
+                          className={cn(
+                            'h-full rounded-full transition-[width] duration-300',
+                            remaining === 0 ? 'bg-pos' : 'bg-primary',
+                          )}
                           style={{ width: `${progress * 100}%` }}
                         />
                       </div>
@@ -321,23 +348,30 @@ export function InstallmentsPage(): ReactNode {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <Button
-                      size="sm"
-                      variant="soft"
-                      disabled={remaining === 0}
-                      onClick={() => payInstallment(p, 1)}
-                      title="Marcar uma parcela como paga"
-                    >
-                      <Plus size={12} /> 1 paga
-                    </Button>
+                    {remaining > 0 && (
+                      <Button
+                        size="sm"
+                        variant="soft"
+                        onClick={() => setPayDialog({ purchase: p })}
+                        // Mesmo nome acessível do botão compacto em Bancos &
+                        // Cartões: uma ação só, vista de dois lugares.
+                        aria-label={`Registrar pagamento da ${p.paidInstallments + 1}ª parcela de ${p.name}`}
+                        title={`Registrar pagamento da ${p.paidInstallments + 1}ª parcela`}
+                      >
+                        <Check size={12} /> Registrar pagamento da {p.paidInstallments + 1}ª
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="ghost"
                       disabled={p.paidInstallments === 0}
-                      onClick={() => payInstallment(p, -1)}
+                      onClick={() => undoInstallment(p)}
+                      // Nome acessível específico: "desfazer" sozinho colidia com o
+                      // "Desfazer pagamento" do toast que aparece no mesmo instante.
+                      aria-label={`Desfazer última parcela paga de ${p.name}`}
                       title="Desfazer última parcela paga"
                     >
-                      <Minus size={12} /> desfazer
+                      <Undo2 size={12} /> desfazer
                     </Button>
                     <button
                       type="button"
@@ -364,6 +398,16 @@ export function InstallmentsPage(): ReactNode {
       </Card>
 
       <PurchaseDialog state={dialog} onClose={() => setDialog('closed')} />
+      <PayInstallmentDialog
+        state={payDialog}
+        onClose={() => setPayDialog('closed')}
+        onPayInvoice={setInvoiceCardId}
+      />
+      <PayInvoiceDialog
+        open={invoiceCardId !== null}
+        onClose={() => setInvoiceCardId(null)}
+        {...(invoiceCardId === null ? {} : { cardId: invoiceCardId })}
+      />
     </>
   )
 }

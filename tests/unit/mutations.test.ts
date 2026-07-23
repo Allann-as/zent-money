@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { ZentData } from '@/data/schema'
+import { DATA_VERSION, type ZentData } from '@/data/schema'
 import {
   addAdjustment,
   addBoxTransfer,
@@ -21,11 +21,18 @@ import {
   removePurchase,
   removeSalaryCredit,
   removeTransfer,
+  payInstallment,
+  unpayInstallment,
 } from '@/store/mutations'
 import { bankBalances, boxStoredAmount, totalInAccounts } from '@/engine/ledger'
 import { expensesByCategory, incomeByMonth } from '@/engine/aggregations'
 import { effectiveLimit } from '@/engine/budget'
-import { standaloneMonthlyCommitment, totalInvoices, totalMonthlyCommitment } from '@/engine/cards'
+import {
+  availableLimit,
+  standaloneMonthlyCommitment,
+  totalInvoices,
+  totalMonthlyCommitment,
+} from '@/engine/cards'
 
 /**
  * Invariante de integridade do ledger (M1 §a): **criar→excluir é neutro**.
@@ -45,7 +52,7 @@ const MONTH = '2026-07'
 /** Base v7 com dois bancos, um cartão e uma aplicação — o palco dos lançamentos. */
 function baseData(over: Partial<ZentData> = {}): ZentData {
   return {
-    version: 10,
+    version: DATA_VERSION,
     profile: { name: 'Allan' },
     rates: {
       selic: 14.25,
@@ -251,6 +258,79 @@ describe('criar→excluir é neutro (M1 §a)', () => {
     // crédito desfeito (ver materializeSalaryCredits / DECISOES.md R4 §1.1)
     expect(d.meta.lastSalaryCreditYm).toBe(MONTH)
     expect(d.salaryCredits).toHaveLength(0)
+  })
+})
+
+/**
+ * R10 §⑤ — "registrar pagamento da Nª" e o seu desfazer.
+ *
+ * Não é lançamento de dinheiro (nenhum saldo se move: a parcela de cartão já
+ * está na fatura, e a avulsa não tem conta vinculada), então o invariante que
+ * importa aqui é outro: **pagar→desfazer devolve o arquivo inteiro**, e o efeito
+ * real acontece no LIMITE derivado do cartão.
+ */
+describe('parcela paga: pagar→desfazer é neutro e devolve o limite (R10 §⑤)', () => {
+  function comCompra(): ZentData {
+    const d = baseData()
+    addPurchase(d, {
+      id: 'p1', cardId: 'k1', creditor: null, name: 'Notebook',
+      installmentAmount: 100_00, totalInstallments: 10, paidInstallments: 0, startYm: MONTH,
+    })
+    return d
+  }
+
+  it('pagar uma parcela devolve o valor dela ao limite disponível, por derivação', () => {
+    const d = comCompra()
+    const card = d.cards.find((c) => c.id === 'k1')!
+    const antes = availableLimit(card, d.purchases)
+    payInstallment(d, 'p1')
+    expect(availableLimit(card, d.purchases)).toBe(antes + 100_00)
+    expect(totalMonthlyCommitment(d.purchases)).toBe(100_00) // segue devendo 9
+  })
+
+  it('pagar→desfazer devolve o arquivo inteiro (e todos os números do app)', () => {
+    const d = comCompra()
+    const antesArquivo = structuredClone(d)
+    const antesNums = appNumbers(d)
+    payInstallment(d, 'p1')
+    /**
+     * O efeito NÃO está em `appNumbers`, e isso é a prova de que a operação não
+     * mexe em dinheiro: saldo, renda, gasto, fatura e comprometido do mês seguem
+     * iguais (com 9 de 10 parcelas em aberto, o compromisso mensal é o mesmo).
+     * O que muda é o contador e, por derivação, o limite disponível — asserido
+     * no teste acima.
+     */
+    expect(appNumbers(d)).toEqual(antesNums)
+    expect(d.purchases[0]?.paidInstallments).toBe(1)
+    unpayInstallment(d, 'p1')
+    expect(appNumbers(d)).toEqual(antesNums)
+    expect(d).toEqual(antesArquivo)
+  })
+
+  it('nenhum saldo de conta se move — o dinheiro sai no pagamento da fatura', () => {
+    const d = comCompra()
+    const antesSaldos = [...bankBalances(d).entries()]
+    const antesFaturas = totalInvoices(d.cards)
+    payInstallment(d, 'p1')
+    expect([...bankBalances(d).entries()]).toEqual(antesSaldos)
+    // e a fatura também não muda: ela é snapshot manual, não soma de parcelas
+    expect(totalInvoices(d.cards)).toBe(antesFaturas)
+  })
+
+  it('não passa do total nem desce abaixo de zero (clamp nas duas pontas)', () => {
+    const d = comCompra()
+    for (let i = 0; i < 15; i++) payInstallment(d, 'p1')
+    expect(d.purchases[0]?.paidInstallments).toBe(10)
+    for (let i = 0; i < 15; i++) unpayInstallment(d, 'p1')
+    expect(d.purchases[0]?.paidInstallments).toBe(0)
+  })
+
+  it('id inexistente é no-op, não exceção', () => {
+    const d = comCompra()
+    const antes = structuredClone(d)
+    payInstallment(d, 'nao-existe')
+    unpayInstallment(d, 'nao-existe')
+    expect(d).toEqual(antes)
   })
 })
 

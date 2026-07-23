@@ -10,7 +10,7 @@ import { z } from 'zod'
  *   (`openingBalance`) e os MOVIMENTOS; o saldo sai da soma (ver engine/ledger.ts).
  */
 
-export const DATA_VERSION = 10
+export const DATA_VERSION = 11
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'data ISO YYYY-MM-DD')
 const ym = z.string().regex(/^\d{4}-\d{2}$/, 'mês YYYY-MM')

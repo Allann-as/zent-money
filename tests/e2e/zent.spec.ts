@@ -296,9 +296,18 @@ test('8. cartão: parcela reduz o limite (caso 5.000 / 100×10 da spec)', async 
 
   // disponível = 5.000 − 0 − 10×100 = 4.000
   await expect(page.getByText('R$ 4.000,00')).toBeVisible()
-  await page.getByRole('button', { name: '1 paga' }).click()
-  await expect(page.getByText('R$ 4.100,00')).toBeVisible()
-  await page.getByRole('button', { name: 'desfazer' }).click()
+
+  // R10 §⑤: pagar uma parcela passa pela confirmação já preenchida — sem digitar
+  // valor. O diálogo mostra o limite ANTES → DEPOIS e confirma.
+  await page.getByRole('button', { name: 'Registrar pagamento da 1ª parcela de Notebook' }).click()
+  dialog = page.getByRole('dialog')
+  await expect(dialog.getByText('1ª de 10')).toBeVisible()
+  await expect(dialog.getByText('R$ 100,00')).toBeVisible()
+  await expect(dialog).toContainText('R$ 4.100,00') // limite depois
+  await expect(dialog).toContainText('já está na fatura') // de onde o dinheiro sai
+  await dialog.getByRole('button', { name: 'Confirmar pagamento' }).click()
+  await expect(page.getByText('R$ 4.100,00').first()).toBeVisible()
+  await page.getByRole('button', { name: 'Desfazer última parcela paga de Notebook' }).click()
   await expect(page.getByText('R$ 4.000,00')).toBeVisible()
 })
 
@@ -315,7 +324,7 @@ test('8b. crédito: hub dos cartões com usado × disponível e fatura total (§
   await expect(page.getByText('Limite usado', { exact: true })).toBeVisible()
 })
 
-test('9. parcelas: visão consolidada com ações +1 paga/desfazer', async () => {
+test('9. parcelas: registrar pagamento em um clique, com desfazer (R10 §⑤)', async () => {
   await goTo('Parcelas')
   await expect(page.getByText('Comprometido por mês')).toBeVisible()
   await expect(page.getByText(/1 compra ativa/)).toBeVisible() // balão
@@ -323,10 +332,56 @@ test('9. parcelas: visão consolidada com ações +1 paga/desfazer', async () =>
   await expect(item).toBeVisible()
   await expect(item.getByText('0/10')).toBeVisible()
 
-  await item.getByRole('button', { name: '1 paga' }).click()
+  // O card abre a confirmação; nenhum campo de valor para digitar.
+  await item.getByRole('button', { name: 'Registrar pagamento da 1ª parcela de Notebook' }).click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog.getByText('1ª de 10')).toBeVisible()
+  await expect(dialog).toContainText('faltam 9')
+  await expect(dialog.locator('input, textarea')).toHaveCount(0)
+  await dialog.getByRole('button', { name: 'Confirmar pagamento' }).click()
   await expect(item.getByText('1/10')).toBeVisible()
-  await item.getByRole('button', { name: 'desfazer' }).click()
+
+  // desfazer pelo toast (a ação vive no próprio aviso do que acabou de acontecer)
+  await page.getByRole('button', { name: 'Desfazer pagamento' }).click()
   await expect(item.getByText('0/10')).toBeVisible()
+
+  // cancelar não muda nada
+  await item.getByRole('button', { name: 'Registrar pagamento da 1ª parcela de Notebook' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Cancelar' }).click()
+  await expect(item.getByText('0/10')).toBeVisible()
+})
+
+/** R10 §⑤ — a última parcela leva o card ao estado próprio de QUITADA. */
+test('9c. parcelas: quitar leva o card ao estado de quitada (não é a ativa apagada)', async () => {
+  await goTo('Parcelas')
+  await page.getByRole('button', { name: 'Nova parcela' }).click()
+  let dialog = page.getByRole('dialog')
+  await dialog.getByRole('tab', { name: 'Avulsa', exact: true }).click()
+  await dialog.getByPlaceholder('Ex.: Empréstimo pessoal').fill('Boleto único')
+  await dialog.getByRole('textbox', { name: 'Credor da parcela avulsa' }).fill('Loja Y')
+  await dialog.getByRole('textbox', { name: 'Valor da parcela' }).fill('80')
+  await dialog.getByLabel('Total de parcelas').fill('1')
+  await dialog.getByRole('button', { name: 'Adicionar' }).click()
+
+  const item = page.locator('li', { hasText: 'Boleto único' })
+  await item.getByRole('button', { name: 'Registrar pagamento da 1ª parcela de Boleto único' }).click()
+  dialog = page.getByRole('dialog')
+  await expect(dialog.getByText('quitada')).toBeVisible() // o diálogo prevê o desfecho
+  await dialog.getByRole('button', { name: 'Confirmar pagamento' }).click()
+
+  // com o filtro "Ativas" (padrão) a quitada sai da lista — é o que o filtro diz
+  await expect(page.locator('li', { hasText: 'Boleto único' })).toHaveCount(0)
+
+  // no filtro "Quitadas" ela aparece no ESTADO PRÓPRIO: selo, sem ação de pagar
+  await page.getByRole('tab', { name: 'Quitadas' }).click()
+  const done = page.locator('li', { hasText: 'Boleto único' })
+  await expect(done.getByText('quitada', { exact: true })).toBeVisible()
+  await expect(done.getByRole('button', { name: /^Registrar pagamento/ })).toHaveCount(0)
+
+  // limpa o palco para os testes seguintes não verem esta avulsa
+  await done.getByRole('button', { name: 'Excluir compra Boleto único' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Excluir' }).click()
+  await page.getByRole('tab', { name: 'Ativas' }).click()
 })
 
 /** R3 §2 — parcela avulsa: entra no comprometido, mas NÃO toca no limite do cartão. */
@@ -355,10 +410,13 @@ test('9b. parcelas avulsas: criar, entrar em Compromissos e não afetar o limite
   // comprometido/mês passa a somar a avulsa: 100 (cartão) + 300 (avulsa) = 400
   await expect(page.getByText('Comprometido por mês').locator('..')).toContainText('R$ 400,00')
 
-  // +1 paga / desfazer funcionam
-  await item.getByRole('button', { name: '1 paga' }).click()
+  // registrar pagamento / desfazer funcionam também na avulsa
+  await item.getByRole('button', { name: 'Registrar pagamento da 1ª parcela de Empréstimo pessoal' }).click()
+  const payDialog = page.getByRole('dialog')
+  await expect(payDialog).toContainText('Parcela avulsa') // sem conta a debitar, e diz por quê
+  await payDialog.getByRole('button', { name: 'Confirmar pagamento' }).click()
   await expect(item.getByText('1/24')).toBeVisible()
-  await item.getByRole('button', { name: 'desfazer' }).click()
+  await item.getByRole('button', { name: 'Desfazer última parcela paga de Empréstimo pessoal' }).click()
   await expect(item.getByText('0/24')).toBeVisible()
 
   // filtro "Avulsas" isola as avulsas e esconde as de cartão

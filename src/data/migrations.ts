@@ -37,6 +37,27 @@ const BOX_EMOJI_TO_ICON: Record<string, string> = {
 }
 
 const MIGRATIONS: Record<number, (data: RawData) => RawData> = {
+  // v10 → v11: ícones das caixinhas v2 (R10 §⑤). Câmera, música e pet saíram do
+  // set e o cadeado virou o cofre novo — sem esta migração, uma caixinha que
+  // usasse uma chave aposentada cairia no fallback e o seletor abriria sem nada
+  // marcado. O mapa vive em `design/BoxIcon` (fonte única com o registro), mas é
+  // COPIADO aqui de propósito: uma migração descreve o passado e não pode mudar
+  // de resultado quando o set evoluir de novo (mesma disciplina dos hex do BTG).
+  10: (data) => {
+    const retired: Record<string, string> = {
+      camera: 'gift',
+      music: 'gift',
+      paw: 'health',
+      lock: 'safe',
+    }
+    const boxes = Array.isArray(data['boxes'])
+      ? (data['boxes'] as RawData[]).map((b) => {
+          const icon = typeof b['icon'] === 'string' ? b['icon'] : 'target'
+          return { ...b, icon: retired[icon] ?? icon }
+        })
+      : []
+    return { ...data, version: 11, boxes }
+  },
   // v9 → v10: Guardar/Resgatar de caixinhas (§4) e aporte com conta de origem
   // (§5). `boxTransfers` nasce vazio e cada aporte antigo ganha `fromBankId: null`
   // — sem vínculo, não debita conta nenhuma, então o saldo derivado de quem já

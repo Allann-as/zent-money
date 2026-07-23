@@ -129,11 +129,14 @@ export function PayInvoiceDialog({
   open,
   onClose,
   bankId,
+  cardId: presetCardId,
 }: {
   open: boolean
   onClose(): void
   /** Banco cujos cartões são oferecidos; ausente = todos os cartões. */
   bankId?: string
+  /** Cartão já escolhido ao abrir (ex.: vindo do card de uma parcela dele). */
+  cardId?: string
 }): ReactNode {
   const data = useZentData()
   const balances = useMemo(() => bankBalances(data), [data])
@@ -149,11 +152,13 @@ export function PayInvoiceDialog({
   const [date, setDate] = useState(todayIso())
   const [openedFor, setOpenedFor] = useState<string>('closed')
 
-  const target = open ? (bankId ?? 'any') : 'closed'
+  const target = open ? `${bankId ?? 'any'}/${presetCardId ?? ''}` : 'closed'
   if (openedFor !== target) {
     setOpenedFor(target)
     if (open) {
-      const first = cards[0]
+      // Um cartão pedido explicitamente ganha do primeiro da lista — quem abre a
+      // fatura a partir de uma parcela do Nubank não quer o cartão do Itaú.
+      const first = cards.find((c) => c.id === presetCardId) ?? cards[0]
       setCardId(first?.id ?? '')
       // Por padrão paga pela conta do próprio banco do cartão — o caso comum.
       setPayFrom(first?.bankId ?? data.banks[0]?.id ?? '')
