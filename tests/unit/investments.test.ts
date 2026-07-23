@@ -129,6 +129,29 @@ describe('série incremental de investimentos', () => {
     expect(snap.yieldPerMonth).toBe(Math.round(esperado * im))
   })
 
+  /**
+   * ⑧ TAXA POR INVESTIMENTO — cada aplicação rende pela SUA própria taxa.
+   *
+   * O modelo é por-investimento desde a R2 (cada `Investment` tem `rateType` +
+   * `rateParam`, editáveis no formulário). Este teste torna a garantia explícita:
+   * duas aplicações com o MESMO aporte, na MESMA data, mas taxas diferentes,
+   * produzem saldos diferentes — o rendimento de uma nunca usa a taxa da outra.
+   */
+  it('⑧ duas aplicações com taxas diferentes rendem cada uma pela sua', () => {
+    const mesmoAporte = [contrib('2025-07-01', 10_000_00)]
+    const pre12: Investment = { id: 'a', name: 'Pré 12%', bankId: 'b1', rateType: 'prefixado', rateParam: 12, valueUpdates: [] }
+    const cdi102: Investment = { id: 'b', name: '102% CDI', bankId: 'b1', rateType: 'cdi', rateParam: 102, valueUpdates: [] }
+    const sA = investmentSnapshot(pre12, mesmoAporte.map((c) => ({ ...c, investmentId: 'a' })), RATES, '2026-07')
+    const sB = investmentSnapshot(cdi102, mesmoAporte.map((c) => ({ ...c, investmentId: 'b' })), RATES, '2026-07')
+    // cada snapshot usa a taxa da SUA aplicação (12% a.a. vs 1,02·14,15% a.a.)
+    expect(sA.annualPercent).toBe(12)
+    expect(sB.annualPercent).toBeCloseTo(1.02 * 14.15, 10)
+    // taxas diferentes ⇒ saldos diferentes, do mesmo aporte
+    expect(sA.balance).not.toBe(sB.balance)
+    // a de 12% rende MENOS que a de ~14,4% (102% do CDI) no período
+    expect(sA.balance).toBeLessThan(sB.balance)
+  })
+
   it('série filtra apenas aportes da própria aplicação', () => {
     const inv: Investment = {
       id: 'inv1',

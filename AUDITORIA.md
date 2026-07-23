@@ -1,5 +1,40 @@
 # AUDITORIA.md — Zent Money
 
+## R10 ⑧ ⑨ — TAXA POR INVESTIMENTO E VALIDAÇÃO DE 20 ANOS (23/07/2026)
+
+### ⑧ Taxa por investimento — já existia, agora provado explicitamente
+
+O modelo é POR INVESTIMENTO desde a R2: cada `Investment` carrega `rateType`
+(Selic cheia · % do CDI · IPCA+juro · Prefixado · Manual) e `rateParam`,
+editáveis no `InvestmentDialog`. `annualRate` converte cada tipo, e o snapshot
+rende pela taxa da própria aplicação. Seguindo a regra do roadmap ("se já
+existir, provar apontando o teste"), acrescentei um teste explícito de
+ISOLAMENTO: duas aplicações com o mesmo aporte e taxas diferentes (Pré 12% vs
+102% do CDI) produzem saldos diferentes — nenhuma usa a taxa da outra.
+
+### ⑨ Validação de 20 anos
+
+`scripts/validate-20-years.mjs` (novo `npm run validate:20y`) semeia **~20 anos
+de dados mensais** (2006→2026): 247 meses de salário, **2.964 gastos**, aportes e
+transferências mensais, patrimônio acumulado de duas décadas. No app rodando,
+verifica:
+
+- **boot 730ms** com o histórico inteiro carregado;
+- navegação nas **10 seções × 2 temas**, cada uma com cabeçalho;
+- **zero transbordo** de número (reusa a sonda do estresse) com o patrimônio que
+  20 anos acumulam;
+- a **Linha do tempo "tudo"** abre em **jan/2006** e conta os **247 meses**;
+- **zero erro de console**.
+
+**Resultado: OK — sem problema algum em 20 anos de dados.**
+
+### Estado da suíte (⑧ ⑨)
+
+typecheck · lint · **294 unit** (+1: isolamento de taxa por investimento) · 43
+E2E · smoke · **validação de 20 anos** — verdes.
+
+---
+
 ## R10 — SUFICIÊNCIA DE SALDO (23/07/2026)
 
 O relato do adendo: com R$ 10,00 na conta, guardar R$ 11,00 era aceito e o saldo
